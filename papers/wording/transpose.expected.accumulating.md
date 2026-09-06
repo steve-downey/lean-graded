@@ -27,11 +27,11 @@ auto invoke(this auto&&, FUNCTION&& function, const expected<FIRST, ERROR_TYPE>&
 ```cpp
 template<class FUNCTION, class... CARRIERS>
   requires(sizeof...(CARRIERS) > 0) &&
-          (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-          (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-          all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+          ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
+          (!$all-declare-v$<ERROR_TYPE, CARRIERS...>) &&
+          $all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>
 auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands) -> expected<
-    remove_cvref_t<invoke_result_t<FUNCTION&, const carrier_value_t<CARRIERS>&...>>,
+    remove_cvref_t<invoke_result_t<FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
     ERROR_TYPE>;
 ```
 
@@ -42,14 +42,14 @@ auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands) -> ex
 ```cpp
 template<class FUNCTION, class... CARRIERS>
   requires(sizeof...(CARRIERS) > 0) &&
-          (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-          (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-          (mixes_with_model<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
+          ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
+          (!$all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>) &&
+          ($mixes-with-model$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
            ...)
 auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands)
-    -> mixed_result_t<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
+    -> $mixed-result-t$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
                       expected<remove_cvref_t<invoke_result_t<
-                                   FUNCTION&, const carrier_value_t<CARRIERS>&...>>,
+                                   FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                                ERROR_TYPE>,
                       CARRIERS...>;
 ```

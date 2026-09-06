@@ -34,6 +34,7 @@ namespace beman::transpose {
 /// Foldable is not proposed by this paper -- the fold family is the
 /// companion recursive-tree-algorithms paper's -- so this instance carries
 /// no wording.
+//! \omit
 template <class VALUE_TYPE>
 struct VectorFoldableImpl {
     //! \omit
@@ -51,6 +52,7 @@ struct VectorFoldableImpl {
     }
 };
 
+//! \omit
 template <class VALUE_TYPE>
 struct VectorFoldableMap : Foldable<VectorFoldableImpl<VALUE_TYPE>> {
     using VectorFoldableImpl<VALUE_TYPE>::fold_map;

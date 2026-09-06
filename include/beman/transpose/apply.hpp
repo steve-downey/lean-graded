@@ -16,6 +16,21 @@
 
 namespace beman::transpose {
 
+/// Namespace-scope spelling of the evaluator named by `ap`'s constraint. A
+/// second object of the `detail` type, not a reference to it: the type is
+/// empty and stateless, so the two are interchangeable, and a reference's
+/// declared type does not currently survive `\seebelow` masking
+/// (steve-downey/specgen#33). It exists so that a declaration the
+/// specification shows does not carry an implementation namespace qualifier
+/// into the wording.
+//! \seebelow
+//! \remarks `applicative_eval` applies a callable to one argument. It is the
+//! evaluator that recovers one-step application from the n-ary core:
+//! `ap(f, x)` is `invoke(applicative_eval, f, x)`. Naming it is what makes
+//! `ap`'s second alternative expressible, and that alternative is satisfied
+//! only where the context can hold a callable.
+inline constexpr detail::applicative_eval_t applicative_eval{};
+
 /// Applicative pattern invariants:
 /// - Dual BASIS, single INTERFACE. An instance opts in with pure + invoke
 ///   or pure + ap -- both are perfectly cromulent bases, and the base class
@@ -69,7 +84,7 @@ struct Applicative : protected Impl {
             impl.ap(std::forward<FUNCTION_IN_CONTEXT>(function),
                     std::forward<ARGUMENT_IN_CONTEXT>(argument));
         } || requires(const Impl &impl) {
-            impl.invoke(detail::applicative_eval,
+            impl.invoke(applicative_eval,
                         std::forward<FUNCTION_IN_CONTEXT>(function),
                         std::forward<ARGUMENT_IN_CONTEXT>(argument));
         };
@@ -258,7 +273,7 @@ auto Applicative<Impl>::ap(this auto &&self, FUNCTION_IN_CONTEXT &&function,
         impl.ap(std::forward<FUNCTION_IN_CONTEXT>(function),
                 std::forward<ARGUMENT_IN_CONTEXT>(argument));
     } || requires(const Impl &impl) {
-        impl.invoke(detail::applicative_eval,
+        impl.invoke(applicative_eval,
                     std::forward<FUNCTION_IN_CONTEXT>(function),
                     std::forward<ARGUMENT_IN_CONTEXT>(argument));
     }

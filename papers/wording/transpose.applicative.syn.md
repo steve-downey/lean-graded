@@ -1,5 +1,15 @@
 ::: add
 
+::: wording
+
+```cpp
+inline constexpr $unspecified$ applicative_eval;
+```
+
+[x]{.pnum} *Remarks*: `applicative_eval` applies a callable to one argument. It is the evaluator that recovers one-step application from the n-ary core: `ap(f, x)` is `invoke(applicative_eval, f, x)`. Naming it is what makes `ap`'s second alternative expressible, and that alternative is satisfied only where the context can hold a callable.
+
+:::
+
 ```cpp
 template<class Impl>
 struct Applicative : protected Impl {
@@ -17,7 +27,7 @@ struct Applicative : protected Impl {
       impl.ap(forward<FUNCTION_IN_CONTEXT>(function),
               forward<ARGUMENT_IN_CONTEXT>(argument));
     } || requires(const Impl& impl) {
-      impl.invoke(detail::applicative_eval, forward<FUNCTION_IN_CONTEXT>(function),
+      impl.invoke(applicative_eval, forward<FUNCTION_IN_CONTEXT>(function),
                   forward<ARGUMENT_IN_CONTEXT>(argument));
     };
 
@@ -60,7 +70,28 @@ struct Applicative : protected Impl {
 
 ::: wording
 
-[x]{.pnum} A program that instantiates `Applicative<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false`.
+[x+1]{.pnum} A program that instantiates `Applicative<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false`.
+
+:::
+
+::: wording
+
+```cpp
+template<class T> inline constexpr auto applicative_typeclass = false_type{};
+```
+
+[x+2]{.pnum} *Remarks*: This variable template is the lookup point for the Applicative object of a context type. A program may specialize it for a program-defined context. The primary template names no applicative object.
+
+:::
+
+::: wording
+
+```cpp
+template<class T>
+inline constexpr auto accumulating_applicative_typeclass = false_type{};
+```
+
+[x+3]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative_typeclass`, naming the accumulating Applicative object. Where the object named by `applicative_typeclass` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed.
 
 :::
 

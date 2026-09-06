@@ -94,6 +94,7 @@ inline constexpr bool type_precedes_v = type_name<LEFT>() < type_name<RIGHT>();
 
 // -- Type list machinery --------------------------------------------------
 
+//! \omit
 template <class... ERRORS>
 struct type_list {};
 
@@ -107,6 +108,7 @@ inline constexpr bool list_contains_v<T, type_list<ERRORS...>> =
 template <class T, class LIST>
 struct list_prepend;
 
+//! \omit
 template <class T, class... ERRORS>
 struct list_prepend<T, type_list<ERRORS...>> {
     using type = type_list<T, ERRORS...>;
@@ -118,11 +120,13 @@ using list_prepend_t = typename list_prepend<T, LIST>::type;
 template <class T, class LIST>
 struct list_remove;
 
+//! \omit
 template <class T>
 struct list_remove<T, type_list<>> {
     using type = type_list<>;
 };
 
+//! \omit
 template <class T, class HEAD, class... TAIL>
 struct list_remove<T, type_list<HEAD, TAIL...>> {
   private:
@@ -138,11 +142,13 @@ struct list_remove<T, type_list<HEAD, TAIL...>> {
 template <class LIST>
 struct list_dedupe;
 
+//! \omit
 template <>
 struct list_dedupe<type_list<>> {
     using type = type_list<>;
 };
 
+//! \omit
 template <class HEAD, class... TAIL>
 struct list_dedupe<type_list<HEAD, TAIL...>> {
     using type =
@@ -153,11 +159,13 @@ struct list_dedupe<type_list<HEAD, TAIL...>> {
 template <class T, class LIST>
 struct list_insert_sorted;
 
+//! \omit
 template <class T>
 struct list_insert_sorted<T, type_list<>> {
     using type = type_list<T>;
 };
 
+//! \omit
 template <class T, class HEAD, class... TAIL>
 struct list_insert_sorted<T, type_list<HEAD, TAIL...>> {
     using type = std::conditional_t<
@@ -169,11 +177,13 @@ struct list_insert_sorted<T, type_list<HEAD, TAIL...>> {
 template <class LIST>
 struct list_sort;
 
+//! \omit
 template <>
 struct list_sort<type_list<>> {
     using type = type_list<>;
 };
 
+//! \omit
 template <class HEAD, class... TAIL>
 struct list_sort<type_list<HEAD, TAIL...>> {
     using type = typename list_insert_sorted<
@@ -204,6 +214,7 @@ consteval auto names_are_distinct() -> bool {
 template <class LIST>
 struct error_set_from_list;
 
+//! \omit
 template <class... ERRORS>
 struct error_set_from_list<type_list<ERRORS...>> {
     using type = error_set_of<ERRORS...>;
@@ -264,23 +275,21 @@ constexpr auto widen_slot(const error_set_of<NARROWER...> &narrower)
     }
 }
 
-} // namespace detail
-
 /// Whether ERRORS is already canonical -- sorted and deduplicated. Named by
-/// the class's Mandates; omitted from the wording, which states the
-/// requirement in prose.
-//! \omit
+/// the class's Mandates, which state the requirement in prose.
+//! \expos
 template <class... ERRORS>
 inline constexpr bool error_set_is_canonical_v =
-    std::is_same_v<detail::canonical_t<ERRORS...>,
-                   detail::type_list<ERRORS...>>;
+    std::is_same_v<canonical_t<ERRORS...>, type_list<ERRORS...>>;
 
 /// Whether no two of ERRORS render to the same name. Named by the class's
-/// Mandates; omitted from the wording.
-//! \omit
+/// Mandates.
+//! \expos
 template <class... ERRORS>
 inline constexpr bool error_set_names_distinct_v =
-    detail::names_are_distinct<ERRORS...>();
+    names_are_distinct<ERRORS...>();
+
+} // namespace detail
 
 /// Whether T is one of ERRORS. Exposition-only: it exists so that the
 /// membership constraint has one spelling usable both inside the class and on
@@ -305,11 +314,11 @@ inline constexpr bool error_set_has_v = (std::is_same_v<T, ERRORS> || ...);
 template <class... ERRORS>
 class error_set_of {
     static_assert(
-        error_set_is_canonical_v<ERRORS...>,
+        detail::error_set_is_canonical_v<ERRORS...>,
         "error_set_of requires a canonical (sorted, deduplicated) pack. "
         "Spell error_set<...> instead, which canonicalizes for you.");
     static_assert(
-        error_set_names_distinct_v<ERRORS...>,
+        detail::error_set_names_distinct_v<ERRORS...>,
         "Two distinct error types render to the same name, so the interim "
         "type ordering cannot separate them. The P2830 fallback is valid "
         "only for named types with external linkage and a stable spelling; "
@@ -323,7 +332,7 @@ class error_set_of {
     // \ref{transpose.errset.cons}, constructors
     template <class ERROR>
         requires(error_set_has_v<remove_cvref_t<ERROR>, ERRORS...>)
-    constexpr error_set_of(ERROR &&error); // NOLINT(*-explicit-constructor)
+    constexpr error_set_of(ERROR &&error); /// NOLINT(*-explicit-constructor)
 
     template <class... NARROWER>
         requires(sizeof...(NARROWER) > 0) &&
@@ -331,7 +340,7 @@ class error_set_of {
                                  error_set_of<ERRORS...>>) &&
                 (error_set_has_v<NARROWER, ERRORS...> && ...)
     constexpr error_set_of(
-        const error_set_of<NARROWER...> &narrower); // NOLINT(*-explicit-*)
+        const error_set_of<NARROWER...> &narrower); /// NOLINT(*-explicit-*)
 
     // \ref{transpose.errset.obs}, observers
     template <class ERROR>
@@ -537,6 +546,7 @@ class error_set_of<> {
 
 // \rSec3[transpose.errset.empty]{The empty error set}
 
+//! \seebelow
 //! \remarks `error_set<ERRORS...>` is the canonicalizing spelling of an
 //! error set: the pack is sorted and deduplicated, so `error_set<A, B>` and
 //! `error_set<B, A, A>` denote the same type. A grade is therefore normalized
@@ -798,15 +808,16 @@ constexpr void apply_handler(HANDLER &handler, std::optional<VALUE> &recovered,
     }
 }
 
-} // namespace detail
-
 /// The type `recover` returns: the computation re-indexed at the narrowed
-/// grade. Named by `recover`'s declaration; omitted from the wording, which
-/// states the narrowing in prose.
-//! \omit
+/// grade. Named by `recover`'s definition; the declaration masks it and the
+/// wording states the narrowing in prose.
+//! \expos
 template <class HANDLER, class VALUE, class GRADE, class... HANDLED>
-using recover_return_t = rebind_grade_t<
-    VALUE, detail::recover_final_grade_t<HANDLER, VALUE, GRADE, HANDLED...>>;
+using recover_return_t =
+    rebind_grade_t<VALUE,
+                   recover_final_grade_t<HANDLER, VALUE, GRADE, HANDLED...>>;
+
+} // namespace detail
 
 // \rSec3[transpose.errset.recover]{recover}
 
@@ -832,7 +843,8 @@ template <class... HANDLED, class VALUE, class... ERRORS, class HANDLER>
 constexpr auto
 recover(const std::expected<VALUE, error_set_of<ERRORS...>> &computation,
         HANDLER &&handler)
-    -> recover_return_t<HANDLER, VALUE, error_set_of<ERRORS...>, HANDLED...> {
+    -> detail::recover_return_t<HANDLER, VALUE, error_set_of<ERRORS...>,
+                                HANDLED...> {
     static_assert(sizeof...(HANDLED) > 0,
                   "recover needs at least one HANDLED type.");
     static_assert(
@@ -853,7 +865,7 @@ recover(const std::expected<VALUE, error_set_of<ERRORS...>> &computation,
     using Grade = error_set_of<ERRORS...>;
     using FinalGrade =
         detail::recover_final_grade_t<HANDLER, VALUE, Grade, HANDLED...>;
-    using Return = recover_return_t<HANDLER, VALUE, Grade, HANDLED...>;
+    using Return = detail::recover_return_t<HANDLER, VALUE, Grade, HANDLED...>;
 
     if (computation.has_value()) {
         return Return(*computation);

@@ -34,4 +34,35 @@ struct Traversable : protected Impl {
 
 :::
 
+::: wording
+
+```cpp
+template<class T> inline constexpr auto traversable_typeclass = false_type{};
+```
+
+[x+1]{.pnum} *Remarks*: This variable template is the lookup point for the Traversable object of a structure type. A program may specialize it for a program-defined structure. The primary template names no traversable object.
+
+:::
+
+```cpp
+template<class F, class T>
+using $traverse-context-t$ = remove_cvref_t<invoke_result_t<
+    F,
+    const typename remove_cvref_t<decltype(traversable_typeclass<remove_cvref_t<T>>)>::
+        element_type&>>; // exposition only
+```
+
+::: wording
+
+```cpp
+template<class POLICY, class CONTEXT>
+concept applicative_object_for = requires(const POLICY& policy) {
+  { policy.pure(declval<applicative_value_t<CONTEXT>>()) } -> same_as<CONTEXT>;
+};
+```
+
+[x+2]{.pnum} *Remarks*: This concept is satisfied when `POLICY` names an applicative object over `CONTEXT`: it provides `pure`, returning exactly `CONTEXT`, from `CONTEXT`'s element type. It is the minimal signature every applicative object has, and constraining the trailing `traverse` policy on it is what makes an argument that is not an applicative object -- a further container, say -- ill-formed rather than silently accepted.
+
+:::
+
 :::

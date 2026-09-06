@@ -7,8 +7,8 @@
 ```cpp
 template<class F, class T,
          class POLICY =
-             remove_cvref_t<decltype(applicative_typeclass<traverse_context_t<F, T>>)>>
-  requires applicative_object_for<POLICY, traverse_context_t<F, T>>
+             remove_cvref_t<decltype(applicative_typeclass<$traverse-context-t$<F, T>>)>>
+  requires applicative_object_for<POLICY, $traverse-context-t$<F, T>>
 auto traverse(F&& function, T&& value, POLICY policy = POLICY{});
 ```
 

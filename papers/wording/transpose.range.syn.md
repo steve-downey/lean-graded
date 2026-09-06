@@ -2,18 +2,6 @@
 
 ```cpp
 template<class VALUE_TYPE>
-struct VectorFoldableImpl {};
-```
-
-```cpp
-template<class VALUE_TYPE>
-struct VectorFoldableMap : Foldable<VectorFoldableImpl<VALUE_TYPE>> {
-  using VectorFoldableImpl<VALUE_TYPE>::fold_map;
-};
-```
-
-```cpp
-template<class VALUE_TYPE>
 struct VectorTraversableImpl {
   using element_type = VALUE_TYPE;
 

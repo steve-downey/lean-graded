@@ -137,11 +137,13 @@ namespace detail {
 template <class... GRADES>
 struct grade_join_all;
 
+//! \omit
 template <class GRADE>
 struct grade_join_all<GRADE> {
     using type = GRADE;
 };
 
+//! \omit
 template <class LEFT, class RIGHT, class... REST>
 struct grade_join_all<LEFT, RIGHT, REST...>
     : grade_join_all<grade_join_t<LEFT, RIGHT>, REST...> {};
@@ -149,6 +151,7 @@ struct grade_join_all<LEFT, RIGHT, REST...>
 template <class... GRADES>
 using grade_join_all_t = typename grade_join_all<GRADES...>::type;
 
+//! \omit
 template <class MODEL_GRADE, class OPERAND>
 struct grade_lifted_into_model {
   private:
@@ -163,6 +166,7 @@ template <class MODEL_GRADE, class OPERAND>
 using grade_lifted_into_model_t =
     typename grade_lifted_into_model<MODEL_GRADE, OPERAND>::type;
 
+//! \expos
 template <class MODEL_GRADE, class RAW_GRADE>
 struct mixes_with_model_impl
     : std::bool_constant<std::is_same_v<grade_model_t<RAW_GRADE>,
@@ -171,6 +175,7 @@ struct mixes_with_model_impl
 template <class MODEL_GRADE>
 struct mixes_with_model_impl<MODEL_GRADE, unit_grade> : std::true_type {};
 
+//! \expos
 template <class MODEL_GRADE, class OPERAND>
 concept mixes_with_model =
     mixes_with_model_impl<MODEL_GRADE,
@@ -182,6 +187,8 @@ template <class MODEL_GRADE, class... OPERANDS>
 using mixed_grade_t =
     grade_join_all_t<grade_lifted_into_model_t<MODEL_GRADE, OPERANDS>...>;
 
+//! \expos
+//! \seebelow
 template <class MODEL_GRADE, class CARRIER, class... OPERANDS>
 using mixed_result_t =
     rebind_grade_t<CARRIER, mixed_grade_t<MODEL_GRADE, OPERANDS...>>;

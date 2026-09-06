@@ -57,6 +57,7 @@ namespace detail {
  * different error type must fail the constraint cleanly rather than
  * hard-error inside the body when the error is rewrapped.
  */
+//! \expos
 template <class EXPECTED, class ERROR_TYPE>
 inline constexpr bool is_expected_with_error_v = false;
 
@@ -66,6 +67,7 @@ inline constexpr bool is_expected_with_error_v<
 
 /** The value type an operand contributes; a bare operand contributes itself.
  */
+//! \expos
 template <class CARRIER>
 struct carrier_value {
     using type = CARRIER;
@@ -76,9 +78,11 @@ struct carrier_value<std::expected<VALUE, ERROR>> {
     using type = VALUE;
 };
 
+//! \expos
 template <class CARRIER>
 using carrier_value_t = typename carrier_value<remove_cvref_t<CARRIER>>::type;
 
+//! \expos
 template <class F, class A>
 using bind_result_t = remove_cvref_t<std::invoke_result_t<F, const A &>>;
 
@@ -86,6 +90,7 @@ using bind_result_t = remove_cvref_t<std::invoke_result_t<F, const A &>>;
  * is precisely the case the ungraded core already handles. The graded core
  * negates this, so the two are mutually exclusive by constraint rather than
  * by ranking. */
+//! \expos
 template <class ERROR_TYPE, class... CARRIERS>
 inline constexpr bool all_declare_v =
     (is_expected_with_error_v<remove_cvref_t<CARRIERS>, ERROR_TYPE> && ...);
@@ -95,11 +100,13 @@ inline constexpr bool all_declare_v =
  * contribute the model bottom and leave no trace. Foreign-model carriers are
  * not bare, even when they are not std::expected.
  */
+//! \expos
 template <class ERROR_TYPE, class CARRIER>
 inline constexpr bool declares_or_bare_v =
     (!graded_context<remove_cvref_t<CARRIER>>) ||
     is_expected_with_error_v<remove_cvref_t<CARRIER>, ERROR_TYPE>;
 
+//! \expos
 template <class ERROR_TYPE, class... CARRIERS>
 inline constexpr bool all_declare_or_bare_v =
     (declares_or_bare_v<ERROR_TYPE, CARRIERS> && ...);
@@ -133,38 +140,6 @@ constexpr auto operand_failed(const CARRIER &operand) -> bool {
 // implementation namespace qualifier into the wording. Each is omitted from
 // the wording, which states the requirement it encodes in prose.
 
-//! \omit
-template <class EXPECTED, class ERROR_TYPE>
-inline constexpr bool is_expected_with_error_v =
-    detail::is_expected_with_error_v<EXPECTED, ERROR_TYPE>;
-
-//! \omit
-template <class CARRIER>
-using carrier_value_t = detail::carrier_value_t<CARRIER>;
-
-//! \omit
-template <class F, class A>
-using bind_result_t = detail::bind_result_t<F, A>;
-
-//! \omit
-template <class ERROR_TYPE, class... CARRIERS>
-inline constexpr bool all_declare_v =
-    detail::all_declare_v<ERROR_TYPE, CARRIERS...>;
-
-//! \omit
-template <class ERROR_TYPE, class... CARRIERS>
-inline constexpr bool all_declare_or_bare_v =
-    detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>;
-
-//! \omit
-template <class MODEL_GRADE, class OPERAND>
-concept mixes_with_model = detail::mixes_with_model<MODEL_GRADE, OPERAND>;
-
-//! \omit
-template <class MODEL_GRADE, class CARRIER, class... OPERANDS>
-using mixed_result_t =
-    detail::mixed_result_t<MODEL_GRADE, CARRIER, OPERANDS...>;
-
 /// Applicative instance for std::expected<VALUE_TYPE, ERROR_TYPE>.
 /// The n-ary invoke core: if every operand holds a value, one call; otherwise
 /// the leftmost error propagates. The trailing return type keeps invoke
@@ -193,12 +168,13 @@ struct ExpectedApplicativeImpl {
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
                 (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-                all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+                (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+                detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> std::expected<remove_cvref_t<std::invoke_result_t<
-                             FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
-                         ERROR_TYPE>;
+        -> std::expected<
+            remove_cvref_t<std::invoke_result_t<
+                FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+            ERROR_TYPE>;
 
     /** Graded n-ary core: the mixing point.
      *
@@ -219,17 +195,17 @@ struct ExpectedApplicativeImpl {
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
                 (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-                (mixes_with_model<
+                (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+                (detail::mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
                      CARRIERS> &&
                  ...)
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> mixed_result_t<
+        -> detail::mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
             std::expected<
                 remove_cvref_t<std::invoke_result_t<
-                    FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                    FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
                 ERROR_TYPE>,
             CARRIERS...>;
 };
@@ -325,12 +301,13 @@ struct AccumulatingExpectedApplicativeImpl {
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
                 (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-                all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+                (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+                detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> std::expected<remove_cvref_t<std::invoke_result_t<
-                             FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
-                         ERROR_TYPE>;
+        -> std::expected<
+            remove_cvref_t<std::invoke_result_t<
+                FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+            ERROR_TYPE>;
 
     /** Graded n-ary core: the mixing point, mirroring
      * ExpectedApplicativeImpl's, but accumulating every failing operand's
@@ -339,17 +316,17 @@ struct AccumulatingExpectedApplicativeImpl {
     template <class FUNCTION, class... CARRIERS>
         requires(sizeof...(CARRIERS) > 0) &&
                 (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-                (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-                (mixes_with_model<
+                (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+                (detail::mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
                      CARRIERS> &&
                  ...)
     auto invoke(this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-        -> mixed_result_t<
+        -> detail::mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
             std::expected<
                 remove_cvref_t<std::invoke_result_t<
-                    FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
+                    FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
                 ERROR_TYPE>,
             CARRIERS...>;
 };
@@ -396,6 +373,7 @@ inline constexpr auto
  * rather than letting the mismatch surface as a rewrapping failure in the
  * body.
  */
+//! \omit
 template <class VALUE_TYPE, class ERROR_TYPE>
 struct ExpectedMonadImpl {
     using element_type = VALUE_TYPE;
@@ -409,7 +387,7 @@ struct ExpectedMonadImpl {
     template <class A, class F>
     auto bind(this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
         -> remove_cvref_t<std::invoke_result_t<F, const A &>>
-        requires is_expected_with_error_v<
+        requires detail::is_expected_with_error_v<
             remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>;
 
     /** Graded bind: sequencing joins grades.
@@ -422,21 +400,24 @@ struct ExpectedMonadImpl {
      */
     //! \omit
     template <class A, class F>
-        requires is_expected_v<bind_result_t<F, A>> &&
-                 (!is_expected_with_error_v<bind_result_t<F, A>, ERROR_TYPE>) &&
-                 mixes_with_model<
+        requires is_expected_v<detail::bind_result_t<F, A>> &&
+                 (!detail::is_expected_with_error_v<detail::bind_result_t<F, A>,
+                                                    ERROR_TYPE>) &&
+                 detail::mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
                      std::expected<A, ERROR_TYPE>> &&
-                 mixes_with_model<
+                 detail::mixes_with_model<
                      grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                     bind_result_t<F, A>>
+                     detail::bind_result_t<F, A>>
     auto bind(this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
-        -> mixed_result_t<
+        -> detail::mixed_result_t<
             grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-            std::expected<typename bind_result_t<F, A>::value_type, ERROR_TYPE>,
-            std::expected<A, ERROR_TYPE>, bind_result_t<F, A>>;
+            std::expected<typename detail::bind_result_t<F, A>::value_type,
+                          ERROR_TYPE>,
+            std::expected<A, ERROR_TYPE>, detail::bind_result_t<F, A>>;
 };
 
+//! \omit
 template <class VALUE_TYPE, class ERROR_TYPE>
 struct ExpectedMonadMap : Monad<ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>> {
     using ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind;
@@ -505,15 +486,16 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
             (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-            all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+            (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+            detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
 auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-    -> std::expected<remove_cvref_t<std::invoke_result_t<
-                         FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
-                     ERROR_TYPE> {
-    using Result = remove_cvref_t<
-        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
+    -> std::expected<
+        remove_cvref_t<std::invoke_result_t<
+            FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+        ERROR_TYPE> {
+    using Result = remove_cvref_t<std::invoke_result_t<
+        FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     std::optional<ERROR_TYPE> failure;
@@ -549,23 +531,24 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
             (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-            (mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                              CARRIERS> &&
+            (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+            (detail::mixes_with_model<
+                 grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
 auto ExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-    -> mixed_result_t<
+    -> detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-        std::expected<remove_cvref_t<std::invoke_result_t<
-                          FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
-                      ERROR_TYPE>,
+        std::expected<
+            remove_cvref_t<std::invoke_result_t<
+                FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+            ERROR_TYPE>,
         CARRIERS...> {
-    using Result = remove_cvref_t<
-        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
-    using Returned =
-        mixed_result_t<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                       std::expected<Result, ERROR_TYPE>, CARRIERS...>;
+    using Result = remove_cvref_t<std::invoke_result_t<
+        FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
+    using Returned = detail::mixed_result_t<
+        grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+        std::expected<Result, ERROR_TYPE>, CARRIERS...>;
     using Joined = typename Returned::error_type;
 
     std::optional<Joined> failure;
@@ -640,15 +623,16 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
             (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-            all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+            (!detail::all_declare_v<ERROR_TYPE, CARRIERS...>) &&
+            detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
 auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-    -> std::expected<remove_cvref_t<std::invoke_result_t<
-                         FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
-                     ERROR_TYPE> {
-    using Result = remove_cvref_t<
-        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
+    -> std::expected<
+        remove_cvref_t<std::invoke_result_t<
+            FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+        ERROR_TYPE> {
+    using Result = remove_cvref_t<std::invoke_result_t<
+        FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
     using Returned = std::expected<Result, ERROR_TYPE>;
 
     auto extract_failure =
@@ -680,23 +664,24 @@ template <class VALUE_TYPE, class ERROR_TYPE>
 template <class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
             (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-            (mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                              CARRIERS> &&
+            (!detail::all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
+            (detail::mixes_with_model<
+                 grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
 auto AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke(
     this auto &&, FUNCTION &&function, const CARRIERS &...operands)
-    -> mixed_result_t<
+    -> detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-        std::expected<remove_cvref_t<std::invoke_result_t<
-                          FUNCTION &, const carrier_value_t<CARRIERS> &...>>,
-                      ERROR_TYPE>,
+        std::expected<
+            remove_cvref_t<std::invoke_result_t<
+                FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>,
+            ERROR_TYPE>,
         CARRIERS...> {
-    using Result = remove_cvref_t<
-        std::invoke_result_t<FUNCTION &, const carrier_value_t<CARRIERS> &...>>;
-    using Returned =
-        mixed_result_t<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                       std::expected<Result, ERROR_TYPE>, CARRIERS...>;
+    using Result = remove_cvref_t<std::invoke_result_t<
+        FUNCTION &, const detail::carrier_value_t<CARRIERS> &...>>;
+    using Returned = detail::mixed_result_t<
+        grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+        std::expected<Result, ERROR_TYPE>, CARRIERS...>;
     using Joined = typename Returned::error_type;
 
     auto extract_failure = [](const auto &operand) -> std::optional<Joined> {
@@ -732,7 +717,7 @@ template <class A, class F>
 auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind(
     this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
     -> remove_cvref_t<std::invoke_result_t<F, const A &>>
-    requires is_expected_with_error_v<
+    requires detail::is_expected_with_error_v<
         remove_cvref_t<std::invoke_result_t<F, const A &>>, ERROR_TYPE>
 {
     using Result = remove_cvref_t<std::invoke_result_t<F, const A &>>;
@@ -745,20 +730,24 @@ auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind(
 //! \omit
 template <class VALUE_TYPE, class ERROR_TYPE>
 template <class A, class F>
-    requires is_expected_v<bind_result_t<F, A>> &&
-             (!is_expected_with_error_v<bind_result_t<F, A>, ERROR_TYPE>) &&
-             mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                              std::expected<A, ERROR_TYPE>> &&
-             mixes_with_model<grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-                              bind_result_t<F, A>>
+    requires is_expected_v<detail::bind_result_t<F, A>> &&
+             (!detail::is_expected_with_error_v<detail::bind_result_t<F, A>,
+                                                ERROR_TYPE>) &&
+             detail::mixes_with_model<
+                 grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                 std::expected<A, ERROR_TYPE>> &&
+             detail::mixes_with_model<
+                 grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
+                 detail::bind_result_t<F, A>>
 auto ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind(
     this auto &&, const std::expected<A, ERROR_TYPE> &ma, F &&f)
-    -> mixed_result_t<
+    -> detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
-        std::expected<typename bind_result_t<F, A>::value_type, ERROR_TYPE>,
-        std::expected<A, ERROR_TYPE>, bind_result_t<F, A>> {
-    using Continuation = bind_result_t<F, A>;
-    using Returned = mixed_result_t<
+        std::expected<typename detail::bind_result_t<F, A>::value_type,
+                      ERROR_TYPE>,
+        std::expected<A, ERROR_TYPE>, detail::bind_result_t<F, A>> {
+    using Continuation = detail::bind_result_t<F, A>;
+    using Returned = detail::mixed_result_t<
         grade_of_t<std::expected<VALUE_TYPE, ERROR_TYPE>>,
         std::expected<typename Continuation::value_type, ERROR_TYPE>,
         std::expected<A, ERROR_TYPE>, Continuation>;

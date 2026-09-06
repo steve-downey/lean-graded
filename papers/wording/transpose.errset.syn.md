@@ -1,114 +1,15 @@
 ::: add
 
 ```cpp
-
+template<class... ERRORS>
+inline constexpr bool $error-set-is-canonical-v$ =
+    is_same_v<canonical_t<ERRORS...>, type_list<ERRORS...>>; // exposition only
 ```
 
 ```cpp
 template<class... ERRORS>
-struct type_list {};
-```
-
-```cpp
-
-```
-
-```cpp
-template<class T, class... ERRORS>
-struct list_prepend<T, type_list<ERRORS...>> {
-  using type = type_list<T, ERRORS...>;
-};
-```
-
-```cpp
-
-```
-
-```cpp
-template<class T>
-struct list_remove<T, type_list<>> {
-  using type = type_list<>;
-};
-```
-
-```cpp
-template<class T, class HEAD, class... TAIL>
-struct list_remove<T, type_list<HEAD, TAIL...>> {
-public:
-  using type =
-      conditional_t<is_same_v<T, HEAD>, rest, list_prepend_t<HEAD, rest>>;
-};
-```
-
-```cpp
-
-```
-
-```cpp
-template<>
-struct list_dedupe<type_list<>> {
-  using type = type_list<>;
-};
-```
-
-```cpp
-template<class HEAD, class... TAIL>
-struct list_dedupe<type_list<HEAD, TAIL...>> {
-  using type = list_prepend_t<
-      HEAD,
-      typename list_dedupe<typename list_remove<HEAD, type_list<TAIL...>>::type>::type>;
-};
-```
-
-```cpp
-
-```
-
-```cpp
-template<class T>
-struct list_insert_sorted<T, type_list<>> {
-  using type = type_list<T>;
-};
-```
-
-```cpp
-template<class T, class HEAD, class... TAIL>
-struct list_insert_sorted<T, type_list<HEAD, TAIL...>> {
-  using type = conditional_t<
-      type_precedes_v<T, HEAD>, type_list<T, HEAD, TAIL...>,
-      list_prepend_t<HEAD, typename list_insert_sorted<T, type_list<TAIL...>>::type>>;
-};
-```
-
-```cpp
-
-```
-
-```cpp
-template<>
-struct list_sort<type_list<>> {
-  using type = type_list<>;
-};
-```
-
-```cpp
-template<class HEAD, class... TAIL>
-struct list_sort<type_list<HEAD, TAIL...>> {
-  using type =
-      typename list_insert_sorted<HEAD,
-                                  typename list_sort<type_list<TAIL...>>::type>::type;
-};
-```
-
-```cpp
-
-```
-
-```cpp
-template<class... ERRORS>
-struct error_set_from_list<type_list<ERRORS...>> {
-  using type = error_set_of<ERRORS...>;
-};
+inline constexpr bool $error-set-names-distinct-v$ =
+    names_are_distinct<ERRORS...>(); // exposition only
 ```
 
 ```cpp
@@ -126,15 +27,12 @@ public:
   // @[transpose.errset.cons]{- .sref}@, constructors
   template<class ERROR>
     requires($error-set-has-v$<remove_cvref_t<ERROR>, ERRORS...>)
-  constexpr error_set_of(ERROR&& error); // NOLINT(*-explicit-constructor)
-
+  constexpr error_set_of(ERROR&& error);
   template<class... NARROWER>
     requires(sizeof...(NARROWER) > 0) &&
             (!is_same_v<error_set_of<NARROWER...>, error_set_of<ERRORS...>>) &&
             ($error-set-has-v$<NARROWER, ERRORS...> && ...)
-  constexpr error_set_of(
-      const error_set_of<NARROWER...>& narrower); // NOLINT(*-explicit-*)
-
+  constexpr error_set_of(const error_set_of<NARROWER...>& narrower);
   // @[transpose.errset.obs]{- .sref}@, observers
   template<class ERROR>
     requires($error-set-has-v$<ERROR, ERRORS...>)
@@ -161,7 +59,9 @@ private:
 
 ::: wording
 
-[x]{.pnum} A program that instantiates `error_set_of<ERRORS...>` is ill-formed unless `error_set_is_canonical_v<ERRORS...>` is `true` and `error_set_names_distinct_v<ERRORS...>` is `true`.
+[x]{.pnum} *Mandates*: The pack is canonical: sorted and deduplicated. Spell `error_set<ERRORS...>`, which canonicalizes, rather than naming this template directly. No two alternatives render to the same name.
+
+[x+1]{.pnum} *Remarks*: A value of this type witnesses a non-empty subset of the alternatives, with at most one witness per raised type. The set says what a computation may raise; a value records what it did raise.
 
 :::
 

@@ -1,17 +1,58 @@
 ::: add
 
 ```cpp
+template<class EXPECTED, class ERROR_TYPE>
+inline constexpr bool $is-expected-with-error-v$ = false; // exposition only
+```
+
+```cpp
+template<class VALUE_TYPE, class ERROR_TYPE>
+inline constexpr bool $is-expected-with-error-v$<expected<VALUE_TYPE, ERROR_TYPE>, ERROR_TYPE> =
+    true; // exposition only
+```
+
+```cpp
 template<class CARRIER>
-struct carrier_value {
+struct $carrier-value$ {
   using type = CARRIER;
-};
+}; // exposition only
 ```
 
 ```cpp
 template<class VALUE, class ERROR>
-struct carrier_value<expected<VALUE, ERROR>> {
+struct $carrier-value$<expected<VALUE, ERROR>> {
   using type = VALUE;
-};
+}; // exposition only
+```
+
+```cpp
+template<class CARRIER>
+using $carrier-value-t$ =
+    typename $carrier-value$<remove_cvref_t<CARRIER>>::type; // exposition only
+```
+
+```cpp
+template<class F, class A>
+using $bind-result-t$ = remove_cvref_t<invoke_result_t<F, const A&>>; // exposition only
+```
+
+```cpp
+template<class ERROR_TYPE, class... CARRIERS>
+inline constexpr bool $all-declare-v$ =
+    ($is-expected-with-error-v$<remove_cvref_t<CARRIERS>, ERROR_TYPE> && ...); // exposition only
+```
+
+```cpp
+template<class ERROR_TYPE, class CARRIER>
+inline constexpr bool $declares-or-bare-v$ =
+    (!graded_context<remove_cvref_t<CARRIER>>) ||
+    $is-expected-with-error-v$<remove_cvref_t<CARRIER>, ERROR_TYPE>; // exposition only
+```
+
+```cpp
+template<class ERROR_TYPE, class... CARRIERS>
+inline constexpr bool $all-declare-or-bare-v$ =
+    ($declares-or-bare-v$<ERROR_TYPE, CARRIERS> && ...); // exposition only
 ```
 
 ```cpp
@@ -31,24 +72,24 @@ struct ExpectedApplicativeImpl {
 
   template<class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-            all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+            ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
+            (!$all-declare-v$<ERROR_TYPE, CARRIERS...>) &&
+            $all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>
   auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands)
       -> expected<remove_cvref_t<
-                      invoke_result_t<FUNCTION&, const carrier_value_t<CARRIERS>&...>>,
+                      invoke_result_t<FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                   ERROR_TYPE>;
 
   template<class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-            (mixes_with_model<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
+            ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
+            (!$all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>) &&
+            ($mixes-with-model$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
   auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands)
-      -> mixed_result_t<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
+      -> $mixed-result-t$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
                         expected<remove_cvref_t<invoke_result_t<
-                                     FUNCTION&, const carrier_value_t<CARRIERS>&...>>,
+                                     FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                                  ERROR_TYPE>,
                         CARRIERS...>;
 };
@@ -79,24 +120,24 @@ struct AccumulatingExpectedApplicativeImpl {
 
   template<class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_v<ERROR_TYPE, CARRIERS...>) &&
-            all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>
+            ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
+            (!$all-declare-v$<ERROR_TYPE, CARRIERS...>) &&
+            $all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>
   auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands)
       -> expected<remove_cvref_t<
-                      invoke_result_t<FUNCTION&, const carrier_value_t<CARRIERS>&...>>,
+                      invoke_result_t<FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                   ERROR_TYPE>;
 
   template<class FUNCTION, class... CARRIERS>
     requires(sizeof...(CARRIERS) > 0) &&
-            (is_expected_v<remove_cvref_t<CARRIERS>> || ...) &&
-            (!all_declare_or_bare_v<ERROR_TYPE, CARRIERS...>) &&
-            (mixes_with_model<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
+            ($is-expected-v$<remove_cvref_t<CARRIERS>> || ...) &&
+            (!$all-declare-or-bare-v$<ERROR_TYPE, CARRIERS...>) &&
+            ($mixes-with-model$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>, CARRIERS> &&
              ...)
   auto invoke(this auto&&, FUNCTION&& function, const CARRIERS&... operands)
-      -> mixed_result_t<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
+      -> $mixed-result-t$<grade_of_t<expected<VALUE_TYPE, ERROR_TYPE>>,
                         expected<remove_cvref_t<invoke_result_t<
-                                     FUNCTION&, const carrier_value_t<CARRIERS>&...>>,
+                                     FUNCTION&, const $carrier-value-t$<CARRIERS>&...>>,
                                  ERROR_TYPE>,
                         CARRIERS...>;
 };
@@ -108,21 +149,6 @@ struct AccumulatingExpectedApplicativeMap
     : Applicative<AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>> {
   using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::invoke;
   using AccumulatingExpectedApplicativeImpl<VALUE_TYPE, ERROR_TYPE>::pure;
-};
-```
-
-```cpp
-template<class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedMonadImpl {
-  using element_type = VALUE_TYPE;
-};
-```
-
-```cpp
-template<class VALUE_TYPE, class ERROR_TYPE>
-struct ExpectedMonadMap : Monad<ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>> {
-  using ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::bind;
-  using ExpectedMonadImpl<VALUE_TYPE, ERROR_TYPE>::pure;
 };
 ```
 

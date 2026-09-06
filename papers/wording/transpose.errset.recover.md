@@ -7,8 +7,7 @@
 ```cpp
 template<class... HANDLED, class VALUE, class... ERRORS, class HANDLER>
 constexpr auto recover(const expected<VALUE, error_set_of<ERRORS...>>& computation,
-                       HANDLER&& handler)
-    -> recover_return_t<HANDLER, VALUE, error_set_of<ERRORS...>, HANDLED...>;
+                       HANDLER&& handler) -> $see below$;
 ```
 
 [x]{.pnum} *Mandates*: `HANDLED` is not empty; every type in `HANDLED` is one of the computation's alternatives; and for each such type `handler` returns either `VALUE` or a `std::expected<VALUE, error_set<...>>`.
@@ -24,8 +23,15 @@ template<class T> inline constexpr bool $is-expected-v$ = false; // exposition o
 ```
 
 ```cpp
+template<class VALUE, class ERROR>
+inline constexpr bool $is-expected-v$<expected<VALUE, ERROR>> = true; // exposition only
+```
+
+```cpp
 struct error_set_model {};
 ```
+
+[x+4]{.pnum} *Remarks*: `error_set_model` names the model that the error-set grades belong to. It is what makes two grades comparable: grades of different models do not mix.
 
 ```cpp
 template<class... ERRORS>

@@ -1,7 +1,7 @@
 ::: add
 
 ```cpp
-template<class T, std::size_t N>
+template<class T, size_t N>
 struct ArrayApplicativeImpl {
   // @[transpose.array.applicative]{- .sref}@, applicative instance for array
   template<class VALUE> auto pure(this auto&&, VALUE&& value);
@@ -13,7 +13,7 @@ struct ArrayApplicativeImpl {
 ```
 
 ```cpp
-template<class T, std::size_t N>
+template<class T, size_t N>
 struct ArrayApplicativeMap : Applicative<ArrayApplicativeImpl<T, N>> {
   using ArrayApplicativeImpl<T, N>::invoke;
   using ArrayApplicativeImpl<T, N>::pure;
