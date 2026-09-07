@@ -101,6 +101,29 @@ This item also subsumes half of item 2: with the monoidal basis,
 structure, and the general statement is that `Monad<Impl>` derives the
 closure of whichever complete basis `Impl` supplies.
 
+Required test case: a sender-shaped (lazy) monad, where the
+alternate-basis derivations are exactly where the strictness
+assumptions bite. The synthesized `invoke` already documents its
+synchronous-`bind` assumption; `bind = join ∘ fmap` has the dual
+assumption that `fmap` delivers a formed `M<M<A>>` for `join` to
+flatten. For a lazy context the nested value is really a
+`Lazy<M<A>>` — a thunk whose forcing (`get()`/start) yields `M<A>`.
+Strictness handles the *semantics*: join-by-forcing (run outer, then
+inner) is correct, and the demo `sender<T>`'s type erasure through
+`std::function<T()>` makes `sender<sender<A>>` a real nameable type,
+so it can carry the test. The hazard is the *type system inferring
+things* on the unforced type: value_type-driven traits and the
+derivations' deductions cannot distinguish `M<M<A>>` (nesting, join
+it) from `M<B>` where `B = M<A>` (a payload that happens to be a
+sender — do not join it). Acceptance tests: with a sender Monad
+instance under each basis, `fmap(f, m)` for `f : A -> sender<B>`
+yields `sender<sender<B>>` un-flattened while `bind(m, f)` yields
+`sender<B>`, and the two bases agree on both. A real P2300 sender is
+explicitly out of scope for these traits: there is no single `M` at
+all — each adaptor is its own expression-template type, so recognizing
+"the same context, nested" is a normalization problem for the item-4
+era, not a trait fix here.
+
 Not scheduled: nothing proposed calls `bind`. Recorded so that if LEWG
 says "do Monad now," the multi-basis surface is designed, not
 improvised.
