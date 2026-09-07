@@ -141,6 +141,28 @@ all — each adaptor is its own expression-template type, so recognizing
 "the same context, nested" is a normalization problem for the item-4
 era, not a trait fix here.
 
+Motivating prose for the paper that picks this up: the nesting the
+tests defend is the oldest bug in data modeling. SQL's NULL is a
+`Maybe (Maybe a)` flattened to `Maybe a` at the model level — "no
+spouse" (outer layer disengaged) and "spouse whose insurance is
+unknown" (outer engaged, inner disengaged) collapse into one marker
+that cannot carry the distinction; inner joins are bind-shaped, outer
+joins introduce the outer Maybe, and both are necessary because they
+answer different questions. Codd's later A-marks/I-marks split
+(RM/T, RM V2) concedes that one bottom value serving every layer
+destroyed information the model needed; three-valued logic and
+`NULL != NULL` are the downstream wreckage. JavaScript's Promise
+re-made the mistake — `then` auto-flattens, `Promise<Promise<T>>` is
+unrepresentable, Promise is not a monad. `std::optional` already gets
+it right (`transform` nests, `and_then` flattens, the caller picks).
+The design position the acceptance tests encode: nesting is
+meaningful, `join` is always an explicit caller-chosen operation, and
+no derivation may flatten on the caller's behalf — the
+`M<M<A>>`-vs-`M<B>`-where-`B = M<A>` inference ambiguity above is the
+*reason* implicit flattening is forbidden, not a corner case to paper
+over. An audience that has never wanted a monad has been burned by
+SQL NULL; motivate fmap/bind from injury, not category theory.
+
 Not scheduled: nothing proposed calls `bind`. Recorded so that if LEWG
 says "do Monad now," the multi-basis surface is designed, not
 improvised.
