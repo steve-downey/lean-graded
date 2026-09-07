@@ -60,16 +60,33 @@ requirement: the CRTP base is the adapter.
 - Law test where a hand-written Functor coexists with a Monad
   (optional): `fmap f x == bind(x, pure ∘ f)` so the redundancy cannot
   drift.
-- Forwarding invariant to document beside the SFINAE-friendliness rule
-  in `apply.hpp`: algorithm constraints stay shallow and structural
-  (`applicative_object_for` probes `pure` only) **because** every
-  object registered or passed is full by construction — a wrapped Map,
-  never a bare Impl. Algorithms keep the explicit-object form as the
-  primary spelling (as `traverse` does) so non-default instances can be
-  forwarded in; lookup forms are sugar over it. Forced derivations
-  forward structurally; choice-laden constructions (which monoid) fail
-  the concept and must be constructed explicitly — the type system
-  aligned with canonicity.
+- Two-concept discipline (revised 2026-09-07 from an earlier
+  shallow-gate position): the concept for a typeclass *object* — what
+  algorithms accept — checks **all** of the operations, derived ones
+  included. Structural conformance permits hand-implementing an object
+  without the CRTP base; a shallow gate (today's
+  `applicative_object_for` probes `pure` only) passes such an object
+  and defers the failure to whenever code written much later first
+  reaches a derived operation, three frames deep. The deep concept
+  moves that surprise to the gate, and doubles as the specification's
+  statement of the class's full surface. The concept for an acceptable
+  *Impl* is more restricted: the minimal complete bases only (with
+  item 3, the alternate sets too) — the GHC parallel is class
+  declaration vs `MINIMAL` pragma. Care: conditionally-available
+  operations (`ap` only where the context can hold a callable,
+  `subsume` only where the grade algebra licenses) are required
+  conditionally, mirroring their wording constraints — a deep concept
+  that demands `ap` unconditionally wrongly rejects the simd object.
+  Derived operations templated over arbitrary callables are probed
+  with representative instantiations — the check is a witness, not a
+  proof, which suffices for the failure mode at issue (an operation
+  missing entirely).
+- Algorithms keep the explicit-object form as the primary spelling (as
+  `traverse` does) so non-default instances can be forwarded in;
+  lookup forms are sugar over it. Forced derivations forward
+  structurally; choice-laden constructions (which monoid) fail the
+  concept and must be constructed explicitly — the type system aligned
+  with canonicity.
 
 Acceptance: `Functor<SomeMonadMap>` compiles and passes functor laws;
 agreement test in `laws.test.cpp`; invariant recorded.
