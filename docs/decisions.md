@@ -1082,3 +1082,37 @@ the discussion twice. D3200R0 says so in the wording preamble rather than
 shipping the spellings as if they were settled.
 **Log:**
 - 2026-09-03 — Recorded when the wording pipeline landed.
+
+---
+
+## monoid-carrier-canonicity
+
+**Question:** Which carriers get a default `Monoid<T>` registration, and
+which are named instead?
+**Status:** DECIDED 2026-09-07
+**Decided by:** Steve Downey, in the typeclass-relationships design
+discussion of 2026-09-07, recorded in
+`docs/coordination-worklist-2026-09-07.md`.
+**Decision:** A raw carrier gets a default `Monoid<T>` registration only where
+one instance is canonical: string and vector concatenation, and `Count`.
+Where no instance is so right that any one of them can be the default —
+numbers, booleans — the choice is spelled by a named carrier type instead of
+a registration on the bare type.
+**Why:** Addition and multiplication are both monoids on a number; maximum
+and minimum are both monoids on any ordered type; a `bool` carries both
+conjunction and disjunction. Registering one of these as `Monoid<int>` or
+`Monoid<bool>` makes the library pick for the caller, silently, at every
+`fold_map` whose function happens to return that type. Naming the carrier —
+`Sum<int>`, `Max<int>`, `Any` — makes the choice something the caller writes
+down instead.
+**Log:**
+- 2026-09-07 — [named-monoid-carriers](../tmp/plan/step-named-monoid-carriers.md)
+  added the six named carriers (`Sum`, `Product`, `Max`, `Min`, `Any`, `All`)
+  to `monoid.hpp`, and moved `fold.hpp`'s `detail::Any`/`detail::All` onto the
+  new public `Any`/`All` so `any_of`/`all_of` exercise them. The carrier set
+  is provisional: six because these are what the fold family and the
+  worklist named; a consumer needing a seventh (`First`, `Last`, `Endo`)
+  extends the set rather than working around it. The bare-numeric
+  `Monoid<int|long|size_t>` registrations are still present; removing them is
+  the following step,
+  [numeric-monoid-defaults](../tmp/plan/step-numeric-monoid-defaults.md).

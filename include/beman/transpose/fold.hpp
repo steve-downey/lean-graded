@@ -82,14 +82,6 @@ struct RightFoldProgramT {
     }
 };
 
-struct Any {
-    bool d_value;
-};
-
-struct All {
-    bool d_value;
-};
-
 template <class VALUE_TYPE>
 struct First {
     std::optional<VALUE_TYPE> d_value;
@@ -160,26 +152,6 @@ struct Monoid<detail::RightFoldProgramT<F>> {
         -> detail::RightFoldProgramT<detail::ComposedFoldFunc<F, G>> {
         return detail::RightFoldProgramT<detail::ComposedFoldFunc<F, G>>{
             detail::ComposedFoldFunc<F, G>{lhs.d_run, rhs.d_run}};
-    }
-};
-
-template <>
-struct Monoid<detail::Any> {
-    constexpr auto identity() const -> detail::Any { return {false}; }
-
-    constexpr auto combine(detail::Any lhs, detail::Any rhs) const
-        -> detail::Any {
-        return {lhs.d_value || rhs.d_value};
-    }
-};
-
-template <>
-struct Monoid<detail::All> {
-    constexpr auto identity() const -> detail::All { return {true}; }
-
-    constexpr auto combine(detail::All lhs, detail::All rhs) const
-        -> detail::All {
-        return {lhs.d_value && rhs.d_value};
     }
 };
 
@@ -312,7 +284,7 @@ struct Foldable : protected Impl {
     auto any_of(this auto &&self, T &&value, PREDICATE &&predicate) -> bool {
         const auto result = self.fold_map(
             [&predicate](const auto &x) {
-                return detail::Any{std::invoke(predicate, x)};
+                return Any{std::invoke(predicate, x)};
             },
             std::forward<T>(value));
 
@@ -324,7 +296,7 @@ struct Foldable : protected Impl {
     auto all_of(this auto &&self, T &&value, PREDICATE &&predicate) -> bool {
         const auto result = self.fold_map(
             [&predicate](const auto &x) {
-                return detail::All{std::invoke(predicate, x)};
+                return All{std::invoke(predicate, x)};
             },
             std::forward<T>(value));
 
