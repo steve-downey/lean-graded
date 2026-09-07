@@ -40,11 +40,11 @@
 // conversions is the coherence argument compiled into the overload set.
 //
 // TYPE ORDERING is P2830's job. Until it is available this header uses an
-// interim __PRETTY_FUNCTION__ ordering, valid only for the documented
-// restrictions: named types, external linkage, stable spelling. Two distinct
-// types that render to the same name would be silently conflated, so that
-// case is a hard error rather than a wrong answer -- see the static_assert in
-// error_set_of.
+// interim ordering read out of the compiler's own function signature, valid
+// only for the documented restrictions: named types, external linkage,
+// stable spelling. Two distinct types that render to the same name would be
+// silently conflated, so that case is a hard error rather than a wrong
+// answer -- see the static_assert in error_set_of.
 
 #include <beman/transpose/detail/typeclass_base.hpp>
 #include <beman/transpose/grade.hpp>
@@ -77,6 +77,24 @@ namespace detail {
  */
 template <class T>
 consteval auto type_name() -> std::string_view {
+#if defined(_MSC_VER) && !defined(__clang__)
+    // MSVC has no __PRETTY_FUNCTION__. __FUNCSIG__ spells the specialization
+    // as `... type_name<T>(void)`, so the name is what sits between the
+    // template argument list and the last `>`. Should that spelling ever
+    // change, fall back to the whole signature, which still names T and so
+    // is still an injective key -- a duller order, not a broken one.
+    const std::string_view signature{__FUNCSIG__};
+    constexpr std::string_view marker{"type_name<"};
+
+    const auto found = signature.find(marker);
+    const auto stop = signature.rfind('>');
+    if (found == std::string_view::npos || stop == std::string_view::npos ||
+        stop <= found + marker.size()) {
+        return signature;
+    }
+    const auto start = found + marker.size();
+    return signature.substr(start, stop - start);
+#else
     const std::string_view signature{__PRETTY_FUNCTION__};
     constexpr std::string_view marker{"T = "};
 
@@ -86,6 +104,7 @@ consteval auto type_name() -> std::string_view {
         stop = signature.rfind(']');
     }
     return signature.substr(start, stop - start);
+#endif
 }
 
 /** Strict total order on types, by name. Interim stand-in for P2830. */
