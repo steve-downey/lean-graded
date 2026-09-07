@@ -146,6 +146,39 @@ requirement: the CRTP base is the adapter.
   `Applicative::invoke` models. No macro in the wording-generating
   headers; reflection-era "for each member of Impl" enumeration is
   item-4 territory.
+- Migration safety for the probe conversion (in-tree breakage: none —
+  every Map customizes only by `using`-ing Impl members, never by
+  defining operations directly; `crtp_absorption.test.cpp`'s "two
+  functions is the whole registration" sentinel is preserved and
+  strengthened, the Maps' `using` lines stop being load-bearing):
+  - Existing Map `using`-declarations are harmless and become
+    redundant: they hide the probing base member, and external calls
+    hit the same native Impl op the probe would have chosen. Remove at
+    leisure, not atomically. Post-removal delta is an improvement
+    only: calls that today hard-error through the Map (native
+    signature can't take them, derivation hidden behind the `using`)
+    reach the probe and fall back to the derivation.
+  - The bases' own re-exports are **replaced, never joined**: a
+    `using Impl::fmap` cannot coexist with a probing `fmap` member in
+    the same class scope (ambiguous/wrong-preferring overload set).
+    Per-operation: re-export or probe, one or the other.
+  - Every probing member carries an ap-style **disjunctive
+    requires-clause** (native present, or the derivation's own
+    requirements on the basis hold). An unconstrained probing member
+    satisfies the deep object concept's witnesses by substitution
+    alone — body never instantiated — making the concept vacuous;
+    the constraint keeps it honest and restores "missing basis" as a
+    clean constraint failure (today's diagnostic comes from the
+    `using`-declaration failing to name the member).
+  - Impl-directed addressing is confined to the **mutually-derivable
+    pairs** (`invoke`/`ap`, `fold_map`/`fold_right`,
+    `bind`/`join`+`fmap`) — the apply.hpp discipline; all other
+    internal calls stay `self.`-routed. Broad Impl-direction would
+    silently bypass shadows defined on a Map or user-derived class
+    (external calls hit the shadow, internal derivations skip it —
+    incoherence); the pairs-only rule keeps Map-level shadows at
+    exactly their current reach. Hand-rolled objects never touch the
+    bases and are unaffected; the deep object concept polices them.
 
 Acceptance: `Functor<SomeMonadMap>` compiles and passes functor laws;
 agreement test in `laws.test.cpp`; invariant recorded.
