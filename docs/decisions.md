@@ -1116,3 +1116,10 @@ down instead.
   `Monoid<int|long|size_t>` registrations are still present; removing them is
   the following step,
   [numeric-monoid-defaults](../tmp/plan/step-numeric-monoid-defaults.md).
+- 2026-09-07 — [numeric-monoid-defaults](../tmp/plan/step-numeric-monoid-defaults.md)
+  removed the three bare-numeric `Monoid<int>`, `Monoid<long>`, and
+  `Monoid<std::size_t>` registrations from `monoid.hpp`. The only in-tree
+  consumer was `monoid.test.cpp`'s additive-int `TEST_CASE`, migrated to
+  `Sum<int>`. The sentinel is a `has_monoid` concept with
+  `static_assert(!has_monoid<int>)` (and `long`, `std::size_t`), so a future
+  re-registration fails a test instead of silently restoring the old default.

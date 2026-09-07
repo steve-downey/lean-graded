@@ -38,11 +38,24 @@ static_assert(check_monoid_laws(bt::Min<int>{2}, bt::Min<int>{3},
 static_assert(check_monoid_laws(bt::Any{false}, bt::Any{true}, bt::Any{false}));
 static_assert(check_monoid_laws(bt::All{true}, bt::All{false}, bt::All{true}));
 
+// Sentinel: no bare-numeric Monoid is registered, so the choice among
+// addition, product, max, min, ... must be spelled by a named carrier.
+// A future re-registration of Monoid<int> (or long, or size_t) fails these
+// static_asserts rather than silently restoring the old, unnamed default.
+template <class T>
+concept has_monoid = requires { beman::transpose::monoid_v<T>.identity(); };
+
+static_assert(!has_monoid<int>);
+static_assert(!has_monoid<long>);
+static_assert(!has_monoid<std::size_t>);
+static_assert(has_monoid<bt::Sum<int>>);
+
 } // namespace
 
-TEST_CASE("monoid: int additive identity and combine") {
-    REQUIRE(bt::monoid_identity<int>() == 0);
-    REQUIRE(bt::monoid_combine(3, 4) == 7);
+TEST_CASE("monoid: int additive identity and combine via Sum") {
+    REQUIRE(bt::monoid_identity<bt::Sum<int>>() == bt::Sum<int>{0});
+    REQUIRE(bt::monoid_combine(bt::Sum<int>{3}, bt::Sum<int>{4}) ==
+            bt::Sum<int>{7});
 }
 
 TEST_CASE("monoid: string concatenation") {

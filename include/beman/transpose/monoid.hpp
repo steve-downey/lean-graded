@@ -51,34 +51,13 @@ struct Monoid<Count> {
     }
 };
 
-/** Monoid<int>: additive monoid with identity 0. */
-template <>
-struct Monoid<int> {
-    constexpr auto identity() const -> int { return 0; }
-
-    constexpr auto combine(int lhs, int rhs) const -> int { return lhs + rhs; }
-};
-
-/** Monoid<long>: additive monoid with identity 0. */
-template <>
-struct Monoid<long> {
-    constexpr auto identity() const -> long { return 0L; }
-
-    constexpr auto combine(long lhs, long rhs) const -> long {
-        return lhs + rhs;
-    }
-};
-
-/** Monoid<std::size_t>: additive monoid with identity 0. */
-template <>
-struct Monoid<std::size_t> {
-    constexpr auto identity() const -> std::size_t { return 0U; }
-
-    constexpr auto combine(std::size_t lhs, std::size_t rhs) const
-        -> std::size_t {
-        return lhs + rhs;
-    }
-};
+/// Numbers and booleans carry more than one monoid -- addition, product,
+/// max, min, any, all -- so no bare `Monoid<int>`, `Monoid<long>`, or
+/// `Monoid<std::size_t>` is registered here.
+/// A raw numeric registration would make the library choose one of those on
+/// the caller's behalf; the choice is spelled instead by a named carrier
+/// (`Sum<int>`, `Product<int>`, `Max<int>`, `Any`, ...).
+/// See docs/decisions.md#monoid-carrier-canonicity.
 
 /** Additive monoid carrier: combine adds, identity is the zero of `T`. */
 template <class T>
