@@ -113,6 +113,39 @@ requirement: the CRTP base is the adapter.
   one derived from the object in hand, law-compatible with its `bind`
   by construction; a caller who wants the registered default says so
   by looking it up.
+- Implementation sketch for the derived-op preference: generalize the
+  probe `Applicative::invoke`/`ap` and `Monad::invoke` already use,
+  factoring the SELF/IMPL_BASE dance into one helper in
+  `typeclass_base.hpp` —
+
+      template <class IMPL>
+      constexpr decltype(auto) impl_of(auto &&self) {
+          using SELF = std::remove_reference_t<decltype(self)>;
+          using IMPL_BASE = std::conditional_t<
+              std::is_const_v<SELF>, const IMPL, IMPL>;
+          return static_cast<IMPL_BASE &>(self);
+      }
+
+  so every derived member is the same four-line shape:
+  `if constexpr (requires { impl_of<Impl>(self).op(args...); })`
+  forward to the native op, else derive. Consequences: (a) the Map
+  classes' `using`-selection retires — an instance author adds an
+  optimization by writing one member on the Impl (`length` on a
+  vector Foldable returning `size()`), no `using`, no Map edit, and
+  Maps shrink to trivial or registration names `Functor<Impl>{}`
+  directly; (b) probing is per *instantiation* where `using` is
+  all-or-nothing per *name* — an Impl can supply a native op for only
+  the cases it is better at and fall back elsewhere, which is what
+  makes a class as broad as Foldable ergonomic; (c) it applies the
+  `apply.hpp` cycle discipline structurally — each derivation
+  addresses `Impl`, never `self`, closing the latent fold.hpp hazard
+  where a Map missing its `using Impl::fold_right` sends the base's
+  derived `fold_map` and `fold_right` into mutual template recursion
+  (each round nesting another `RightFoldProgram`) instead of the clean
+  "provide at least one basis" `static_assert` that
+  `Applicative::invoke` models. No macro in the wording-generating
+  headers; reflection-era "for each member of Impl" enumeration is
+  item-4 territory.
 
 Acceptance: `Functor<SomeMonadMap>` compiles and passes functor laws;
 agreement test in `laws.test.cpp`; invariant recorded.
