@@ -104,3 +104,46 @@ closure of whichever complete basis `Impl` supplies.
 Not scheduled: nothing proposed calls `bind`. Recorded so that if LEWG
 says "do Monad now," the multi-basis surface is designed, not
 improvised.
+
+## 4. Functor combinators as evidence; higher kinds via Reflection (far horizon)
+
+Definitely not part of this proposal. The library's deliberate dodge of
+higher-kinded types — instances registered per specialization, result
+contexts deduced from the function, never rebound from a constructor —
+covers everything D3200R0 proposes. HKT pressure appears at exactly
+three points: stating the categorical monoid (item 1's coda — the
+carrier is a constructor, not a type), instance *families* defined once
+per constructor rather than per specialization, and rebinding
+`M<A> -> M<B>` with no function argument to deduce from. Two routes,
+complementary rather than alternatives:
+
+- **A small Types library, mostly buildable today.** The `base`-style
+  functor combinators: `Identity<A>` and `Const<M, A>` (phantom `A`)
+  are ordinary templates needing no HKT at all. `Const` snaps into
+  item 1: its Applicative *requires* a Monoid on `M` (`pure` =
+  `identity()`, application = `combine`), so `traverse` at the `Const`
+  applicative **is** `fold_map` and `traverse` at `Identity` **is**
+  `fmap` — precisely the foldMapDefault-style evidence the DELIBERATE
+  CONSTRAINT comment in `traverse.hpp` promises, with the named
+  monoids (`Const<Sum<int>, A>`) making the instances sayable.
+  `Sum f g` (Functor, no Applicative — no `pure`) models the
+  structural-conformance story at the combinator level: what is
+  derivable is visible in which operations exist. Only `Compose` truly
+  wants higher kinds; template-template parameters carry a workable
+  version today, with the known warts (alias templates, hidden
+  allocator parameters breaking unary-ness).
+- **Reflection for the real thing.** `^^M` reifies the constructor as
+  a `std::meta::info` value; `substitute(^^M, {^^A})` is application;
+  `info` as an NTTP gives constructor-indexed lookup points
+  (`hk_monad_typeclass<^^std::optional>`) beside the value-indexed
+  ones, undisturbed. That buys the index, the rebind, and
+  write-once family instances — not new runtime semantics: operations
+  remain value-level code on real specializations. `substitute`'s
+  kind-agnostic argument list is exactly where it beats
+  template-template parameters (aliases, mixed kinds). Forward-compat
+  answer for LEWG's "what about HKT?": the lookup pattern extends;
+  sketch, not machinery.
+
+Acceptance when picked up: `Identity`/`Const` instances plus the two
+traverse-recovery theorems as tests; the rest stays prose until a paper
+needs it.
