@@ -87,6 +87,32 @@ requirement: the CRTP base is the adapter.
   structurally; choice-laden constructions (which monoid) fail the
   concept and must be constructed explicitly — the type system aligned
   with canonicity.
+- Presentation member for the algorithm writer holding an opaque monad
+  object who needs to call a Functor-constrained function: the bare
+  monad object correctly fails the deep `functor_object` concept (it
+  carries basis `fmap`, never the derived surface — the two decisions
+  above cooperating, not conflicting). Since every object is
+  stateless, constructing the full instance and "converting" are the
+  same free type-level move, so give the Monad base
+  `as_functor()` returning `Functor<ThisMapType>{}` — one
+  self-documenting call-site expression
+  (`f(monad_map.as_functor(), xs)`) instead of a `remove_cvref_t`
+  incantation. This is `Monad m => Functor m` superclass subsumption
+  paid for with one visible, free call that names which functor is
+  meant.
+- Extend the native-preference discipline from basis members to
+  **every derived member** so the presentation member is
+  optimization-preserving: today `Monad::invoke` and
+  `Applicative::invoke`/`ap` probe for a native Impl version before
+  deriving, but `Functor::replace` derives unconditionally and
+  Applicative's `map`/`lift`/`zip_with`/`discard_*` never probe. With
+  the extension, wrapping only fills gaps and never shadows a better
+  native operation the instance author supplied. What `as_functor()`
+  deliberately does not consult is an unrelated optimized instance
+  registered at `functor_typeclass<T>`: the coherent Functor is the
+  one derived from the object in hand, law-compatible with its `bind`
+  by construction; a caller who wants the registered default says so
+  by looking it up.
 
 Acceptance: `Functor<SomeMonadMap>` compiles and passes functor laws;
 agreement test in `laws.test.cpp`; invariant recorded.
