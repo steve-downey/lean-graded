@@ -838,3 +838,247 @@ single framework question that matches the sentinel/model split decided by
   remains bare, `expected<T, E>` keeps the declared-error lazy spelling path,
   and `Fallible<T, may_fail>` is rejected at the expected cross-model
   boundary.
+
+---
+
+## wording-generation
+
+**Question:** Where does P3200's normative wording come from, and how does it
+reach the paper?
+**Status:** DECIDED 2026-09-03
+**Decision:** The shipping headers are the wording source.
+`beman.specgen` reads each in-scope header on its own and renders mpark/wg21
+markdown fragments into `papers/wording/`; `D3200R0.md` splices them with a
+per-paper pandoc filter, `papers/filters/transclude.py`, selected by
+`papers/defaults.yaml`.
+`make wording` regenerates, `make wording-check` is the drift gate, and the
+fragments are checked in so the paper builds without specgen installed.
+**Why:** Hand-written wording drifts from the reference implementation it
+claims to specify, and the drift is invisible until review. Generating it
+means the paper cannot describe an operation the code does not have.
+Splicing through a per-paper filter keeps the MPark.WG21 subtree unpatched, so
+`git subtree pull` costs nothing.
+**Consequences:** specgen reads only the main file's declaration/comment
+interleave, so each header contributes its own synopsis subclause rather than
+there being one `[transpose.syn]`. Marked-up headers declare members in-class
+and define them out of line, so that a member's wording is placed by the
+definition's lexical position.
+**Log:**
+- 2026-09-03 — Decided, and the pipeline built for the eight in-scope headers.
+- 2026-09-04 — Regenerated against a specgen carrying eight fixes
+  (steve-downey/specgen#1 and #3--#8). The generated wording had been wrong in
+  ways the old tool could not see, and the checked-in fragments carried every
+  one of them: a dozen documented namespace-scope aliases, variable templates
+  and concepts rendered as *empty* code blocks with their descriptions
+  discarded (#1); `\expos` on a namespace-scope alias was inert, so
+  `traverse_context_t` published its underscore spelling rather than
+  `traverse-context-t` (#1 follow-up); `\seebelow` on `recover` was inert
+  against an explicit trailing return type (#6); and `grade_lifted_into_model`
+  published a stray `public:` above a `type` naming an elided private alias,
+  which would not compile if copied (#7). Four error-severity findings and
+  four synopsis defects were fixed in the markup: the `detail` machinery each
+  header declares is now `\omit`ted rather than published as specification
+  (#3 made the leak visible by reporting a qualifier wherever its namespace is
+  declared, not only in the main file), `error_set`'s canonicalizing
+  right-hand side is masked with `\seebelow`, `applicative_eval` gained a
+  namespace-scope spelling under
+  [wording-visible-internals](#wording-visible-internals), and two
+  `// NOLINT` comments stopped rendering into the published `error_set_of`
+  synopsis. Two rules this decision imposed are relaxed: an in-class body is
+  now spliced out of the synopsis whichever entities it names (#5), and a
+  `\rSec` title may wrap across `//` continuation lines (#8).
+- 2026-09-04 — Raised while regenerating and filed as
+  steve-downey/specgen#18: a documented class or class-template *definition*'s
+  own description elements were silently discarded. The `\remarks` on
+  `unit_grade` and on `grade_of`, and the `\mandates` and `\remarks` on
+  `error_set_of`, appeared in no generated fragment, and the authored
+  `\mandates` did not replace the derived one. The silent-drop family #1
+  closed for namespace-scope entities, which the #1 backstop missed because a
+  definition does produce a synopsis.
+- 2026-09-05 — Regenerated against a specgen carrying seven further fixes
+  (steve-downey/specgen#18, #20--#24 and #31). #18 is the one that moved this
+  paper: all four dropped descriptions now render, and `error_set_of`'s
+  authored *Mandates* replaces the derived paragraph, so the canonical-pack
+  requirement the class exists to enforce is finally stated in the terms it was
+  written in. Nothing else in the wording moved, and no new finding appeared.
+  Four of the remaining six fixes address shapes this markup does not have --
+  transpose spells every constraint as a trailing requires-clause rather than
+  in the template head (#20), defines no member in class (#21), declares no
+  deduction guide (#22), and marks no class template `\expos` (#23) -- and #31
+  concerns gathered regions. #24 is the one with leverage: bare `\seebelow`
+  now masks a namespace-scope variable's type, so `applicative_eval` is
+  described as `inline constexpr unspecified applicative_eval;` rather than
+  `\omit`ted, and a name the synopsis puts in front of a reader is one the
+  reader can now look up. Masking a *reference*-typed variable renders a stray
+  `const` and loses a space (steve-downey/specgen#33), so it is declared as a
+  forwarding object rather than a forwarding reference.
+- 2026-09-06 — Regenerated against a specgen carrying seven more fixes
+  (steve-downey/specgen#33--#41 and #47's qualifier normalization). The one
+  that matters is #36: `\expos` now reaches a declaration in an included
+  header, which reverses
+  [wording-visible-internals](#wording-visible-internals) and removes ten
+  namespace-scope spellings the pipeline had added to the library. #33 fixed
+  the reference mask filed from here, though `applicative_eval` stays a
+  forwarding object: it reads as the same thing and there is no reason to churn
+  it back. #47 moved nothing, these headers being west-const throughout. Two
+  new gaps went the other way and are filed rather than worked around:
+  steve-downey/specgen#49, a partial specialization of an `\expos` primary
+  rendering its raw name -- visible in `transpose.errset.recover.md`, where
+  `is_expected_v`'s specialization sits unrenamed under its own
+  `$is-expected-v$` primary -- and steve-downey/specgen#50, `\expos` and
+  `\seebelow` not composing on an alias or a concept, which is what would end
+  the three exposition-only chains that still name an undeclared helper.
+- 2026-09-06 — Rechecked against the next beta (fba1271). Its one functional
+  change is steve-downey/specgen#45, which concerns gathered regions this
+  pipeline does not use, and the generated wording is byte-identical. Two
+  defects found by reading the output rather than by the validator, both filed
+  and neither worked around: steve-downey/specgen#56, a class template's
+  parameter list keeping `std::` in the synopsis while the next line of the
+  same code block drops it -- visible in `transpose.array.syn.md` against
+  `transpose.array.tuple.md` -- and steve-downey/specgen#57, the `--paper`
+  paragraph-number placeholders restarting at `x` in every wording block, which
+  gives `[transpose.grade.syn]` nine paragraphs all numbered `x`. Spelling
+  `size_t` unqualified in `array.hpp` would silence the first, and that is the
+  edit [wording-visible-internals](#wording-visible-internals) now refuses to
+  make: the specification does not get to change the library to suit itself.
+
+- 2026-09-06 — Regenerated against the beta that closes every issue filed from
+  here (steve-downey/specgen#48--#50, #56, #57). All four defects this paper
+  carried are gone: the `[x]` placeholders now run ascending across a whole
+  subclause, so `[transpose.grade.syn]`'s nine paragraphs are `x` through
+  `x+8` rather than nine `x`s; `ArrayApplicativeImpl`'s head reads
+  `template<class T, size_t N>`; and `is_expected_v`'s specialization renders
+  under its primary's exposition name.
+  The markup adapts to two of them rather than only benefiting. #49 lets a
+  specialization follow its `\expos` primary, so the two-case helpers
+  `carrier_value` and `mixes_with_model_impl` are exposed whole instead of
+  `\omit`ted whole -- an exposition-only primary and the specialization
+  carrying the real case, which is what such a helper looks like in the draft.
+  #50 lets `\seebelow` mask an alias's definition under `\expos`, which ends
+  the one chain that does not terminate usefully: `mixed_result_t` now renders
+  `= see below` rather than opening four levels of grade-algebra plumbing to
+  say one thing about a return type. **No raw implementation name reaches the
+  wording any more**, and every exposition-only name in the document is
+  declared in it -- the residue this log recorded on 2026-09-05 is closed.
+  One cosmetic defect remains, filed as steve-downey/specgen#67: an
+  exposition-only rename does not re-flow a continuation line, so the second
+  line of `mixes-with-model`'s definition sits nine columns short of its
+  arguments.
+
+---
+
+## wording-visible-internals
+
+**Question:** specgen refuses to render a declaration that carries a
+`beman::transpose::detail` qualifier. What gives way -- the header layout, or
+the wording?
+**Status:** DECIDED 2026-09-03; reversed 2026-09-05
+**Decision:** The wording. A `detail` entity that appears in a *declaration*
+the specification shows -- a constraint, a template-parameter default, or a
+trailing return type -- is marked `\expos` where it is defined, and its uses
+render as the exposition-only spelling. The header layout is unchanged and the
+namespace is not widened. Machinery below an exposition-only entity is
+`\omit`ted. Bodies keep their `detail` spellings, because a body specgen does
+not render cannot leak.
+The original answer was the header layout, and stood while specgen could not
+read a marker on an entity it was not specifying; the log records the reversal.
+**Why:** A generated specification should not be able to require an edit to
+the thing it specifies. Every forwarding spelling was a public name the library
+did not want, added to satisfy a tool, and the names were real: they changed
+lookup and ADL, and nothing outside the headers ever used them. Marking the
+entity where it lives says the same thing to the reader -- the standard has no
+`detail` namespace, so a declaration that names one is not specification text
+-- and says it without moving anything.
+**Consequences:** the following are `\expos` where they are defined, in
+`beman::transpose::detail` unless noted. Their uses render as the
+exposition-only spelling and no public name is added:
+`is_expected_with_error_v`, `bind_result_t`, `all_declare_v`,
+`declares_or_bare_v`, `all_declare_or_bare_v`, `carrier_value_t`
+(`expected.hpp`); `mixes_with_model`, `mixed_result_t` (`grade.hpp`);
+`error_set_is_canonical_v`, `error_set_names_distinct_v`, `recover_return_t`
+(`error_set.hpp`); and `applicative_eval`, which stays in `beman::transpose`
+under `\seebelow` because the wording describes it rather than only naming it
+(`apply.hpp`). `traverse_context_t`, `is_expected_v` and `error_set_has_v` stay
+where they are: the first two because the wording shows their declarations, and
+`error_set_has_v` because it also answers a language problem -- one spelling of
+the membership constraint usable both in class and on an out-of-line
+definition, where class scope is not in effect.
+Three exposition-only definitions name an entity the document does not declare:
+`carrier_value_t` names `carrier_value`, `mixes_with_model` names
+`mixes_with_model_impl`, and `mixed_result_t` names `mixed_grade_t`. Each is a
+helper whose own definition would drag in more machinery than it settles, and
+the marker that would end the chain -- `\seebelow` on an exposition-only alias
+-- does not compose yet (steve-downey/specgen#50).
+**Log:**
+- 2026-09-03 — Raised while marking up `traverse.hpp`. `\verbatim-itemdecl`
+  was tried first and emits *both* the authored declaration and the parsed
+  one, which is a specgen defect (steve-downey/specgen#4, reproducible in ~15
+  lines). `\verbatim-synopsis` has the same defect, and that is the one that
+  would have mattered: most of the leakage errors here were on the class
+  synopsis, which `\verbatim-itemdecl` does not reach. `\expos` does not
+  remove a `detail` qualifier, since the entity is still in `detail`, and
+  `\seebelow` masks a return type rather than a constraint, so the entity
+  itself has to move or be forwarded. A working `\verbatim-synopsis` plus an
+  authored `\constraints` would have avoided every promotion listed above.
+- 2026-09-04 — The premise has been superseded and the decision is retained
+  anyway. Both verbatim markers now replace the extracted declaration instead
+  of duplicating it (steve-downey/specgen#4), and bare `\seebelow` now reaches
+  an explicit trailing return type (#6), which alone would cover
+  `recover_return_t`, `carrier_value_t`, `bind_result_t` and `mixed_result_t`.
+  So the trigger this entry names has fired: masking a constraint in a
+  synopsis is now possible. It is not being taken, because the way to take it
+  is `\verbatim-synopsis`, and an authored synopsis is a hand-maintained one —
+  reintroducing, for exactly the classes most worth generating, the drift
+  [wording-generation](#wording-generation) exists to prevent. `\seebelow` is
+  being taken where it masks rather than replaces: `error_set`'s
+  canonicalizing right-hand side, and `recover`'s trailing return type, whose
+  marker had been inert since it was written. Unwinding the remaining
+  promotions is a live option and a separate change; the count grew by one
+  first, because `applicative_eval` was leaking through a hole in the leakage
+  checker (#3) rather than being caught and forwarded like its siblings.
+- 2026-09-05 — REVERSED. steve-downey/specgen#36 makes `\expos` reach a
+  declaration in an included header, so the marker can be written on the
+  `detail` entity itself and its uses render as the exposition-only spelling
+  with no qualifier and no finding. That removes the whole reason the header
+  had to give way. Ten forwarding spellings are gone -- six deleted from
+  `expected.hpp`, three moved back into `detail` in `error_set.hpp`, and
+  `carrier_value_t` -- with the uses re-qualified to `detail::`, which is where
+  they were before the pipeline existed. Nothing outside the headers referenced
+  any of them: the one test that touches this machinery
+  (`laws.test.cpp:274-286`) already spelled it `detail::mixes_with_model` and
+  `detail::mixed_result_t`. The wording is better for it, not merely no worse:
+  a constraint that used to name a bare `all_declare_v` now names
+  `$all-declare-v$`, which the same document declares as exposition-only. The
+  issue's own commit message names this project's #3 workaround as the thing
+  that put the entities out of reach, so the reversal is the report closing its
+  own loop.
+- 2026-09-05 — One promotion stops being a bare `\omit`. Bare `\seebelow` now
+  masks a namespace-scope variable's declared type (steve-downey/specgen#24),
+  so `applicative_eval` is described as `inline constexpr unspecified
+  applicative_eval;` instead of being omitted. That is a better answer than
+  either horn of this question: the synopsis shows the name in `ap`'s
+  constraint, and the reader can now find out what it is without the wording
+  claiming a type for it. The rest of the list is unchanged -- masking a
+  variable does not help a trait whose *value* is the point, and
+  `error_set_is_canonical_v` rendered as `unspecified` would be worse than
+  omitted.
+
+---
+
+## wording-spec-names
+
+**Question:** Are the reference implementation's spellings the ones the
+wording should use?
+**Status:** OPEN
+**Decision:** Deferred for R0.
+`Applicative`, `Traversable`, `applicative_typeclass`,
+`OptionalApplicativeMap` and their siblings are implementation names; WG21
+wording is lowercase and would not name a CRTP base this way. The explicit
+object parameter (`this auto&& self`) likewise appears in every generated item
+declaration and would not appear in a specification.
+**Why:** The naming discussion is a paper-level argument, not a markup
+question, and settling it before the mechanism has been reviewed would spend
+the discussion twice. D3200R0 says so in the wording preamble rather than
+shipping the spellings as if they were settled.
+**Log:**
+- 2026-09-03 — Recorded when the wording pipeline landed.

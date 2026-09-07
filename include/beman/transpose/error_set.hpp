@@ -113,6 +113,7 @@ inline constexpr bool type_precedes_v = type_name<LEFT>() < type_name<RIGHT>();
 
 // -- Type list machinery --------------------------------------------------
 
+//! \omit
 template <class... ERRORS>
 struct type_list {};
 
@@ -126,6 +127,7 @@ inline constexpr bool list_contains_v<T, type_list<ERRORS...>> =
 template <class T, class LIST>
 struct list_prepend;
 
+//! \omit
 template <class T, class... ERRORS>
 struct list_prepend<T, type_list<ERRORS...>> {
     using type = type_list<T, ERRORS...>;
@@ -137,11 +139,13 @@ using list_prepend_t = typename list_prepend<T, LIST>::type;
 template <class T, class LIST>
 struct list_remove;
 
+//! \omit
 template <class T>
 struct list_remove<T, type_list<>> {
     using type = type_list<>;
 };
 
+//! \omit
 template <class T, class HEAD, class... TAIL>
 struct list_remove<T, type_list<HEAD, TAIL...>> {
   private:
@@ -157,11 +161,13 @@ struct list_remove<T, type_list<HEAD, TAIL...>> {
 template <class LIST>
 struct list_dedupe;
 
+//! \omit
 template <>
 struct list_dedupe<type_list<>> {
     using type = type_list<>;
 };
 
+//! \omit
 template <class HEAD, class... TAIL>
 struct list_dedupe<type_list<HEAD, TAIL...>> {
     using type =
@@ -172,11 +178,13 @@ struct list_dedupe<type_list<HEAD, TAIL...>> {
 template <class T, class LIST>
 struct list_insert_sorted;
 
+//! \omit
 template <class T>
 struct list_insert_sorted<T, type_list<>> {
     using type = type_list<T>;
 };
 
+//! \omit
 template <class T, class HEAD, class... TAIL>
 struct list_insert_sorted<T, type_list<HEAD, TAIL...>> {
     using type = std::conditional_t<
@@ -188,11 +196,13 @@ struct list_insert_sorted<T, type_list<HEAD, TAIL...>> {
 template <class LIST>
 struct list_sort;
 
+//! \omit
 template <>
 struct list_sort<type_list<>> {
     using type = type_list<>;
 };
 
+//! \omit
 template <class HEAD, class... TAIL>
 struct list_sort<type_list<HEAD, TAIL...>> {
     using type = typename list_insert_sorted<
@@ -223,6 +233,7 @@ consteval auto names_are_distinct() -> bool {
 template <class LIST>
 struct error_set_from_list;
 
+//! \omit
 template <class... ERRORS>
 struct error_set_from_list<type_list<ERRORS...>> {
     using type = error_set_of<ERRORS...>;
@@ -283,153 +294,108 @@ constexpr auto widen_slot(const error_set_of<NARROWER...> &narrower)
     }
 }
 
+/// Whether ERRORS is already canonical -- sorted and deduplicated. Named by
+/// the class's Mandates, which state the requirement in prose.
+//! \expos
+template <class... ERRORS>
+inline constexpr bool error_set_is_canonical_v =
+    std::is_same_v<canonical_t<ERRORS...>, type_list<ERRORS...>>;
+
+/// Whether no two of ERRORS render to the same name. Named by the class's
+/// Mandates.
+//! \expos
+template <class... ERRORS>
+inline constexpr bool error_set_names_distinct_v =
+    names_are_distinct<ERRORS...>();
+
 } // namespace detail
 
-/** The set of error types a computation may raise, at a canonical pack.
- *
- * Write `error_set<...>` rather than naming this template directly: the alias
- * canonicalizes, this template only accepts an already-canonical pack.
- *
- * VALUE-LEVEL INVARIANT: a non-empty witnessed subset of {ERRORS...} -- for
- * each raised type, at most one witness. See
- * docs/decisions.md#error-set-identity (amended) and
- * docs/decisions.md#accumulation-evidence.
- *
- * @tparam ERRORS the alternatives, sorted and deduplicated
- */
+/// Whether T is one of ERRORS. Exposition-only: it exists so that the
+/// membership constraint has one spelling usable both inside the class and on
+/// an out-of-line definition, where class scope is not yet in effect.
+//! \expos
+template <class T, class... ERRORS>
+inline constexpr bool error_set_has_v = (std::is_same_v<T, ERRORS> || ...);
+
+/// The set of error types a computation may raise, at a canonical pack.
+///
+/// Write `error_set<...>` rather than naming this template directly: the
+/// alias canonicalizes, this template only accepts an already-canonical pack.
+///
+/// VALUE-LEVEL INVARIANT: a non-empty witnessed subset of {ERRORS...} -- for
+/// each raised type, at most one witness.
+//! \mandates The pack is canonical: sorted and deduplicated. Spell
+//! `error_set<ERRORS...>`, which canonicalizes, rather than naming this
+//! template directly. No two alternatives render to the same name.
+//! \remarks A value of this type witnesses a non-empty subset of the
+//! alternatives, with at most one witness per raised type. The set says what
+//! a computation may raise; a value records what it did raise.
 template <class... ERRORS>
 class error_set_of {
     static_assert(
-        std::is_same_v<detail::canonical_t<ERRORS...>,
-                       detail::type_list<ERRORS...>>,
+        detail::error_set_is_canonical_v<ERRORS...>,
         "error_set_of requires a canonical (sorted, deduplicated) pack. "
         "Spell error_set<...> instead, which canonicalizes for you.");
     static_assert(
-        detail::names_are_distinct<ERRORS...>(),
+        detail::error_set_names_distinct_v<ERRORS...>,
         "Two distinct error types render to the same name, so the interim "
         "type ordering cannot separate them. The P2830 fallback is valid "
         "only for named types with external linkage and a stable spelling; "
         "this is outside those restrictions.");
 
   public:
-    /** Injection: an error value becomes the set it belongs to, witnessing
-     * exactly that one alternative. */
+    // \ref{transpose.errset.obs}, observers
     template <class ERROR>
-        requires detail::list_contains_v<remove_cvref_t<ERROR>,
-                                         detail::type_list<ERRORS...>>
-    constexpr error_set_of(ERROR &&error) // NOLINT(*-explicit-constructor)
-        : d_witnesses(
-              detail::witness_slot<ERRORS>(std::forward<ERROR>(error))...) {}
+    static constexpr auto contains() noexcept -> bool;
 
-    /** Subsumption: widening along ⊆, and nothing else. A narrower set is
-     * usable wherever a wider one is; there is no conversion the other way,
-     * and none between incomparable sets. Conversion FROM the empty set is
-     * absent on purpose rather than by oversight: ∅ is uninhabited, so no
-     * value ever needs it.
-     *
-     * Every witness the narrower value carries is preserved; slots for
-     * alternatives the narrower type cannot name stay empty.
-     */
+    // \ref{transpose.errset.cons}, constructors
+    template <class ERROR>
+        requires(error_set_has_v<remove_cvref_t<ERROR>, ERRORS...>)
+    constexpr error_set_of(ERROR &&error); /// NOLINT(*-explicit-constructor)
+
     template <class... NARROWER>
         requires(sizeof...(NARROWER) > 0) &&
-                (!std::is_same_v<error_set_of<NARROWER...>, error_set_of>) &&
-                (detail::list_contains_v<NARROWER,
-                                         detail::type_list<ERRORS...>> &&
-                 ...)
+                (!std::is_same_v<error_set_of<NARROWER...>,
+                                 error_set_of<ERRORS...>>) &&
+                (error_set_has_v<NARROWER, ERRORS...> && ...)
     constexpr error_set_of(
-        const error_set_of<NARROWER...> &narrower) // NOLINT(*-explicit-*)
-        : d_witnesses(detail::widen_slot<ERRORS>(narrower)...) {}
+        const error_set_of<NARROWER...> &narrower); /// NOLINT(*-explicit-*)
 
-    /** Membership, for `recover`: is ERROR one of the alternatives? Type
-     * level -- "may raise", not "did raise". */
+    // \ref{transpose.errset.obs}, observers
     template <class ERROR>
-    static constexpr auto contains() noexcept -> bool {
-        return detail::list_contains_v<ERROR, detail::type_list<ERRORS...>>;
-    }
+        requires(error_set_has_v<ERROR, ERRORS...>)
+    constexpr auto holds() const noexcept -> bool;
 
-    /** Whether this value currently witnesses ERROR -- "did raise". */
     template <class ERROR>
-        requires(contains<ERROR>())
-    constexpr auto holds() const noexcept -> bool {
-        return std::get<std::optional<ERROR>>(d_witnesses).has_value();
-    }
+        requires(error_set_has_v<ERROR, ERRORS...>)
+    constexpr auto witness() const -> const std::optional<ERROR> &;
 
-    /** The witness for ERROR, if this value raised it. */
-    template <class ERROR>
-        requires(contains<ERROR>())
-    constexpr auto witness() const -> const std::optional<ERROR> & {
-        return std::get<std::optional<ERROR>>(d_witnesses);
-    }
+    constexpr auto witness_count() const noexcept -> std::size_t;
 
-    /** How many alternatives this value witnesses -- "how many did raise".
-     *
-     * Always at least one, by the class invariant. The short-circuit
-     * applicative object produces exactly one; the accumulating object may
-     * produce more. Public so that a caller can CHECK `visit`'s precondition
-     * rather than trip it: an unenforceable contract that callers cannot
-     * inspect is not a contract, it is a trap.
-     */
-    constexpr auto witness_count() const noexcept -> std::size_t {
-        return (static_cast<std::size_t>(
-                    std::get<std::optional<ERRORS>>(d_witnesses).has_value()) +
-                ... + std::size_t{0});
-    }
-
-    /** Visitation, for `recover`: apply `handler` to the single held witness.
-     *
-     * PRECONDITION: exactly one witness is present, and it is CHECKED. Every
-     * error_set produced by the short-circuit (monad-derived) applicative
-     * object satisfies it -- "short-circuit only ever produces singletons"
-     * (docs/decisions.md#applicative-objects). A witnessed subset with more
-     * than one member, which only the accumulating object produces, has no
-     * single value for `visit` to hand back.
-     *
-     * Violating it is a compile error in a constant expression and stops the
-     * program at runtime. It is NOT a silent pick of the leftmost witness:
-     * the two features that meet here -- multi-witness values and visitation
-     * -- shipped one stage apart, and a quiet wrong answer at that seam would
-     * surface as a dropped error much later, somewhere else.
-     *
-     * For a multi-witness subset use `witness<ERROR>()` per alternative,
-     * guarded by `holds<ERROR>()` or `witness_count()`.
-     */
     template <class HANDLER>
-    constexpr auto visit(HANDLER &&handler) const -> decltype(auto) {
-        return std::visit(std::forward<HANDLER>(handler), to_variant());
-    }
+    constexpr auto visit(HANDLER &&handler) const -> decltype(auto);
 
-    /** Equality: same present set, and equal witnesses. Not a step toward
-     * being a variant competitor -- it is what keeps a graded carrier as
-     * usable as an ungraded one. `expected<T,E>` compares equal whenever E
-     * does, and `expected<T, error_set<...>>` would silently lose that if
-     * this were absent, which would make grading a usability regression at
-     * exactly the point it claims to be additive. Defaulted, so it is
-     * deleted rather than ill-formed when an alternative is not comparable.
-     * The tuple-of-optionals representation makes this fall out of
-     * `std::optional`'s own equality: both empty compares equal, one empty
-     * compares unequal, both present compares the values. See
-     * docs/decisions.md#error-set-identity.
-     */
+    // \ref{transpose.errset.ops}, operations
+    //! \returns `true` if and only if both operands witness the same set of
+    //! alternatives and the corresponding witnesses compare equal.
+    //! \remarks Equality is what keeps a graded carrier as usable as an
+    //! ungraded one: `expected<T, E>` compares equal whenever `E` does, and a
+    //! graded `expected` would silently lose that were this absent. Defaulted,
+    //! so it is deleted rather than ill-formed when an alternative is not
+    //! equality-comparable.
     friend auto operator==(const error_set_of &, const error_set_of &)
         -> bool = default;
 
-    /** Combines with `other` at the SAME grade, left-biased per type: where
-     * both sides witness the same error type, the LEFT (`*this`) witness is
-     * kept. This is the accumulating applicative object's evidence-combining
-     * step; see `error_set_combine` and
-     * docs/decisions.md#accumulation-evidence.
-     */
     constexpr auto combined_with(const error_set_of &other) const
-        -> error_set_of {
-        return error_set_of(
-            combine_witnesses(other, std::index_sequence_for<ERRORS...>{}));
-    }
+        -> error_set_of;
 
   private:
+    //! \omit
     explicit constexpr error_set_of(
         std::tuple<std::optional<ERRORS>...> witnesses)
         : d_witnesses(std::move(witnesses)) {}
 
+    //! \omit
     template <std::size_t... IDX>
     constexpr auto combine_witnesses(const error_set_of &other,
                                      std::index_sequence<IDX...>) const
@@ -440,8 +406,7 @@ class error_set_of {
                  : std::get<IDX>(other.d_witnesses))...};
     }
 
-    /** The single held witness, reinterpreted as a std::variant, for `visit`.
-     * Checks the precondition rather than assuming it: see `visit`. */
+    //! \omit
     constexpr auto to_variant() const -> std::variant<ERRORS...> {
         if (witness_count() != 1) {
             detail::error_set_precondition_violated(
@@ -463,30 +428,149 @@ class error_set_of {
         return *found;
     }
 
+    //! \expos
     std::tuple<std::optional<ERRORS>...> d_witnesses;
 };
 
-/** The empty error set: bottom of the lattice, and uninhabited.
- *
- * A computation graded ∅ raises nothing, so there is no value to hold. Note
- * that ∅ as a *grade* is spelled by the bare value type, not by this
- * (docs/decisions.md#empty-grade-spelling); this type is the lattice bottom
- * and the explicit uniform spelling, never something the framework deduces
- * on a user's behalf.
- */
+// \rSec3[transpose.errset.cons]{Constructors}
+
+//! \constraints `ERROR`, with cv-qualification and references removed, is one
+//! of the alternatives.
+//! \effects Constructs a value witnessing exactly the alternative `ERROR`
+//! names, holding `error` as that witness. Every other slot is empty.
+//! \remarks This is the injection of an error value into the set it belongs
+//! to. It is not explicit: a raised error is usable as the set that may raise
+//! it.
+template <class... ERRORS>
+template <class ERROR>
+    requires(error_set_has_v<remove_cvref_t<ERROR>, ERRORS...>)
+constexpr error_set_of<ERRORS...>::error_set_of(ERROR &&error)
+    : d_witnesses(detail::witness_slot<ERRORS>(std::forward<ERROR>(error))...) {
+}
+
+//! \constraints `NARROWER` is non-empty, names a different set, and every one
+//! of its alternatives is an alternative of `*this`.
+//! \effects Constructs a value witnessing exactly what `narrower` witnesses.
+//! Slots for alternatives `NARROWER` cannot name are empty.
+//! \remarks This is subsumption, and widening along inclusion is the only
+//! conversion there is: there is none in the other direction, and none
+//! between incomparable sets. There is deliberately no conversion from the
+//! empty set, which is uninhabited, so no value ever needs one.
+template <class... ERRORS>
+template <class... NARROWER>
+    requires(sizeof...(NARROWER) > 0) &&
+            (!std::is_same_v<error_set_of<NARROWER...>,
+                             error_set_of<ERRORS...>>) &&
+            (error_set_has_v<NARROWER, ERRORS...> && ...)
+constexpr error_set_of<ERRORS...>::error_set_of(
+    const error_set_of<NARROWER...> &narrower)
+    : d_witnesses(detail::widen_slot<ERRORS>(narrower)...) {}
+
+// \rSec3[transpose.errset.obs]{Observers}
+
+//! \returns `true` if and only if `ERROR` is one of the alternatives.
+//! \remarks This is a type-level question -- what the computation *may*
+//! raise -- not a question about the value.
+template <class... ERRORS>
+template <class ERROR>
+constexpr auto error_set_of<ERRORS...>::contains() noexcept -> bool {
+    return error_set_has_v<ERROR, ERRORS...>;
+}
+
+//! \constraints `ERROR` is one of the alternatives.
+//! \returns `true` if and only if this value witnesses `ERROR`.
+//! \remarks This is a value-level question -- what was actually raised.
+template <class... ERRORS>
+template <class ERROR>
+    requires(error_set_has_v<ERROR, ERRORS...>)
+constexpr auto error_set_of<ERRORS...>::holds() const noexcept -> bool {
+    return std::get<std::optional<ERROR>>(d_witnesses).has_value();
+}
+
+//! \constraints `ERROR` is one of the alternatives.
+//! \returns The witness for `ERROR` if this value raised it, and a disengaged
+//! `optional` otherwise.
+template <class... ERRORS>
+template <class ERROR>
+    requires(error_set_has_v<ERROR, ERRORS...>)
+constexpr auto error_set_of<ERRORS...>::witness() const
+    -> const std::optional<ERROR> & {
+    return std::get<std::optional<ERROR>>(d_witnesses);
+}
+
+//! \returns The number of alternatives this value witnesses.
+//! \remarks Always at least one, by the class invariant. Short-circuiting
+//! composition produces exactly one; accumulating composition may produce
+//! more. It is an observer rather than an implementation detail so that a
+//! caller can check `visit`'s precondition instead of tripping it.
+template <class... ERRORS>
+constexpr auto error_set_of<ERRORS...>::witness_count() const noexcept
+    -> std::size_t {
+    return (static_cast<std::size_t>(
+                std::get<std::optional<ERRORS>>(d_witnesses).has_value()) +
+            ... + std::size_t{0});
+}
+
+//! \expects `witness_count()` is 1.
+//! \effects Invokes `handler` with the single witnessed value.
+//! \returns The result of that invocation.
+//! \remarks The precondition is checked rather than assumed. Every value
+//! produced by short-circuiting composition satisfies it; a subset with more
+//! than one witness, which only accumulating composition produces, has no
+//! single value to hand back, and answering with the leftmost would turn a
+//! dropped error into a quiet wrong answer. For such a value, use `witness`
+//! per alternative, guarded by `holds` or `witness_count`.
+template <class... ERRORS>
+template <class HANDLER>
+constexpr auto error_set_of<ERRORS...>::visit(HANDLER &&handler) const
+    -> decltype(auto) {
+    return std::visit(std::forward<HANDLER>(handler), to_variant());
+}
+
+// \rSec3[transpose.errset.ops]{Operations}
+
+//! \returns A value at the same grade witnessing every alternative either
+//! operand witnesses.
+//! \remarks Combination is left-biased per alternative: where both operands
+//! witness the same error type, `*this`'s witness is kept. This is the
+//! evidence-combining step of accumulating composition.
+template <class... ERRORS>
+constexpr auto
+error_set_of<ERRORS...>::combined_with(const error_set_of &other) const
+    -> error_set_of<ERRORS...> {
+    return error_set_of(
+        combine_witnesses(other, std::index_sequence_for<ERRORS...>{}));
+}
+
+/// The empty error set: bottom of the lattice, and uninhabited.
+///
+/// A computation graded 0 raises nothing, so there is no value to hold. Note
+/// that 0 as a *grade* is spelled by the bare value type, not by this; this
+/// type is the lattice bottom and the explicit uniform spelling, never
+/// something the framework deduces on a user's behalf.
 template <>
 class error_set_of<> {
   public:
+    // \ref{transpose.errset.empty}, the empty error set
+    //! \remarks The empty error set is uninhabited: a computation graded by
+    //! it raises nothing, so there is no value to construct.
     error_set_of() = delete;
 
+    //! \returns `false`.
     template <class ERROR>
     static constexpr auto contains() noexcept -> bool {
         return false;
     }
 };
 
-/** The canonicalizing spelling of an error set: sorted and deduplicated, so
- * that `error_set<A,B>` and `error_set<B,A>` denote the same type. */
+// \rSec3[transpose.errset.empty]{The empty error set}
+
+//! \seebelow
+//! \remarks `error_set<ERRORS...>` is the canonicalizing spelling of an
+//! error set: the pack is sorted and deduplicated, so `error_set<A, B>` and
+//! `error_set<B, A, A>` denote the same type. A grade is therefore normalized
+//! by type identity, not by source spelling or alternative position, and
+//! every inclusion has one canonical target.
 template <class... ERRORS>
 using error_set =
     typename detail::error_set_from_list<detail::canonical_t<ERRORS...>>::type;
@@ -496,8 +580,10 @@ using error_set =
 // registration; that indirection arrives with the grade concept. Here they
 // are the native API of the model itself.
 
-/** Join: set union. Canonicalization reduces it to pack concatenation, which
- * is the whole payoff of making error_set canonical. */
+// \rSec3[transpose.errset.lattice]{Lattice operations}
+
+//! \remarks `error_set_join<LEFT, RIGHT>::type` is the union of two error
+//! sets. Canonicalization reduces the union to pack concatenation.
 template <class LEFT, class RIGHT>
 struct error_set_join;
 
@@ -509,11 +595,14 @@ struct error_set_join<error_set_of<LEFT...>, error_set_of<RIGHT...>> {
 template <class LEFT, class RIGHT>
 using error_set_join_t = typename error_set_join<LEFT, RIGHT>::type;
 
-/** Bottom: the identity of join. */
+//! \remarks `error_set_bottom` is the identity of join: the empty set.
 using error_set_bottom = error_set<>;
 
-/** Order: LEFT ⊆ RIGHT, which by order-from-join is join(LEFT,RIGHT) == RIGHT.
- */
+//! \remarks `error_set_subsumes_v<LEFT, RIGHT>` is `true` when every
+//! alternative of `LEFT` is an alternative of `RIGHT`. By order-from-join
+//! this holds exactly when the join of `LEFT` and `RIGHT` is `RIGHT`, so the
+//! only implicit widenings are subset inclusions: an error set can widen to a
+//! superset and never the other way.
 template <class LEFT, class RIGHT>
 inline constexpr bool error_set_subsumes_v = false;
 
@@ -528,9 +617,12 @@ inline constexpr bool
 // is a semigroup on the witnessed evidence, which is what this section
 // supplies. See docs/decisions.md#accumulation-evidence.
 
-/** Combines two witnessed subsets at the SAME grade, left-biased per type:
- * see `error_set_of::combined_with`. Free-function spelling to match
- * `error_set_join` / `error_set_bottom` / `error_set_subsumes_v` above. */
+//! \effects-equiv
+//! \returns The combination of `lhs` and `rhs` at their common grade.
+//! \remarks Combination is left-biased per alternative: where both operands
+//! witness the same error type, `lhs`'s witness is kept. The type-level join
+//! above is a commutative union and needs no semigroup; this value-level
+//! combination is what the accumulating applicative object uses.
 template <class... ERRORS>
 constexpr auto error_set_combine(const error_set_of<ERRORS...> &lhs,
                                  const error_set_of<ERRORS...> &rhs)
@@ -674,11 +766,6 @@ template <class HANDLER, class VALUE, class GRADE, class... HANDLED>
 using recover_final_grade_t =
     typename recover_final_grade<HANDLER, VALUE, GRADE, HANDLED...>::type;
 
-template <class HANDLER, class VALUE, class GRADE, class... HANDLED>
-using recover_return_t =
-    rebind_grade_t<VALUE,
-                   recover_final_grade_t<HANDLER, VALUE, GRADE, HANDLED...>>;
-
 // -- Value level: carrying witnesses forward through the PUBLIC API only ---
 // No private access, no friendship: exactly the injecting constructor and
 // `combined_with` that any user of error_set already has. This is what makes
@@ -740,28 +827,37 @@ constexpr void apply_handler(HANDLER &handler, std::optional<VALUE> &recovered,
     }
 }
 
+/// The type `recover` returns: the computation re-indexed at the narrowed
+/// grade. Named by `recover`'s definition; the declaration masks it and the
+/// wording states the narrowing in prose.
+//! \expos
+template <class HANDLER, class VALUE, class GRADE, class... HANDLED>
+using recover_return_t =
+    rebind_grade_t<VALUE,
+                   recover_final_grade_t<HANDLER, VALUE, GRADE, HANDLED...>>;
+
 } // namespace detail
 
-/** Recovers from the HANDLED error types in a witnessed value, narrowing the
- * grade to `(e \ HANDLED) ∪ raised` -- see the section comment above for
- * the annotate-and-check story and docs/decisions.md#recover-grade-inference.
- *
- * `handler` is invoked, per docs/decisions.md#multi-witness-elimination, as a
- * static fold over HANDLED with runtime presence filtering: for each H in
- * HANDLED that `computation`'s error currently witnesses, `handler` receives
- * that witness. It returns either VALUE (unconditional recovery) or
- * `std::expected<VALUE, error_set<...>>` (the recovery attempt can itself
- * raise). Witnesses for types outside HANDLED, and any raised by a handler
- * call, survive into the result unchanged -- "set-difference at the value
- * level" (docs/decisions.md#accumulation-evidence): recovering type A from a
- * value that raised {a,b} leaves {b}, still an error. Overall success
- * requires EVERY present witness to end up recovered -- "empty means
- * success."
- *
- * If more than one HANDLED type is witnessed simultaneously and every one of
- * them independently recovers to a VALUE, the leftmost by canonical order
- * wins, matching `error_set_of::combined_with`'s own tie-break.
- */
+// \rSec3[transpose.errset.recover]{recover}
+
+//! \seebelow
+//! \mandates `HANDLED` is not empty; every type in `HANDLED` is one of the
+//! computation's alternatives; and for each such type `handler` returns
+//! either `VALUE` or a `std::expected<VALUE, error_set<...>>`.
+//! \effects For each type in `HANDLED` that the computation's error
+//! witnesses, invokes `handler` with that witness. A handler either recovers
+//! a value or raises an error set of its own. Witnesses for types outside
+//! `HANDLED`, and any a handler raises, survive into the result.
+//! \returns The computation at the narrowed grade: the alternatives it may
+//! raise, less those handled, plus any a handler raises. The result holds a
+//! value when every witness present was recovered, and otherwise the
+//! surviving witnesses.
+//! \remarks The handled set is annotated rather than inferred: it is given
+//! as explicit template arguments and checked against the computation's
+//! grade. Recovering one alternative from a value that raised two leaves the
+//! other, which is still an error. If more than one handled type is
+//! witnessed and each independently recovers a value, the first in canonical
+//! order is the result, matching the tie-break of `combined_with`.
 template <class... HANDLED, class VALUE, class... ERRORS, class HANDLER>
 constexpr auto
 recover(const std::expected<VALUE, error_set_of<ERRORS...>> &computation,
@@ -827,16 +923,20 @@ recover(const std::expected<VALUE, error_set_of<ERRORS...>> &computation,
 // needs nothing from here -- which is the claim the law harness exists to
 // test (docs/decisions.md#grade-generality).
 
-namespace detail {
-
+/// Whether T is a specialization of std::expected. Exposition-only: it is
+/// named by the re-indexing constraints below and by the expected instance's
+/// own, where a `detail`-qualified spelling would reach the wording.
+//! \expos
 template <class T>
 inline constexpr bool is_expected_v = false;
 
+//! \also
 template <class VALUE, class ERROR>
 inline constexpr bool is_expected_v<std::expected<VALUE, ERROR>> = true;
 
-} // namespace detail
-
+//! \remarks `error_set_model` names the model that the error-set grades
+//! belong to. It is what makes two grades comparable: grades of different
+//! models do not mix.
 struct error_set_model {};
 
 template <class... ERRORS>
@@ -889,7 +989,7 @@ struct rebind_grade<std::expected<VALUE, ERROR>, error_set_of<HEAD, TAIL...>> {
  * carrier: the ∅ fiber is the ungraded type itself, so this is where a
  * pipeline first acquires an error alternative. */
 template <class VALUE, class HEAD, class... TAIL>
-    requires(!detail::is_expected_v<VALUE>)
+    requires(!is_expected_v<VALUE>)
 struct rebind_grade<VALUE, error_set_of<HEAD, TAIL...>> {
     using type = std::expected<VALUE, error_set_of<HEAD, TAIL...>>;
 };
@@ -903,7 +1003,7 @@ struct rebind_grade<VALUE, error_set_of<HEAD, TAIL...>> {
  * materializes it on a user's behalf.
  */
 template <class VALUE>
-    requires(!detail::is_expected_v<VALUE>)
+    requires(!is_expected_v<VALUE>)
 struct rebind_grade<VALUE, error_set_of<>> {
     using type = VALUE;
 };

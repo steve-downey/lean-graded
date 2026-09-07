@@ -1,118 +1,21 @@
-PYEXECPATH ?= $(shell which python3.13 || which python3.12 || which python3.11 || which python3.10 || which python3)
-PYTHON ?= $(notdir $(PYEXECPATH))
-UV ?= $(shell command -v uv 2> /dev/null)
+ifeq ($(lastword $(MAKEFILE_LIST)),$(firstword $(MAKEFILE_LIST)))
+include flat.mk
 
-SRCDIR ?= .
-OUTDIR ?= generated
+$(OUTDIR)/MANUAL.render.md: MANUAL.md $(DATADIR)/filters/render.py $(PANDOC_DIR) $(PYTHON_DIR) | $(OUTDIR)
+	pandoc $< -o $@ --standalone --filter $(DATADIR)/filters/render.py
 
-DEFAULTS ?= $(wildcard $(SRCDIR)/defaults.yaml)
-METADATA ?= $(wildcard $(SRCDIR)/metadata.yaml)
+$(OUTDIR)/MANUAL.html $(OUTDIR)/MANUAL.latex $(OUTDIR)/MANUAL.pdf: $(OUTDIR)/MANUAL.render.md $(DEPS) | $(OUTDIR)
+	$(PANDOC)
 
-override SRC := $(filter-out %/LICENSE.md %/README.md, $(wildcard $(SRCDIR)/*.md))
+.PHONY: check
+check:
+	@$(MAKE) -C tests check
+else
+override THIS_FILE := $(lastword $(MAKEFILE_LIST))
+override THIS_DIR := $(dir $(THIS_FILE))
+override INCLUDED_FROM := $(lastword $(filter-out $(THIS_FILE),$(MAKEFILE_LIST)))
 
-override HTML := $(SRC:.md=.html)
-override LATEX := $(SRC:.md=.latex)
-override PDF := $(SRC:.md=.pdf)
+$(warning $(INCLUDED_FROM) includes deprecated $(THIS_FILE); include $(THIS_DIR)flat.mk or $(THIS_DIR)paper.mk instead. See https://mpark.github.io/wg21/MANUAL.html#project-layouts)
 
-override ROOTDIR := $(dir $(lastword $(MAKEFILE_LIST)))
-
-override DEPSDIR := $(ROOTDIR)deps
-
-override PANDOC_VER := $(shell cat $(DEPSDIR)/pandoc.ver)
-override PANDOC_DIR := $(DEPSDIR)/pandoc/$(PANDOC_VER)
-override PYTHON_DIR := $(DEPSDIR)/python
-override PYTHON_BIN := $(PYTHON_DIR)/bin/python3
-
-export SHELL := bash
-export PATH := $(PANDOC_DIR):$(PYTHON_DIR)/bin:$(PATH)
-
-override DEPS := $(PANDOC_DIR) $(PYTHON_DIR)
-
-override DATADIR := $(ROOTDIR)data
-
-override define PANDOC
-$(eval override FILE := $(filter %.md, $^))
-$(eval override CMD := pandoc $(FILE) -o $@ -d $(DATADIR)/defaults.yaml)
-$(eval $(and $(DEFAULTS), override CMD += -d $(DEFAULTS)))
-$(eval $(and $(METADATA), override CMD += --metadata-file $(METADATA)))
-$(if $(filter %.html, $@),
-  $(eval override TOCDEPTH := $(shell $(PYTHON_BIN) $(DATADIR)/toc-depth.py < $(FILE)))
-  $(eval $(and $(TOCDEPTH), override CMD += --toc-depth $(TOCDEPTH))))
-$(CMD)
-endef
-
-override DEPS += $(addprefix $(DATADIR)/, defaults.yaml csl.json annex-f)
-$(eval $(and $(DEFAULTS), override DEPS += $(DEFAULTS)))
-$(eval $(and $(METADATA), override DEPS += $(METADATA)))
-
-.PHONY: all
-all: $(PDF)
-
-.PHONY: html
-html: $(HTML)
-
-.PHONY: latex
-latex: $(LATEX)
-
-.PHONY: pdf
-pdf: $(PDF)
-
-ifneq ($(SRCDIR), $(OUTDIR))
-.PHONY: clean
-clean:
-	rm -rf $(OUTDIR) $(DATADIR)/defaults.yaml $(DATADIR)/csl.json $(DATADIR)/annex-f
-
-.PHONY: realclean
-realclean: clean
-	rm -rf $(DEPSDIR)/pandoc $(PYTHON_DIR)
-
-.PHONY: $(HTML) $(LATEX) $(PDF)
-$(HTML) $(LATEX) $(PDF): $(SRCDIR)/%: $(OUTDIR)/%
+include $(THIS_DIR)flat.mk
 endif
-
-ifeq ($(UV),)
-define install_uv_cmd
-pipx install uv
-endef
-
-define uv_error_message
-
-'uv' command not found.
-Please install uv or set the UV variable to the path of the uv binary.
-The makefile target "install-uv" will run ``$(install_uv_cmd)''
-endef
-
-$(warn "$(uv_error_message)")
-endif
-
-.PHONY: update
-update:
-	@$(MAKE) --always-make $(DATADIR)/csl.json $(DATADIR)/annex-f
-
-$(OUTDIR):
-	mkdir -p $@
-
-$(PANDOC_DIR):
-	PANDOC_VER=$(PANDOC_VER) PANDOC_DIR=$@ $(DEPSDIR)/install-pandoc.sh
-
-$(PYTHON_DIR): $(DEPSDIR)/requirements.txt
-	$(UV) venv --python $(PYTHON) $(PYTHON_DIR)
-	$(UV) pip install --python $(PYTHON_BIN) --upgrade pip
-	$(UV) pip install --python $(PYTHON_BIN) -r $<
-	touch $(PYTHON_DIR)
-
-$(DATADIR)/defaults.yaml: $(DATADIR)/defaults.sh
-	DATADIR=$(abspath $(DATADIR)) $< > $@
-
-$(DATADIR)/csl.json: $(DATADIR)/refs.py $(PYTHON_DIR)
-	$(PYTHON_BIN) $< > $@
-
-$(DATADIR)/annex-f:
-	curl -sSL https://timsong-cpp.github.io/cppwp/annex-f -o $@
-
-$(OUTDIR)/%.html $(OUTDIR)/%.latex $(OUTDIR)/%.pdf: $(SRCDIR)/%.md $(DEPS) | $(OUTDIR)
-	$(PANDOC) --bibliography $(DATADIR)/csl.json
-
-.PHONY: install-uv
-install-uv: ## install uv via `pipx install uv`
-	$(install_uv_cmd)

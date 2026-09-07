@@ -53,3 +53,9 @@ repos:
     hooks:
       # Use this hook to let pre-commit build checkmake in its sandbox
       - id: checkmake
+        # checkmake does not follow `include`, so it cannot see that
+        # papers/Makefile gets `all` and `clean` from wg21/flat.mk.
+        exclude: >
+          (?x)^(
+            papers/.*
+          )$

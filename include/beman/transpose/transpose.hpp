@@ -39,17 +39,20 @@
 
 namespace beman::transpose {
 
-/** @brief Transposes a structure of contextual values into a contextual
- *         structure, preserving shape: `structure<context<T>>` becomes
- *         `context<structure<T>>`.
- *
- * Equivalent to `traverse(identity, value)`; the applicative context is
- * inferred from the structure's element type.
- *
- * @param value  A traversable structure whose elements are an applicative
- *               context (e.g. `std::vector<std::optional<T>>`).
- * @return       The single outer context holding the structure.
- */
+// \rSec3[transpose.alg.transpose]{transpose}
+
+//! \constraints `traversable_typeclass` names a traversable object for
+//! `value`'s type, and `applicative_typeclass` names an applicative object
+//! for that structure's element type.
+//! \effects Equivalent to traversing `value` with the identity function: a
+//! structure of contextual values, `structure<context<T>>`, becomes a single
+//! contextual value of the structure, `context<structure<T>>`, preserving
+//! shape. The applicative object is inferred from the structure's element
+//! type.
+//! \returns That single contextual value.
+//! \complexity Linear in the number of elements of `value`.
+//! \remarks Elements are visited in the structure's iteration order, and
+//! their contexts are composed in that same order.
 template <class T>
 auto transpose(T &&value) {
     const auto &map = traversable_typeclass<remove_cvref_t<T>>;

@@ -98,6 +98,11 @@ C++23) and consumable via `find_package`/`add_subdirectory`.
 ## Provenance
 
 The traversal machinery was extracted and renamed from the `trees` pedagogy
-repository; see [`docs/provenance.md`](docs/provenance.md). The vendored WG21
-paper framework lives under `papers/wg21`; the `infra/` directory is vendored
-from the [Beman Project infra](https://github.com/bemanproject/infra).
+repository; see [`docs/provenance.md`](docs/provenance.md). The WG21 paper
+framework, [MPark.WG21](https://github.com/mpark/wg21), is a squashed subtree
+under `papers/wg21`, with the papers beside it in `papers/`; the `infra/`
+directory is vendored from the
+[Beman Project infra](https://github.com/bemanproject/infra).
+
+P3200's wording is generated from the headers rather than written by hand; see
+[`docs/wording-pipeline.md`](docs/wording-pipeline.md).
