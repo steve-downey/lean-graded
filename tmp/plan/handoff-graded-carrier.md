@@ -2,29 +2,24 @@
 
 Goal and merge criterion: fixed by `step-graded-carrier.md`.
 
-## `make verify`'s error-grep is naive — give every new file a module doc-string
+## Give every new file a module doc-string
 
-`make verify` does `lake build > build.log 2>&1 || exit 1` **and separately**
-`grep -q "error" build.log && exit 1`, unconditionally, even when `lake`
-itself exits 0. Mathlib's style linter (`linter.style.header`) fires a
-warning whenever a file's *module*-level doc-string (`/-!  ... -/`,
-distinct from a `/-- ... -/` attached to one declaration) isn't the first
-command right after the imports, and that warning's text quotes back a
-chunk of the following code. Your step's own docstring text — "a value of
-type `α`, or one **error** `e`..." — contains the literal word "error", so
-if you skip the module doc-string, that word lands in build.log via the
-warning and `make verify` fails even though the build succeeded (you'll
-see "Build completed successfully (N jobs)" right above the false
-failure). I hit this in `Graded/Grade.lean` and `Tests/Grade.lean`.
+Mathlib's style linter (`linter.style.header`) fires a warning whenever a
+file's *module*-level doc-string (`/-!  ... -/`, distinct from a `/-- ... -/`
+attached to one declaration) isn't the first command right after the
+imports. Give **every** new `.lean` file (`Graded/Carrier.lean`,
+`Examples/Validation.lean`, `Tests/Carrier.lean`) one, as the very next
+command after its imports and before `namespace ...` — mirror
+`Graded/Prelude.lean`'s shape. I had to add them to `Graded/Grade.lean` and
+`Tests/Grade.lean`.
 
-Fix, not workaround: give **every** new `.lean` file (`Graded/Carrier.lean`,
-`Examples/Validation.lean`, `Tests/Carrier.lean`) a `/-! ... -/` module
-doc-string as the very next command after its imports, before
-`namespace ...` — mirror `Graded/Prelude.lean`'s existing shape. That
-silences the linter at its source (no warning fires at all, so nothing
-gets quoted into build.log) rather than avoiding the word "error" in
-prose, which you shouldn't have to do. The Makefile is out of scope for
-you too; don't touch it.
+(Historical note, in case you see it referenced elsewhere: this warning used
+to *fail* `make verify`, because the recipe also grepped build.log for the
+string "error" and the linter's warning text quotes back the code it is
+complaining about — docstrings in this project say "error" constantly. The
+orchestrator removed that grep after my step; `lake`'s exit status is now
+the signal. So a missing module doc-string is a warning you should fix, not
+a build failure. The Makefile is out of scope for you; don't touch it.)
 
 ## A step-file identifier is stale for this Mathlib pin: `Finset.not_mem_empty`
 
@@ -42,7 +37,7 @@ follow the same pattern I used for `Finset.empty_union`/`union_empty`
 
 ## `docs/design.md#grade` is filled
 
-`Graded.Grade`, `Grade.bot`, `Grade.join` and all eleven named lemmas
+`Graded.Grade`, `Grade.bot`, `Grade.join` and all thirteen named lemmas
 (`join_assoc`, `join_comm`, `join_idem`, `bot_join`, `join_bot`,
 `le_join_left`, `le_join_right`, `join_le`, `join_mono`, `le_refl'`,
 `le_trans'`, `bot_le`, `join_eq_right_of_le`) exist in `Graded/Grade.lean`
