@@ -11,7 +11,7 @@ blog series; see `docs/RULES.md#letter-template`.
 ## Why
 
 Each letter was written by the worker who did the step, when it knew
-what the checker refused. That gives thirteen honest letters and no
+what the checker refused. That gives sixteen honest letters and no
 series: no consistent addressee voice, no cross-references, no arc, no
 index, and possibly two letters that explain `DecidableEq` from
 scratch. This step turns them into a series for a Lean-naive reader
@@ -26,9 +26,16 @@ every letter, once, as a bounded exception like the integration review.
 
 ## The change
 
-1. Read all letters once. Fix the addressee everywhere to the one in
-   `docs/design.md#blog-series` (if still provisional, keep "Dear
-   colleague" and leave the mark).
+1. Read all letters once. The addressee is **already decided and already
+   applied**: `"Steve,"` with the signature `"--SMD"`, set by the author
+   in an editorial pass over all sixteen letters
+   (`docs/design.md#blog-series`, no longer provisional). **Do not change
+   it, and do not reapply the old "Dear colleague" / "— Steve" form** —
+   that placeholder is gone by decision, and an earlier revision of this
+   step told you to restore it from the living doc. The same pass replaced
+   em-dashes with colons, parentheses or full stops; that is the series
+   register, so anything you write must match it. Do not reintroduce
+   em-dashes in `closing.org` or `index.org`.
 2. Assign order and numbers: `#+TITLE: Letter <n>: …` in checklist
    order, with [baseline-capture] as Letter 0. Add `#+SERIES_PREV` /
    `#+SERIES_NEXT` slugs.
@@ -41,8 +48,10 @@ every letter, once, as a bounded exception like the integration review.
    on a finding, the later one wins and the earlier gets a one-line
    bracketed note "[Later: see Letter n]" — that is the epistolary form
    doing its job.
-4. Write `blog/letters/closing.org`: "Letter 14: What I'd tell the
-   committee". From `docs/design.md#laws-inventory`: the properties
+4. Write `blog/letters/closing.org`: "Letter 17: What I'd tell the
+   committee" (there are sixteen letters, numbered 0 through 16, so the
+   closing letter is 17 — an earlier revision of this step said 14, from
+   before three steps were added to the plan). From `docs/design.md#laws-inventory`: the properties
    table in prose, the at-most-one-error condition, the linear-order
    finding, and the one paragraph on whether writing it twice was worth
    it — written for the same reader, not as a paper abstract. Four
@@ -120,7 +129,7 @@ git add -A
 git commit -F- << 'MSG'
 blog-series-edit: order, index and continuity pass over the letters; closing letter
 
-Turns thirteen per-step letters into a series for a Lean-naive
+Turns sixteen per-step letters into a series for a Lean-naive
 reader without altering any finding. This is the one step allowed to
 read every letter, once. Contradictions between letters are annotated,
 not resolved, because the letters are the record of what was learned

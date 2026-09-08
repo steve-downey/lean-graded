@@ -1700,8 +1700,14 @@ depends on it.
 
 ## blog-series
 
-Addressee: "Dear colleague" (a working C++ programmer who has never opened
-Lean).
+Addressee: **"Steve,"**, signed **"--SMD"**. The letters are notes
+addressed to the author, not to a third party; the reader they are *written
+for* is unchanged — a working C++ programmer who has never opened Lean —
+but the second person in them is the author himself. Decided 2026-09-08 by
+the author, in an editorial pass over all sixteen letters (commit
+`e1fa465`), which also replaced em-dashes with colons, parentheses or full
+stops throughout. That pass is the register for the series; later letters
+should match it rather than the earlier "Dear colleague" / "— Steve" form.
 
 Letters directory: `blog/letters/`, one `<slug>.org` per step, per the
 template in `docs/RULES.md#letter-template`.
@@ -1710,9 +1716,10 @@ Ordering and index: not decided here. [blog-series-edit] assembles the
 reading order and the index page from the letters this plan produces; this
 step writes only letter 0 (`blog/letters/baseline-capture.org`).
 
-> **Provisional.** The addressee name "Dear colleague" is a placeholder.
-> Revisit when [blog-series-edit] picks a final voice for the series, or
-> sooner if a letter reads awkwardly addressed this way.
+**Decided, no longer provisional.** The placeholder "Dear colleague" was
+replaced by the author on 2026-09-08; [blog-series-edit] must preserve
+"Steve," / "--SMD" and must not reapply the placeholder from this anchor's
+earlier text.
 
 ## provisional-decisions
 
@@ -1720,7 +1727,6 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 
 - [#toolchain](#toolchain) — build-time numbers are machine- and
   network-dependent.
-- [#blog-series](#blog-series) — addressee name "Dear colleague".
 - [#obligations](#grade-join-strength) — **OPEN question**
   `grade-join-strength`: whether a grade's join must be a least upper
   bound. Under the stronger reading `join_idem` is a theorem, not an
