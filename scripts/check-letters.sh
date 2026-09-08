@@ -2,8 +2,10 @@
 # For every "- [x] N. [slug]" line in tmp/plan/checklist.md, require
 # blog/letters/<slug>.org to exist and contain the four required headings.
 # baseline-capture is exempt from the "What the checker refused" heading.
-# blog-series-edit is exempt entirely (its output is the index and the
-# closing letter, not a per-step letter).
+# blog-series-edit and integration-review are exempt entirely: neither
+# produces a per-step letter. blog-series-edit's output is the index and
+# the closing letter; integration-review is a consult whose output is the
+# review itself.
 #
 # Separately, require blog/letters/index.org to exist and to mention the
 # slug of every *.org file in blog/letters/ (except index.org itself), so
@@ -25,9 +27,11 @@ while IFS= read -r line; do
 	slug=$(printf '%s\n' "$line" | sed -nE 's/^- \[x\] [0-9]+\. \[([a-z0-9-]+)\].*/\1/p')
 	[ -n "$slug" ] || continue
 
-	if [ "$slug" = "blog-series-edit" ]; then
+	case "$slug" in
+	blog-series-edit | integration-review)
 		continue
-	fi
+		;;
+	esac
 
 	letter="${letters_dir}/${slug}.org"
 	[ -f "$letter" ] || fail "missing letter: $letter"
