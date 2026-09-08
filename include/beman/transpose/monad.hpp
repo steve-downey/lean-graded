@@ -5,6 +5,7 @@
 
 #include <beman/transpose/apply.hpp>
 #include <beman/transpose/detail/typeclass_base.hpp>
+#include <beman/transpose/functor.hpp>
 #include <beman/transpose/grade.hpp>
 
 #include <concepts>
@@ -233,6 +234,25 @@ struct Monad : protected Impl {
     template <class MONAD_MAP, class MA, class F>
     auto bind_with(this auto &&, const MONAD_MAP &monad_map, MA &&ma, F &&f) {
         return monad_map.bind(std::forward<MA>(ma), std::forward<F>(f));
+    }
+
+    /** The full Functor instance over this monad object.
+     *
+     * Every typeclass object is stateless and empty, so constructing the
+     * full instance and "converting" are the same free type-level move.
+     * This is `Monad m => Functor m` superclass subsumption, paid for with
+     * one visible call that names which functor is meant, instead of a
+     * remove_cvref_t incantation at the call site:
+     *
+     *     f(monad_map.as_functor(), xs);
+     *
+     * The functor it returns is the one derived from the object in hand,
+     * law-compatible with that object's bind by construction. It
+     * deliberately does NOT consult functor_typeclass<T>: a caller who
+     * wants the registered default says so by looking it up.
+     */
+    constexpr auto as_functor(this auto &&self) {
+        return Functor<remove_cvref_t<decltype(self)>>{};
     }
 
   private:
