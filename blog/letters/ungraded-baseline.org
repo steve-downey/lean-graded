@@ -1,0 +1,105 @@
+#+TITLE: Letter 14: What grading actually costs
+#+DATE: 2026-09-08
+#+CATEGORY: lean-transpose
+#+STEP: ungraded-baseline
+
+Dear colleague,
+
+* What I set out to do
+
+Every letter so far has told you which property of the error set — unit,
+associativity, idempotence — some law's proof needed. What none of them
+told you is whether that property was a cost of *grading*, or just a cost
+of having a monad at all, the kind any =expected=-returning code pays
+whether or not it tracks which errors it can throw. I'd been writing down
+one number when the honest picture needs two, and I only noticed because
+an earlier result got briefly misread as "graded composition is broken"
+when the real finding was "flattening two nested =expected=\ s is broken,
+whether or not you're tracking error sets." I wanted a column that would
+have caught that the first time, not after the fact.
+
+The idea is simple: pick one error set and hold it fixed everywhere.
+Write the same laws down again using nothing else. Whatever's left over
+in the *statement* is what grading costs; whatever survives from the
+*proof* even so is what a plain, ungraded monad costs regardless.
+
+* What the checker refused
+
+My first attempt at "sequence, then combine" for the fixed-grade case
+looked like this:
+
+#+begin_src lean
+def bindF (x : Graded g α) (f : α → Graded g β) : Graded g β :=
+  cast (Grade.join_idem g) (bind x f)
+#+end_src
+
+=bind= itself always returns the *union* of the two error sets it
+touched; here both sides are the same set =g=, so the union is =g ∪ g=,
+and =Grade.join_idem= is the fact that a set unioned with itself is
+itself — I'm just telling Lean to read the result back at the plain =g=
+it already secretly is. Fine so far. Where I got tripped up was writing
+the four laws that follow from this: Lean kept losing track of what type
+a bare =pureF f= was supposed to be, in the middle of a longer expression,
+and complained about a completely unrelated-looking typeclass search
+instead of the real problem. The fix was mechanical once I found it —
+say explicitly what type each fixed-grade value lives at, the way you'd
+write out a template argument by hand when a compiler's deduction gives
+up — but it cost real time chasing an error message that pointed
+somewhere it wasn't.
+
+The more interesting refusal was one I expected and got wrong about the
+size of. I assumed sequencing three fixed-grade computations in a row
+would still need "the union doesn't care how you parenthesize it" — the
+same fact ordinary =bind= needs for three *different* error sets. It
+doesn't:
+
+#+begin_src lean
+theorem bindF_assoc (x : Fixed g α) (f : α → Fixed g β) (k : β → Fixed g γ) :
+    bindF (bindF x f) k = bindF x (fun a => bindF (f a) k) := by
+  cases x with
+  | ok a => rw [bindF_ok a f, bindF_ok a (fun a => bindF (f a) k)]
+  | err e he => rw [bindF_err e he f, bindF_err e he k, bindF_err e he (fun a => bindF (f a) k)]
+#+end_src
+
+Once every error set in sight is the *same* set, "does it fail" collapses
+the whole expression to one of two shapes — the payload, or the error —
+before there's anything left to re-associate. Associativity, the
+property I'd have bet on needing, simply isn't spent. Only the
+"union with itself is itself" fact ever gets cited, and only inside the
+two small helper facts (=bindF_ok=, =bindF_err=) that say how a fixed-
+grade sequence computes at all.
+
+* What changed
+
+Every one of the ordinary monad and applicative laws — "putting a value
+in and immediately taking it back out changes nothing," "it doesn't
+matter how you group three sequential steps," "applying a function to an
+argument, one at a time, is the same as applying it to both at once" —
+came out with *no* mention of an error set anywhere in its statement.
+Compare that to every earlier letter, where the statement itself carried
+a =cast= transporting one union expression to another. That absence is
+the whole finding: a program with exactly one error type never sees any
+of that arithmetic, because there's only ever one set to union with
+itself, and a set unioned with itself is itself. What survived, in every
+proof, was exactly that one fact and nothing else — and I checked the
+one place a genuine ungraded library (Lean's own math library has a
+built-in "value or one error" type) already proves the matching laws,
+and the two line up, operation for operation, once you account for the
+fact that my error type additionally has to know *which* set it belongs
+to and Mathlib's doesn't need to ask.
+
+* Back in C++
+
+If your code only ever declares one error type, everything I've told you
+about =error_set= arithmetic in the last thirteen letters is invisible to
+you — every law you already believed about =expected= and =and_then=
+still holds, because there was never a second error set for a union to
+disagree with. The cost shows up the moment two different pieces of code,
+each honest about their own narrow error type, meet and have to be
+combined — that's the only place a union stops being "the same set
+twice" and starts being real bookkeeping. Everything in these letters
+about what a union needs to be well-behaved is exactly, and only, the
+price of that meeting.
+
+Yours,
+Steve

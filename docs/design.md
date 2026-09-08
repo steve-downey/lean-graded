@@ -1110,6 +1110,186 @@ under the names the step brief expected; `Finset.sort`'s default relation
 argument was confirmed by reading `Mathlib/Data/Finset/Sort.lean` rather
 than assumed.
 
+## ungraded-baseline
+
+**The question this section answers.** Every law recorded so far states
+one number: which pomonoid property its *proof* needs. That number
+conflates two different questions — what the law costs *at all* (true of
+any monad/applicative/traversal, graded or not) and what grading adds *on
+top*. This section is the second column, built by fixing a single grade
+`g` and writing the same laws down again.
+
+**The construction (`Graded/Ungraded.lean`).** `Fixed g α := Graded g α`
+— not a new type, the existing carrier with the grade held still.
+`pureF` reuses `fromEmpty` ([subsumption](#subsumption)) rather than
+going through `Grade.bot`: a fixed-grade `pure` has nowhere else to land.
+`bindF x f := cast (Grade.join_idem g) (bind x f)`, `apF`/`map2F`
+likewise — each collapses the one `Grade.join g g` its underlying
+operation produces back down to `g`. `traverse` needed no such wrapper:
+[traverse-list] already built it uniform in one grade throughout, so
+`Fixed`'s traversal *is* `Graded.traverse`, unchanged — confirmed, not
+merely asserted; see below.
+
+**The headline result.** `bindF_pure_left`, `bindF_pure_right`,
+`bindF_assoc`, and the four `apF_*` laws are the ordinary monad and
+applicative laws, verbatim — no `cast`, no `join`, nothing about grades
+in any statement. Their *proofs* still cite `Grade.join_idem` throughout
+(nothing is free), but never unit or associativity: `pureF` is already at
+`g`, not at `⊥`, so `bind_pure_left`/`ap_pure_id`'s `Grade.bot_join` has
+nothing left to transport, and `bindF_assoc`/`apF_comp` need no
+`Grade.join_assoc` either, because every grade is already the same `g`
+before any question of re-associating could arise.
+
+### The two-column table: monad and applicative
+
+| law | ungraded statement | what grading adds (proof only) |
+|---|---|---|
+| `bindF_pure_left` | `bindF (pureF a) f = f a` | `Grade.join_idem` (via `bindF_ok`) — `bind_pure_left`'s `Grade.bot_join` is gone entirely |
+| `bindF_pure_right` | `bindF x pureF = x` | `Grade.join_idem` only — `bind_pure_right`'s `Grade.join_bot` is gone |
+| `bindF_assoc` | `bindF (bindF x f) k = bindF x (fun a => bindF (f a) k)` | `Grade.join_idem` only, cited once per `bindF` via `bindF_ok`/`bindF_err` — `bind_assoc`'s `Grade.join_assoc` is gone: with every grade already `g`, the two reduction lemmas collapse both sides to the same term before any re-associating could be asked for |
+| `apF_pure_id` | `apF (pureF id) x = x` | `Grade.join_idem` only — `ap_pure_id`'s `Grade.bot_join` is gone |
+| `apF_pure_pure` | `apF (pureF f) (pureF a) = pureF (f a)` | `Grade.join_idem` only — `ap_pure_pure`'s `Grade.bot_join` (`∅ ∪ ∅ = ∅`) is gone |
+| `apF_interchange` | `apF u (pureF a) = apF (pureF (fun f => f a)) u` | `Grade.join_idem` only — `ap_interchange`'s two separate unit lemmas are gone |
+| `apF_comp` | `apF (apF (apF (pureF Function.comp) u) v) w = apF u (apF v w)` | `Grade.join_idem` only — `ap_comp`'s `Grade.bot_join` *and* `Grade.join_assoc` are both gone |
+
+**Every general-law property in this table's "proof" column disappears
+except idempotence**, and idempotence itself never appears in any
+*statement* — only in the reduction lemmas (`bindF_ok`/`bindF_err`/
+`apF_ok_ok`/`apF_err_left`/`apF_ok_err`) each law is built from. This is
+the precise sense in which grading "costs nothing" for a single error
+type: the unit and associativity properties `bind`/`ap`'s general laws
+need are entirely a *multi-grade* phenomenon (they exist to reconcile
+`∅`, `g`, `h`, `j` as genuinely different `Finset`s); collapse every
+grade to one and they vanish, leaving only the one property — idempotence
+— that a *single* grade can still fail to have (see
+[grade-obligations](../tmp/plan/step-grade-obligations.md)).
+
+**A finding not formalised as a theorem.** `ap_flip`'s "at most one side
+is an error" hypothesis ([applicative](#applicative)) is **not a cost of
+grading**. Its grade-level obstruction (`Grade.join_comm`, comparing
+`Grade.join g h` against `Grade.join h g`) becomes, at a fixed grade, a
+comparison of `Grade.join g g` against itself — trivial, no property
+needed. But the *value*-level disagreement (which of two failing sides a
+caller sees) is about evaluation order, not grades, and survives fully
+intact at a fixed grade — it would hold just as unchanged for a plain
+ungraded `Sum`/`Either`-shaped applicative combining two independently-
+failing computations. Recorded here, not as `apFlippedF` (out of this
+step's declared scope): the grade-level part of `ap_flip` really is a
+grading cost, and the value-level part really is not, and the two halves
+of that one law come apart cleanly once a grade is held fixed.
+
+### traverse: unchanged, confirmed
+
+`traverse` is defined uniform in one grade `g` throughout ([traverse](#traverse)),
+so there is no separate `traverseF` to write and no separate row for what
+grading "adds" to it: `Graded.traverse` already *is* its fixed-grade
+form. `Tests/Ungraded.lean` confirms this is not merely a definitional
+coincidence rather than checking anything: every `traverse` example in
+`Tests/Traverse.lean` already runs at one grade, and the sole new fact
+this step adds, `traverse_fromEmpty_map`, is a two-line corollary of
+`traverse_map` and `traverse_fromEmpty`, both already in
+`Graded/Traverse.lean`.
+
+**The correspondence with `LawfulTraversable`** (`Mathlib.Control.Traversable.Basic`,
+instantiated for `Sum σ` in `Mathlib.Control.Traversable.Instances`):
+
+| Mathlib field | `Graded.Traverse` counterpart | note |
+|---|---|---|
+| `id_traverse : traverse (pure : α → Id α) x = pure x` | `traverse_fromEmpty : traverse (fromEmpty : α → Graded g α) xs = fromEmpty xs` | direct match — `Graded g` plays `Id`'s role, `fromEmpty` plays `pure`'s; both sides are the error-free embedding of the untouched list |
+| `comp_traverse` | `traverseComp_eq` ([compose](#compose)'s `Comp` subsection, [compose-applicative]) | direct match, already established — see the composition rows below |
+| `traverse_eq_map_id : traverse (pure ∘ f) x = pure (f <$> x)` | `traverse_fromEmpty_map : traverse (fromEmpty ∘ f) xs = fromEmpty (xs.map f)` (`Graded/Ungraded.lean`, this step) | direct match, added this step — not previously stated anywhere in `Graded/Traverse.lean` |
+| `naturality` (for an `ApplicativeTransformation F G`) | **none** | **missing, Mathlib → ours.** This codebase has no notion of a transformation between two genuinely *different* applicatives; the closest analogue, `widen`, changes only the grade of the *same* functor `Graded`, never relates `Graded g` to an unrelated `F`. A finding, not a gap this step closes. |
+| `traverse_length` (shape preservation, "the P3200 promise") | — | **missing, ours → Mathlib.** `LawfulTraversable`'s law set has no generic shape-preservation axiom; it is specific to `List`'s own instance, not part of the abstract class. |
+
+### The three composition rows
+
+The row [ungraded-baseline]'s own brief asked for, now that
+[compose-applicative] has closed [graded-traversable-composition](#graded-traversable-composition):
+
+| statement | grading | result |
+|---|---|---|
+| `flatten (map (traverse k) (traverse f xs)) = traverse (fun a => flatten (map k (f a))) xs`, `f`/`k` both at the *same* fixed grade `g` | ungraded (re-confirmed this step, `Tests/Ungraded.lean`, `fT`/`kT` at `gE = {E.parse, E.range}`) | **fails.** `flatten (map (traverse kT) (traverse fT [0,1]))` renders `"err E.parse"` (position 1's `fT` failure, the only one the left side ever consults); `traverse (fun a => flatten (map kT (fT a))) [0,1]` renders `"err E.range"` (position 0's `kT` failure, seen first by the right side's own left-to-right short circuit). Same disagreement [compose-flatten] found, confirmed to survive with the grade fixed — **therefore not a fact about grading**, exactly as [graded-traversable-composition](#graded-traversable-composition) already concluded from the general-grade re-run. |
+| `Sum.comp_traverse` (Mathlib, `Sum σ`): `traverse (Comp.mk ∘ map f ∘ g) x = Comp.mk (map (traverse f) (traverse g x))` | ungraded, Mathlib's own carrier | **holds**, unconditionally — Mathlib's own `LawfulTraversable (Sum σ)` instance, `Mathlib/Control/Traversable/Instances.lean`. Two layers kept apart by `Comp.mk`, never flattened. |
+| `traverseComp_eq` (`Graded/ComposeApp.lean`, [compose-applicative]): `traverseComp (fun a => map k (f a)) xs = map (traverse k) (traverse f xs)` | graded, product form `Comp g h α := Graded g (Graded h α)` | **holds**, unconditionally — no `flatten`, both grades kept separate as `Comp`'s own indices instead of a wrapper. Recognisably the same law as `Sum.comp_traverse` above, transported. |
+
+The pattern across all three: a composition law about two layers **kept
+separate** holds, whether ungraded (`Sum.comp_traverse`) or graded
+(`traverseComp_eq`); the same law with the layers **flattened first**
+fails, whether ungraded or graded. Grading tracks which structure a
+composition law is stated against; it does not change whether flattening
+first is a sound move, because it never was.
+
+### Wider pass: the other anchors
+
+The two-column table above is complete for monad/applicative/traverse —
+the laws this step's brief names as its focus. The remaining anchors
+([carrier](#carrier), [subsumption](#subsumption), [compose](#compose),
+[morphisms](#morphisms)) do not get comparably-shaped rows, for a
+substantive reason each, not an oversight:
+
+- **[carrier](#carrier)'s `map_id`/`map_comp`.** Grading adds nothing to
+  either statement *or* proof: `map`'s type never mentions the grade
+  (`Graded.map`'s docstring already says so — "functors are oblivious to
+  grading, true by construction, not by proof"), so there is no fixed-
+  grade specialization to write; the ungraded and graded forms are the
+  same theorem.
+- **[subsumption](#subsumption)'s `widen` family.** These laws are
+  inherently *about* relating two different grades; "fix the grade" makes
+  every `widen` an identity along `g ⊆ g` (already the content of
+  `widen_refl`, free, no property). There is no meaningful second column
+  for a law whose entire subject is grade change — collapsing the two
+  grades to one collapses the law to a triviality already on record, not
+  to a new fact.
+- **[compose](#compose)'s `flatten` family.** Same shape as `widen`:
+  `flatten : Graded g (Graded h α) → Graded (Grade.join g h) α` is about
+  a *nested* pair of grades. At `g = h` the idem-collapse technique this
+  step used for `bindF`/`apF` would apply identically — `flatten_flatten`
+  would need `Grade.join_idem` where the general law needs
+  `Grade.join_assoc`, mirroring `bindF_assoc`'s own finding exactly — but
+  building a `flattenF` was not asked for by this step and is not built
+  here (`Graded/Compose.lean` is out of its declared file scope).
+- **[morphisms](#morphisms)'s `rename`.** `Grade.rename φ` is a
+  transport *between* two grades (possibly two different `Err` types)
+  along `φ`; at `φ := id` it is already the identity
+  (`Finset.image id = id`), and a morphism law with only one grade to
+  relate is not a morphism law at all. No second column applies.
+
+### The Mathlib transport, bound to three attempts
+
+**Landed within the bound — proved, not merely tabulated.** `Fixed g α`
+is not literally Mathlib's `Sum Err α`: an `err` carries an `Err`
+*together with* a proof of its membership in `g`, so the honest ungraded
+counterpart is `Sum {e : Err // e ∈ g} α` (Mathlib's `σ` instantiated at
+that subtype), matching `Mathlib.Control.Basic`'s `Monad (Sum e)` and
+`Mathlib.Control.Traversable.Instances`'s `LawfulTraversable (Sum σ)`.
+`Graded/Ungraded.lean`'s `sumEquiv : Fixed g α ≃ ({e : Err // e ∈ g} ⊕ α)`
+is that `Equiv` — `toSum`/`ofSum`, each side `rfl` on every constructor,
+the same style [carrier](#carrier)'s `emptyEquiv` already used one grade
+earlier. `sumEquiv_pureF` and `sumEquiv_bindF` show `pureF`/`bindF`
+correspond to `Sum`'s own `pure`/`Sum.bind` *as operations*, not merely as
+matching types: transporting through `sumEquiv` before or after either
+operation agrees.
+
+**A finding in the Mathlib → ours direction, above `naturality`'s
+already-noted absence.** `traverse_eq_map_id` had no stated counterpart
+until this step added `traverse_fromEmpty_map` (see the traverse table
+above) — the one place this step's "look for a missing row" instruction
+actually turned one up and was cheap enough to close rather than merely
+report.
+
+**Log.**
+
+- 2026-09-08 — [ungraded-baseline] built `Fixed`/`pureF`/`bindF`/`apF`/
+  `map2F`, proved the ordinary monad and applicative laws cast-free in
+  their statements, confirmed `traverse` needs no specialization, proved
+  the `sumEquiv` transport to Mathlib's `Sum` (within the three-attempt
+  bound), added `traverse_fromEmpty_map` as the one previously-missing
+  Mathlib correspondence cheap enough to close, and re-confirmed the
+  flattened composition law fails at a fixed grade — the row
+  [graded-traversable-composition](#graded-traversable-composition)
+  already predicted from the general-grade re-run, now checked
+  executably rather than merely inferred.
+
 ## laws-inventory
 
 Filled by [oracle-export](../tmp/plan/step-oracle-export.md).

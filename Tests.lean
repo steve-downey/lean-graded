@@ -10,6 +10,7 @@ import Tests.Compose
 import Tests.ComposeApp
 import Tests.Morphism
 import Tests.Canonical
+import Tests.Ungraded
 
 -- populated by later steps
 example : True := trivial
