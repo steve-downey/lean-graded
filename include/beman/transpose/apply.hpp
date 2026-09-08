@@ -131,6 +131,12 @@ struct Applicative : protected Impl {
 
   private:
     //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
+    }
+
+    //! \omit
     template <class ACCUMULATED>
     auto ap_chain(this auto &&, ACCUMULATED &&accumulated) {
         return std::forward<ACCUMULATED>(accumulated);
@@ -219,17 +225,13 @@ template <class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS>
 auto Applicative<Impl>::invoke(this auto &&self, FUNCTION &&function,
                                FIRST_ARGUMENT &&first_argument,
                                REST_ARGUMENTS &&...rest_arguments) {
-    using SELF = std::remove_reference_t<decltype(self)>;
-    using IMPL_BASE =
-        std::conditional_t<std::is_const_v<SELF>, const Impl, Impl>;
-
-    if constexpr (requires(IMPL_BASE &impl) {
-                      impl.invoke(
+    if constexpr (requires {
+                      impl_of(self).invoke(
                           std::forward<FUNCTION>(function),
                           std::forward<FIRST_ARGUMENT>(first_argument),
                           std::forward<REST_ARGUMENTS>(rest_arguments)...);
                   }) {
-        return static_cast<IMPL_BASE &>(self).invoke(
+        return impl_of(self).invoke(
             std::forward<FUNCTION>(function),
             std::forward<FIRST_ARGUMENT>(first_argument),
             std::forward<REST_ARGUMENTS>(rest_arguments)...);
@@ -239,9 +241,9 @@ auto Applicative<Impl>::invoke(this auto &&self, FUNCTION &&function,
         auto lifted_function = self.pure(
             detail::make_terminating_partial(std::forward<FUNCTION>(function)));
         static_assert(
-            requires(IMPL_BASE &impl) {
-                impl.ap(std::move(lifted_function),
-                        std::forward<FIRST_ARGUMENT>(first_argument));
+            requires {
+                impl_of(self).ap(std::move(lifted_function),
+                                 std::forward<FIRST_ARGUMENT>(first_argument));
             }, "Applicative Impl must provide pure and at least one basis: "
                "invoke(f, args_in_context...) or "
                "ap(f_in_context, arg_in_context).");
@@ -278,18 +280,15 @@ auto Applicative<Impl>::ap(this auto &&self, FUNCTION_IN_CONTEXT &&function,
                     std::forward<ARGUMENT_IN_CONTEXT>(argument));
     }
 {
-    using SELF = std::remove_reference_t<decltype(self)>;
-    using IMPL_BASE =
-        std::conditional_t<std::is_const_v<SELF>, const Impl, Impl>;
-    if constexpr (requires(IMPL_BASE &impl) {
-                      impl.ap(std::forward<FUNCTION_IN_CONTEXT>(function),
-                              std::forward<ARGUMENT_IN_CONTEXT>(argument));
+    if constexpr (requires {
+                      impl_of(self).ap(
+                          std::forward<FUNCTION_IN_CONTEXT>(function),
+                          std::forward<ARGUMENT_IN_CONTEXT>(argument));
                   }) {
-        return static_cast<IMPL_BASE &>(self).ap(
-            std::forward<FUNCTION_IN_CONTEXT>(function),
-            std::forward<ARGUMENT_IN_CONTEXT>(argument));
+        return impl_of(self).ap(std::forward<FUNCTION_IN_CONTEXT>(function),
+                                std::forward<ARGUMENT_IN_CONTEXT>(argument));
     } else {
-        return static_cast<IMPL_BASE &>(self).invoke(
+        return impl_of(self).invoke(
             detail::applicative_eval,
             std::forward<FUNCTION_IN_CONTEXT>(function),
             std::forward<ARGUMENT_IN_CONTEXT>(argument));

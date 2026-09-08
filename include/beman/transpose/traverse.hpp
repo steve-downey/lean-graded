@@ -71,6 +71,13 @@ struct Traversable : protected Impl {
     template <class TRAVERSABLE_MAP, class T>
     auto transpose_with(this auto &&self,
                         const TRAVERSABLE_MAP &traversable_map, T &&value);
+
+  private:
+    //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
+    }
 };
 
 //! \remarks This variable template is the lookup point for the Traversable
