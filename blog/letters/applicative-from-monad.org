@@ -1,7 +1,9 @@
-#+TITLE: Letter 6: 'The applicative is identical to the monad' — identical in what?
+#+TITLE: Letter 5: 'The applicative is identical to the monad': identical in what?
 #+DATE: 2026-09-07
 #+CATEGORY: lean-transpose
 #+STEP: applicative-from-monad
+#+SERIES_PREV: monad-laws
+#+SERIES_NEXT: applicative-accumulation
 
 Steve,
 

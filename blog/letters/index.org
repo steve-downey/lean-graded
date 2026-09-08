@@ -1,0 +1,30 @@
+#+TITLE: Letters from the Lean model of graded transpose
+#+DATE: 2026-09-08
+#+CATEGORY: lean-transpose
+
+Seventeen letters, written across one project: a Lean 4 model of the
+grading design behind P3200 and beman.transpose, built one law at a time
+to find out exactly which property of a grade each law actually needs.
+
+Reading note: each letter was written the day its proof went green, in
+the order below. Nothing was rewritten to look more decided in hindsight
+than it was at the time; where a later letter corrects an earlier one,
+the earlier letter says so in place rather than being quietly edited.
+
+- [[file:baseline-capture.org][Letter 0: Why I'm writing to you from Lean]] (slug: baseline-capture)
+- [[file:grade-pomonoid.org][Letter 1: The grade is a set, and every fact about it gets a name]] (slug: grade-pomonoid)
+- [[file:graded-carrier.org][Letter 2: The empty grade is not bare T, but it might as well be]] (slug: graded-carrier)
+- [[file:subsumption-widen.org][Letter 3: Implicit conversion is a functor, and Lean made me say so]] (slug: subsumption-widen)
+- [[file:monad-laws.org][Letter 4: The monad laws are true up to something, and Lean wants to know up to what]] (slug: monad-laws)
+- [[file:applicative-from-monad.org][Letter 5: 'The applicative is identical to the monad': identical in what?]] (slug: applicative-from-monad)
+- [[file:applicative-accumulation.org][Letter 6: Same grade, twice as many errors]] (slug: applicative-accumulation)
+- [[file:traverse-list.org][Letter 7: Why the error set doesn't grow with the vector]] (slug: traverse-list)
+- [[file:traverse-tuple.org][Letter 8: Tuples are where the grade is really computed]] (slug: traverse-tuple)
+- [[file:compose-flatten.org][Letter 9: Nested expecteds and the distributive law nobody wrote down]] (slug: compose-flatten)
+- [[file:graded-morphism.org][Letter 10: Renaming your errors is a homomorphism]] (slug: graded-morphism)
+- [[file:canonical-representation.org][Letter 11: Two spellings, one type: what sorting the pack actually proves]] (slug: canonical-representation)
+- [[file:compose-applicative.org][Letter 12: The composition law was about a structure we hadn't built]] (slug: compose-applicative)
+- [[file:ungraded-baseline.org][Letter 13: What grading actually costs]] (slug: ungraded-baseline)
+- [[file:grade-obligations.org][Letter 14: What a grade has to be, and what you lose when it isn't]] (slug: grade-obligations)
+- [[file:oracle-export.org][Letter 15: The table I actually wanted]] (slug: oracle-export)
+- [[file:closing.org][Letter 16: What I'd tell the committee]] (slug: closing)

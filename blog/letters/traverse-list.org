@@ -1,7 +1,9 @@
-#+TITLE: Letter 8: Why the error set doesn't grow with the vector
+#+TITLE: Letter 7: Why the error set doesn't grow with the vector
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 #+STEP: traverse-list
+#+SERIES_PREV: applicative-accumulation
+#+SERIES_NEXT: traverse-tuple
 
 Steve,
 

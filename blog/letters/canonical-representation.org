@@ -1,19 +1,21 @@
-#+TITLE: Letter 12: Two spellings, one type: what sorting the pack actually proves
+#+TITLE: Letter 11: Two spellings, one type: what sorting the pack actually proves
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 #+STEP: canonical-representation
+#+SERIES_PREV: graded-morphism
+#+SERIES_NEXT: compose-applicative
 
-Dear colleague,
+Steve,
 
 * What I set out to do
 
 You know =error_set<parse, range>= and =error_set<range, parse>= are
-the same type — that's the whole point of canonicalizing the parameter
+the same type: that's the whole point of canonicalizing the parameter
 pack. The alias does it by delegating to a sorted, duplicate-free detail
 carrier: whatever order you write the types in, the alias sorts them
 before handing them to the real class template, so two different
 spellings land on one type. I'd been modelling =error_set= for eleven
-letters now, and every single one of them used Mathlib's =Finset= — a
+letters now, and every single one of them used Mathlib's =Finset=, a
 set that doesn't remember order at all, by construction. Which means
 none of those eleven letters ever went near the actual mechanism that
 makes the C++ canonicalization work. This letter builds the thing
@@ -26,7 +28,7 @@ The step brief told me to build =Canon Err := { l : List Err //
 l.Sorted (· < ·) }=. I went looking for =List.Sorted= in the pinned
 Mathlib source before writing a line, on the theory that a name that
 specific is exactly the kind of thing that quietly changes between
-Mathlib versions. Good thing I checked — it doesn't exist at this
+Mathlib versions. Good thing I checked: it doesn't exist at this
 commit. The library had been restructured to four separate predicates,
 =SortedLE=, =SortedGE=, =SortedLT=, =SortedGT=, each defined as strict
 or non-strict monotonicity of the list's own indexing function rather
@@ -37,15 +39,15 @@ def SortedLT (l : List α) := StrictMono l.get
 #+end_src
 
 That's actually a nicer fit than what I'd expected to write. "Strictly
-increasing" already rules out duplicates for free — two equal elements
-can't be strictly less than each other — so =SortedLT= alone is "sorted
+increasing" already rules out duplicates for free (two equal elements
+can't be strictly less than each other), so =SortedLT= alone is "sorted
 and duplicate-free," where the brief's phrasing would have needed a
 second, separate no-duplicates condition bolted on.
 
 The second refusal was subtler and cost more time. I gave my test
 type, a plain three-constructor enum, both a derived =DecidableEq= and
 a hand-built =LinearOrder= (via an embedding into =Nat=). That seemed
-harmless — surely two ways of deciding equality on the same three
+harmless: surely two ways of deciding equality on the same three
 constructors agree? They do, as *values*. But Lean doesn't check "do
 these two instances agree," it checks "is this the *one* instance
 everything else was built against," and my two =DecidableEq=
@@ -55,7 +57,7 @@ the other depending on where it was elaborated, and equality checks
 between them stopped type-checking with an error about instances not
 being "definitionally equal" that pointed at two things that looked
 identical on screen. The fix was to stop deriving =DecidableEq=
-separately and let it come from the =LinearOrder= alone — one instance,
+separately and let it come from the =LinearOrder= alone, one instance,
 used everywhere.
 
 * What changed
@@ -74,7 +76,7 @@ def canonEquiv : Grade Err ≃ Canon Err where
 =ofFinset= sorts a =Finset= into a =Canon= (Mathlib's own =Finset.sort=
 does the work); =toFinset= forgets the order and reads the elements back
 out. An =Equiv= is Lean's way of saying "these two types are in exact
-bijection" — which is the formal content of "=error_set<A,B>= and
+bijection", which is the formal content of "=error_set<A,B>= and
 =error_set<B,A>= are the same type," stated as a theorem about the two
 representations rather than assumed.
 
@@ -85,7 +87,7 @@ needs a full linear order (can you always say which of two distinct
 error kinds comes first?). I even found a place where that split shows
 up inside a single function: converting a =Canon= back to a =Finset=
 only ever touches =List.toFinset=, which doesn't care about order at
-all — the linear order shows up in that function's type signature only
+all: the linear order shows up in that function's type signature only
 because it's needed to name the *input* type, not because the body uses
 it. The abstract grade in this model has been getting away with less
 than C++'s canonicalization actually needs, the entire time, because
@@ -95,7 +97,7 @@ sort anything.
 * Back in C++
 
 Reading this back against the real design: the sorted detail carrier is
-=Canon.ofFinset= in the flesh — take whatever pack you were handed, sort
+=Canon.ofFinset= in the flesh: take whatever pack you were handed, sort
 it, and that's your canonical type. The public alias template is doing
 exactly that sort at every use, which is why two spellings collapse to
 one type before the compiler ever sees them as different. The direction
@@ -103,7 +105,9 @@ I'd flag for a follow-up test in the C++ repo is =toFinset=: deduction
 through the alias implicitly assumes you can go the other way, from the
 canonical (sorted) pack back to "the set of error types," without
 actually checking that no information got lost in the sort. This model
-proves that direction is safe — sorting and then forgetting the order
-gets you back exactly what you started with — but that's a proof about
+proves that direction is safe (sorting and then forgetting the order
+gets you back exactly what you started with), but that's a proof about
 a Lean list, not a check on the C++ template machinery. Someone should
 write the C++ test that exercises that specific round trip.
+
+--SMD

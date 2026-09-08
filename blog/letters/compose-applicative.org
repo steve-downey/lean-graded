@@ -1,26 +1,28 @@
-#+TITLE: Letter 13: The composition law was about a structure we hadn't built
+#+TITLE: Letter 12: The composition law was about a structure we hadn't built
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 #+STEP: compose-applicative
+#+SERIES_PREV: canonical-representation
+#+SERIES_NEXT: ungraded-baseline
 
-Dear colleague,
+Steve,
 
 * What I set out to do
 
 Last time I told you the composition law was false, and I stand by that,
 but I'd been sloppy about which law. The statement I disproved flattened
 each nested =expected= down to one error set before comparing two ways
-of running a container through it. The classical law — the one every
-textbook on this pattern actually states — never flattens anything. It
+of running a container through it. The classical law (the one every
+textbook on this pattern actually states) never flattens anything. It
 keeps the two layers apart: an outer =expected<_, E1>= wrapping an inner
 =expected<_, E2>=, each combined with its own kind of sibling value
-independently — the outer layers combined among themselves, the inner
+independently, the outer layers combined among themselves, the inner
 layers combined among themselves, never merged into one error set.
 Nobody had built that structure here yet. This
 letter builds it and asks the real question: parse a whole container
 where each element's result is itself a further computation that can
 fail its own way, without collapsing the two failure kinds into one set
-first — does *that* agree with parsing the container in two passes, one
+first: does *that* agree with parsing the container in two passes, one
 per layer?
 
 * What the checker refused
@@ -49,9 +51,9 @@ The second refusal was more interesting, and I didn't see it coming.
 Once I had the combining operation and its four expected laws (apply a
 function to a value, combine two already-computed things, and so on),
 each one turned out to need nothing beyond what the single-layer version
-needed — no new assumption relating the outer error set to the inner one.
+needed: no new assumption relating the outer error set to the inner one.
 That part went smoothly. What didn't was a lemma asking whether
-"flatten" — the operation that *does* squash the two layers into one —
+"flatten" (the operation that *does* squash the two layers into one)
 respects the combining operation. I expected it to need the two grades
 to be comparable somehow. Instead I found a genuine disagreement:
 
@@ -74,7 +76,7 @@ combining is a real choice with a real answer, not bookkeeping.
 * What changed
 
 The container-traversal law, stated against the two-layer structure with
-nothing flattened, holds outright — no extra assumption, no exception:
+nothing flattened, holds outright: no extra assumption, no exception.
 
 #+begin_src lean
 theorem traverseComp_eq (f : α → Graded g β) (k : β → Graded h γ) (xs : List α) :
@@ -96,7 +98,7 @@ doesn't arise, which is the precise shape of what flattening throws away.
 
 Nesting =expected<expected<T, E1>, E2>= and processing a whole container
 of them without ever collapsing the two error sets is exactly as safe as
-composing two separate validation passes always felt like it should be —
+composing two separate validation passes always felt like it should be,
 now it's a proved fact instead of a feeling. The catch is specifically
 about the shortcut everyone takes without noticing: collapsing
 =expected<expected<T,E1>,E2>= to =expected<T, E1 ∪ E2>= is fine on a
@@ -106,8 +108,7 @@ failure you see, when a later element's inner stage and an earlier
 element's outer stage can both fail. If you always flatten immediately at
 each call site, you're safe. If you gather a container of these,
 flattening only where you need to report a final answer, check first
-which pass — outer or inner — you actually mean to run to completion
+which pass (outer or inner) you actually mean to run to completion
 before the other one starts.
 
-Yours,
-Steve
+--SMD

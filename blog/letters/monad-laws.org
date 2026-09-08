@@ -1,7 +1,9 @@
-#+TITLE: Letter 5: The monad laws are true up to something, and Lean wants to know up to what
+#+TITLE: Letter 4: The monad laws are true up to something, and Lean wants to know up to what
 #+DATE: 2026-09-07
 #+CATEGORY: lean-transpose
 #+STEP: monad-laws
+#+SERIES_PREV: subsumption-widen
+#+SERIES_NEXT: applicative-from-monad
 
 Steve,
 
@@ -49,11 +51,10 @@ theorem cast_ok (e : g = g') (a : α) :
   subst e; rfl
 #+end_src
 
-=subst e= takes the proof that two grades are equal and replaces every
-occurrence of one with the other, everywhere in the goal; after that, the
-two sides of the equation are stated over the *same* grade, and =rfl=
-closes it because a value carries no evidence of which grade it's tagged
-with. I wrote two more in the same shape, one for the failure case and
+=subst e= is the same substitution tactic from Letter 3's =widen_cast=:
+it uses the equality proof to make both sides talk about the same grade,
+and =rfl= closes it because a value carries no evidence of which grade
+it's tagged with. I wrote two more in the same shape, one for the failure case and
 one for the "widen, then convert" case, and every law after that became:
 split on whether the input succeeded or failed, restate the fully reduced
 goal with Lean's =change= tactic (its whole job is "the goal is this, and

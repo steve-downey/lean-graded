@@ -2,6 +2,8 @@
 #+DATE: 2026-09-07
 #+CATEGORY: lean-transpose
 #+STEP: grade-pomonoid
+#+SERIES_PREV: baseline-capture
+#+SERIES_NEXT: graded-carrier
 
 Steve,
 
@@ -28,7 +30,7 @@ series (associativity for the monad, commutativity for "applicative
 equals monad," idempotence for "traversal grade doesn't depend on
 length") is going to need *some* of these facts and not others, and I
 want the model to be able to say exactly which. If I'd bundled them into
-one "grade is a pomonoid" instance, every later proof would reach for the
+one "grade is a pomonoid" (a partially ordered monoid) instance, every later proof would reach for the
 bundle and I'd never learn which piece was load-bearing. So five of these
 carry an extra tag in their doc-comment (=PROPERTY: associative=,
 =commutative=, =idempotent=, =unit=, =order=) that a later step in this
