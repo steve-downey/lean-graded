@@ -8,10 +8,165 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <functional>
 #include <optional>
+#include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace bt = beman::transpose;
+
+namespace {
+
+// An Impl with pure + invoke, and a native map that ignores its arguments
+// and returns a sentinel the invoke derivation could never produce.
+struct MarkedMapImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function,
+                const std::optional<FIRST> &first,
+                const std::optional<REST> &...rest)
+        -> std::optional<bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
+        using Result = bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        if (first.has_value() && (... && rest.has_value())) {
+            return std::optional<Result>{
+                std::invoke(function, *first, *rest...)};
+        }
+        return std::optional<Result>{};
+    }
+
+    template <class FUNCTION, class ARGUMENT>
+    auto map(this auto &&, FUNCTION &&, ARGUMENT &&) -> std::optional<int> {
+        return std::optional<int>{-1};
+    }
+};
+
+struct MarkedMapMap : bt::Applicative<MarkedMapImpl> {};
+
+// Native map is constrained to std::optional<int>, so a different element
+// type on the same Map still reaches the invoke derivation.
+struct PerInstantiationMapImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function,
+                const std::optional<FIRST> &first,
+                const std::optional<REST> &...rest)
+        -> std::optional<bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
+        using Result = bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        if (first.has_value() && (... && rest.has_value())) {
+            return std::optional<Result>{
+                std::invoke(function, *first, *rest...)};
+        }
+        return std::optional<Result>{};
+    }
+
+    template <class FUNCTION>
+    auto map(this auto &&, FUNCTION &&, const std::optional<int> &)
+        -> std::optional<int> {
+        return std::optional<int>{-1};
+    }
+};
+
+struct PerInstantiationMapMap : bt::Applicative<PerInstantiationMapImpl> {};
+
+// An Impl with a native zip_with that ignores its arguments and returns a
+// sentinel the invoke derivation could never produce.
+struct MarkedZipWithImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function,
+                const std::optional<FIRST> &first,
+                const std::optional<REST> &...rest)
+        -> std::optional<bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
+        using Result = bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        if (first.has_value() && (... && rest.has_value())) {
+            return std::optional<Result>{
+                std::invoke(function, *first, *rest...)};
+        }
+        return std::optional<Result>{};
+    }
+
+    template <class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT>
+    auto zip_with(this auto &&, FUNCTION &&, FIRST_ARGUMENT &&,
+                  SECOND_ARGUMENT &&) -> std::optional<int> {
+        return std::optional<int>{-1};
+    }
+};
+
+struct MarkedZipWithMap : bt::Applicative<MarkedZipWithImpl> {};
+
+// An Impl with pure + invoke, and native lift/discard_first/discard_second
+// that each return a sentinel their pure/invoke derivations could never
+// produce.
+struct AllNativeImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class FUNCTION, class FIRST, class... REST>
+    auto invoke(this auto &&, FUNCTION &&function,
+                const std::optional<FIRST> &first,
+                const std::optional<REST> &...rest)
+        -> std::optional<bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
+        using Result = bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>;
+        if (first.has_value() && (... && rest.has_value())) {
+            return std::optional<Result>{
+                std::invoke(function, *first, *rest...)};
+        }
+        return std::optional<Result>{};
+    }
+
+    template <class VALUE>
+    auto lift(this auto &&, VALUE &&) -> std::optional<int> {
+        return std::optional<int>{-1};
+    }
+
+    template <class FIRST_ARGUMENT, class SECOND_ARGUMENT>
+    auto discard_first(this auto &&, FIRST_ARGUMENT &&, SECOND_ARGUMENT &&)
+        -> std::optional<int> {
+        return std::optional<int>{-2};
+    }
+
+    template <class FIRST_ARGUMENT, class SECOND_ARGUMENT>
+    auto discard_second(this auto &&, FIRST_ARGUMENT &&, SECOND_ARGUMENT &&)
+        -> std::optional<int> {
+        return std::optional<int>{-3};
+    }
+};
+
+struct AllNativeMap : bt::Applicative<AllNativeImpl> {};
+
+} // namespace
 
 TEST_CASE("apply: optional invoke combines effectful arguments") {
     const auto &app = bt::applicative_typeclass<std::optional<int>>;
@@ -91,4 +246,80 @@ TEST_CASE("apply: invoke_with delegates to another applicative map") {
         zip_map, [](int a, int b) { return a + b; },
         bt::zip_list<int>{{1, 2, 3}}, bt::zip_list<int>{{10, 20, 30}});
     REQUIRE(result.data == std::vector<int>{11, 22, 33});
+}
+
+TEST_CASE("apply: map prefers a native Impl::map") {
+    MarkedMapMap m{};
+    REQUIRE(m.map([](int x) { return x + 1; }, std::optional<int>{5}) ==
+            std::optional<int>{-1});
+}
+
+TEST_CASE("apply: map falls back to the invoke derivation") {
+    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    REQUIRE(m.map([](int x) { return x + 1; }, std::optional<int>{5}) ==
+            std::optional<int>{6});
+}
+
+TEST_CASE("apply: map native preference is per instantiation") {
+    PerInstantiationMapMap m{};
+
+    // std::optional<int>: the native map fires.
+    REQUIRE(m.map([](int x) { return x + 1; }, std::optional<int>{5}) ==
+            std::optional<int>{-1});
+
+    // std::optional<std::string>: no native map exists for this element
+    // type, so the same member falls back to the invoke derivation -- a
+    // property a Map-level `using` could never express, since `using`
+    // selects a name for every instantiation at once.
+    REQUIRE(m.map([](const std::string &s) { return s + "!"; },
+                  std::optional<std::string>{"x"}) ==
+            std::optional<std::string>{"x!"});
+}
+
+TEST_CASE("apply: zip_with prefers a native Impl::zip_with") {
+    MarkedZipWithMap m{};
+    REQUIRE(m.zip_with([](int a, int b) { return a + b; },
+                       std::optional<int>{2},
+                       std::optional<int>{3}) == std::optional<int>{-1});
+}
+
+TEST_CASE("apply: zip_with falls back to the invoke derivation") {
+    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    REQUIRE(m.zip_with([](int a, int b) { return a + b; },
+                       std::optional<int>{2},
+                       std::optional<int>{3}) == std::optional<int>{5});
+}
+
+TEST_CASE("apply: lift prefers a native Impl::lift") {
+    AllNativeMap m{};
+    REQUIRE(m.lift(7) == std::optional<int>{-1});
+}
+
+TEST_CASE("apply: lift falls back to the pure derivation") {
+    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    REQUIRE(m.lift(7) == std::optional<int>{7});
+}
+
+TEST_CASE("apply: discard_first prefers a native Impl::discard_first") {
+    AllNativeMap m{};
+    REQUIRE(m.discard_first(std::optional<int>{2}, std::optional<int>{3}) ==
+            std::optional<int>{-2});
+}
+
+TEST_CASE("apply: discard_first falls back to the invoke derivation") {
+    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    REQUIRE(m.discard_first(std::optional<int>{2}, std::optional<int>{3}) ==
+            std::optional<int>{3});
+}
+
+TEST_CASE("apply: discard_second prefers a native Impl::discard_second") {
+    AllNativeMap m{};
+    REQUIRE(m.discard_second(std::optional<int>{2}, std::optional<int>{3}) ==
+            std::optional<int>{-3});
+}
+
+TEST_CASE("apply: discard_second falls back to the invoke derivation") {
+    const auto &m = bt::applicative_typeclass<std::optional<int>>;
+    REQUIRE(m.discard_second(std::optional<int>{2}, std::optional<int>{3}) ==
+            std::optional<int>{2});
 }
