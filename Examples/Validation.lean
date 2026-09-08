@@ -2,6 +2,7 @@ import Graded.Carrier
 import Graded.Widen
 import Graded.Monad
 import Graded.Applicative
+import Graded.Accum
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
@@ -109,5 +110,59 @@ def renderSum : Graded ({E.parse} : Grade E) Nat → String
 #guard renderSum (sumTwo "abc" "4") = "err Examples.Validation.E.parse"
 #guard renderSum (sumTwo "3" "xyz") = "err Examples.Validation.E.parse"
 #guard renderSum (sumTwo "abc" "xyz") = "err Examples.Validation.E.parse"
+
+-- ---------------------------------------------------------------------
+-- `Accum` versions: the same two fields, but validated so that *both*
+-- failures survive instead of stopping at the first — the shape a form
+-- with two independent fields wants (report every bad field at once),
+-- which `Graded`'s one-error carrier cannot give.
+
+/-- `Accum` version of `parseNat`: same failure, same grade, through the
+    accumulating carrier. -/
+def parseNatAccum (s : String) : Accum ({E.parse} : Grade E) Nat :=
+  match s.toNat? with
+  | some n => .ok n
+  | none => .errs [E.parse] (by simp) (by simp)
+
+/-- A second, independent field check with its *own* error kind
+    (`E.range`), so a "both fields bad" example shows two visibly
+    different errors — `parseNatAccum` alone shares one error kind with
+    itself and a "both bad" run of it can't be told apart from "one bad"
+    (the same limitation `sumTwo` above has). -/
+def checkNonEmptyAccum (s : String) : Accum ({E.range} : Grade E) String :=
+  if s.isEmpty then .errs [E.range] (by simp) (by simp) else .ok s
+
+/-- Two independent fields, combined with `Accum.map2`: unlike `sumTwo`'s
+    `map2` (which shares its short-circuit-to-one-error limit with
+    `Graded.ap`), both fields' errors survive when both fail. -/
+def validateTwoFields (s1 s2 : String) :
+    Accum (Grade.join ({E.parse} : Grade E) ({E.range} : Grade E)) (Nat × String) :=
+  Accum.map2 Prod.mk (parseNatAccum s1) (checkNonEmptyAccum s2)
+
+/-- Render an error list for `#eval`/`#guard`. -/
+def renderErrs (es : List E) : String :=
+  String.intercalate ", " (es.map (fun e => s!"{repr e}"))
+
+/-- Render a `validateTwoFields` result. -/
+def renderPair :
+    Accum (Grade.join ({E.parse} : Grade E) ({E.range} : Grade E)) (Nat × String) → String
+  | .ok (n, s) => s!"ok ({n}, {s})"
+  | .errs es _ _ => s!"errs [{renderErrs es}]"
+
+#eval renderPair (validateTwoFields "3" "hi")     -- ok (3, hi)
+#eval renderPair (validateTwoFields "abc" "hi")   -- errs [E.parse] : field 1 bad
+#eval renderPair (validateTwoFields "3" "")       -- errs [E.range] : field 2 bad
+#eval renderPair (validateTwoFields "abc" "")     -- errs [E.parse, E.range] : both bad
+
+#guard renderPair (validateTwoFields "3" "hi") = "ok (3, hi)"
+#guard renderPair (validateTwoFields "abc" "hi") = "errs [Examples.Validation.E.parse]"
+#guard renderPair (validateTwoFields "3" "") = "errs [Examples.Validation.E.range]"
+
+-- The substantive deliverable: both fields bad, both errors present —
+-- exactly what `Graded`'s one-error carrier cannot show (compare
+-- `sumTwo "abc" "xyz"` above, which can only ever report `E.parse`, the
+-- one error `Graded.ap`'s carrier has room for).
+#guard renderPair (validateTwoFields "abc" "") =
+  "errs [Examples.Validation.E.parse, Examples.Validation.E.range]"
 
 end Examples.Validation

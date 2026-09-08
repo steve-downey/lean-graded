@@ -4,3 +4,4 @@ import Graded.Carrier
 import Graded.Widen
 import Graded.Monad
 import Graded.Applicative
+import Graded.Accum

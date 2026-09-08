@@ -320,7 +320,108 @@ short-circuiting (either failure fails the whole) but not *which* side
 failed — that distinction needs two different error kinds, which is what
 `Tests/Applicative.lean`'s cross-grade counterexample is for.
 
-Filled by [applicative-accumulation](../tmp/plan/step-applicative-accumulation.md) next.
+### Accum: an accumulating applicative needs its own carrier
+
+The plan's prediction was **confirmed**: `Graded g α` ([#carrier](#carrier))
+holds exactly one error, so a Validation-style `ap` that keeps *every*
+failing side has nowhere to put a second error. `Graded/Accum.lean` adds
+`Accum (g : Grade Err) (α : Type v)`, a value or a *non-empty* `List Err`
+each a member of `g`. This is not a fork of `Graded`
+([cpp-counterpart](#cpp-counterpart)'s "never fork a shared definition"):
+`Accum` is a different structure with a different law set, indexed by the
+*same* `Grade` and the *same* `Grade.join`, connected back to `Graded` by
+`toGraded` (first error) — and `Graded` is untouched, used by every step
+before and after this one.
+
+> **Provisional.** `Accum`'s error field is a `List Err` with a
+> non-emptiness proof, not a `Multiset`. A `Multiset` is the
+> mathematically right carrier for an *unordered* bag of errors; `List` is
+> the computable one that reduces under `#guard`/`decide` without extra
+> tactics, the same reason [#carrier](#carrier) picked `Finset` over an
+> abstract order. Revisit if a later consumer needs the errors as a
+> genuinely unordered collection.
+
+`Accum.ap (f : Accum g (α → β)) (x : Accum h α) : Accum (Grade.join g h)
+β` concatenates both error lists when both sides fail, function's list
+first (`es_f ++ es_x`) — matching `ap`'s own argument order and
+`Graded.ap`'s short-circuit priority (`ap_err_left`: the function's error
+always wins when only one side can be kept). `Accum.map2` is `ap` after
+`map`, as in [#applicative](#applicative).
+
+**Property table** — the same shape as `Graded.ap`'s:
+
+| law | property | note |
+|---|---|---|
+| `Accum.ap_pure_id` | unit (`bot_join`) | identity |
+| `Accum.ap_pure_pure` | unit (`bot_join`) | homomorphism |
+| `Accum.ap_interchange` | unit (`join_bot` *and* `bot_join`, separately) | interchange |
+| `Accum.ap_comp` | unit + associative (`join_assoc`) **+ `List.append_assoc`** | composition |
+
+Confirmed, not just predicted: interchange needed only the two unit
+lemmas, stated with the same two-cast technique
+[applicative-from-monad] used (`cast (Grade.join_bot g) (ap u (pure a)) =
+cast (Grade.bot_join g) (ap (pure (fun f => f a)) u)`, both sides landing
+at plain `g`) — no `Grade.join_comm` anywhere in this module, same finding
+as `Graded.ap`. `ap_comp` needed one thing `Graded.ap_comp` didn't:
+`List.append_assoc`, in the one leaf where `u`, `v`, and `w` all fail —
+the left side of the law builds `(es_u ++ es_v) ++ es_w`, the right side
+builds `es_u ++ (es_v ++ es_w)`, the same list two different ways. This is
+the concrete shape of "accumulation adds a genuinely new proof
+obligation": every other leaf of `ap_comp`, and every leaf of the other
+three laws, needed nothing beyond what `Graded.ap`'s versions needed.
+
+**`Accum.notMonad`** — the concrete form landed, not the fully general
+one: at one witnessing pair of grades (`{e1}`, `{e2}`), for a `bind` left
+fully polymorphic in the payload types and in the grades it is applied at
+(the same shape `Graded.bind` has), there is no `bind` whose
+`bind`/`pure`-derived `ap` equals `Accum.ap`. The witness exploits
+`f : Accum {e1} (Unit → Empty)` — `f` fails, and its payload type `Unit →
+Empty` is uninhabited, so the continuation any `bind f` call receives is a
+function *out of an uninhabited domain*; any two such functions are equal
+(there is no point where they could disagree), so `bind f`'s continuation
+is the *same term* whether `x` is `.ok ()` or `.errs [e2] ..` — `bind f`
+cannot tell the two apart, yet `Accum.ap f x` does (one error vs. two).
+**What this does not claim**: it is not the fully general "no *lawful*
+Monad instance exists," and the two witness grades needn't even have
+`e1 ≠ e2` — the proof never uses that (the contradiction is a list-length
+mismatch, `[e1] ≠ [e1, e2]`, true regardless).
+
+**`Accum.toGraded_grade`: the same condition as `ap_flip`, but not, in the
+end, load-bearing.** The step's prediction was that `toGraded (ap f x) =
+Graded.ap (toGraded f) (toGraded x)` fails when both sides fail, needing
+the one-sided restriction [applicative-from-monad] found for `ap_flip`
+(`(∃ f', f = .ok f') ∨ (∃ a, x = .ok a)`). `Accum.toGraded_grade` states
+exactly that hypothesis, and it **is** the same condition, discharged the
+same way (`rcases honeok with ⟨f', rfl⟩ | ⟨a, rfl⟩`) — confirmed. But the
+prediction that the theorem *needs* it was **wrong**: `Accum.toGraded_grade'`
+proves the equation unconditionally, on every input, including both-fail.
+The reason is structural, not coincidental: `Accum.ap`'s concatenation
+puts the function's errors first, and `Graded.ap` always keeps the
+function's error when the function fails (`ap_err_left`, no condition at
+all) — so "first element of the accumulated list" and "the error
+`Graded.ap` keeps" are the same error *by construction*. Both theorems are
+proved and kept: `toGraded_grade` records that the `ap_flip` condition is
+real and sufficient (matching what the step asked for), `toGraded_grade'`
+records that, for this particular pair of definitions, it is not
+necessary. A different, order-reversed choice of concatenation
+(argument's errors first) would have made the one-sided hypothesis load-
+bearing instead — the finding is about how `Accum.ap` and `Graded.ap`'s
+tie-breaks happen to line up, not a general fact about accumulating
+applicatives.
+
+**`Accum.sameGrade`** is not a Lean theorem, just this: `Accum.ap : Accum
+g (α → β) → Accum h α → Accum (Grade.join g h) β` and `Graded.ap : Graded
+g (α → β) → Graded h α → Graded (Grade.join g h) β` are indexed by the
+*same* `Grade` and the *same* `Grade.join` — only the carrier holding the
+error differs. Putting the two signatures side by side *is* the theorem.
+
+The consumer, `Examples/Validation.lean`: `parseNatAccum`/
+`checkNonEmptyAccum` (grades `{E.parse}`/`{E.range}`, so a "both bad" run
+is visibly two different errors, unlike `sumTwo`'s shared `{E.parse}`),
+combined by `Accum.map2` into `validateTwoFields`. With both fields bad,
+`renderPair (validateTwoFields "abc" "")` guards to `"errs
+[Examples.Validation.E.parse, Examples.Validation.E.range]"` — both
+errors present, the thing `Graded`'s carrier cannot show.
 
 ## traverse
 
@@ -368,3 +469,5 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 - [#blog-series](#blog-series) — addressee name "Dear colleague".
 - [#carrier](#carrier) — laws stated with exact union grades and `cast`,
   rather than `bind` at any sufficient grade.
+- [#applicative](#applicative) — `Accum`'s error field is a `List Err`
+  with a non-emptiness proof, not a `Multiset`.
