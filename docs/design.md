@@ -1558,7 +1558,145 @@ demonstration alive.
 
 ## laws-inventory
 
-Filled by [oracle-export](../tmp/plan/step-oracle-export.md).
+The table: [`docs/laws.md`](laws.md) (146 theorems, generated from
+`Graded/*.lean` by `scripts/laws-inventory.py`; the same data as
+[`docs/laws.json`](laws.json)). `make laws` regenerates and diffs it, so it
+cannot drift from the proofs; run it again after touching any
+`Graded/*.lean` file. The probe list for the C++ side is
+[`docs/probe-harness.md`](probe-harness.md): one equation per row that has
+a C++ law, against [cpp-counterpart](#cpp-counterpart)'s names.
+
+The verdicts below are written from that table, not from the plan's
+prediction of it. Where the two disagree, the table wins — this step's own
+brief predicted three things that turned out wrong in specifics (the
+commutativity list, the idempotence-hypothesis count, and which modules
+would show up at all), and each disagreement is recorded below rather than
+silently corrected.
+
+**Unit and associativity, no more: the monad and most of the applicative.**
+`bind_pure_left`/`bind_pure_right` (unit), `bind_assoc` (associative),
+`bind_map` (unit) — [monad](#monad)'s five laws never cite `join_comm`.
+Every four-law applicative instance built the same way — `ap_pure_id`,
+`ap_pure_pure`, `ap_interchange` (unit only) and `ap_comp` (unit +
+associative) — repeats verbatim in `Graded/Applicative.lean`,
+`Graded/Accum.lean`, and `Graded/ComposeApp.lean`'s `Comp.ap_*`: three
+independent carriers (single-error, accumulating, nested-composite), the
+same two properties, never commutativity. `Graded/Ungraded.lean`'s
+fixed-grade mirrors (`bindF_pure_left`/`bindF_pure_right`/`bindF_assoc`,
+`apF_pure_id`/`apF_pure_pure`/`apF_interchange`/`apF_comp`) spend no unit
+or associativity at all — holding the grade fixed removes exactly the `∅`
+and the reparenthesizing these properties paid for — and the table's
+mechanical scan of their own proof text shows *no* property at all, not
+even idempotence, because each one's own proof only pattern-matches into
+an already-tabulated reduction lemma (`apF_ok_ok` and kin); the idempotence
+these laws genuinely rest on is spent one level down, inside `bindF`/`apF`
+*themselves*, which are `def`s and so never appear as rows at all. This is
+the sharpest illustration in the table of the scan's own limit: a `def`
+that bakes a property into a cast is invisible to a script that only reads
+`theorem`s.
+
+**Commutativity: six sites, not three.** The step brief predicted
+`ap_flip`, `joinAll_perm`, `flatten_comm`. The table shows six (seven
+counting the generic layer): `ap_flip` (`Graded/Applicative.lean`,
+comparing `ap`'s grade `g ⊔ h` against `apFlipped`'s `h ⊔ g`);
+`flatten_comm` (`Graded/Compose.lean`, comparing `flatten`'s grade against
+`flatten`-after-`swap`'s); `Graded/Tuple.lean`'s `joinAll_perm` **and**
+`join_mem_eq` — two sites in that module, not one, since `join_mem_eq` is
+`joinAll_dedup`'s own load-bearing helper and cites `join_comm` directly
+in its own right, not merely by inheriting from `joinAll_perm`; and
+`Graded/ComposeApp.lean`'s `Comp.grade_reassoc`, which `flatten_ap` needs
+to reassociate `(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')` — the
+second appearance of commutativity in the whole model, cited directly in
+`grade_reassoc`'s own proof, not in `flatten_ap`'s (see the mechanical
+scan's own miss on this, below). `Graded/Obligations.lean`'s generic
+`joinAllG_perm` is a seventh, separate confirmation at the abstract
+`IsCommPomonoid` layer, matching `joinAll_perm` exactly — not a fourth
+concrete site, since it proves the same fact again over an abstract
+`[IsCommPomonoid G]` rather than depending on `joinAll_perm`.
+
+**Idempotence: nine sites**, matching the table's `idempotent` column
+after excluding `Grade.join_idem` itself (a property's own definition does
+not depend on itself): `Graded/Traverse.lean`'s `foldGrade_cons_ne_nil`,
+`traverse_cons`, `traverse_cons_err_left`, `traverse_cons_ok_err`,
+`traverse_fromEmpty`; `Graded/Tuple.lean`'s `join_mem_eq` (also
+commutative, above); `Graded/ComposeApp.lean`'s `Comp.traverseComp_cons`;
+and `Graded/Obligations.lean`'s generic `foldG_cons_ne_nil` and `join_le`.
+`Graded/Ungraded.lean`'s fixed-grade laws spend idempotence too, per that
+module's own docstrings, but — as above — invisibly to the mechanical
+scan, inside `bindF`/`apF`'s definitions rather than in any theorem's own
+proof text.
+
+**Order alone: `widen_refl`, `widen_widen`, `bind_widen`,
+`flatten_widen_outer`/`flatten_widen_inner`, and both `foldGrade_le`s.**
+Not every `widen_*` theorem needs it — `widen_map` and `widen_cast` need
+no property at all, since mapping or casting alongside a widen never puts
+two grades in a `join` together — only the two that relate two different
+widenings (`widen_refl` via `le_refl'`, `widen_widen` via `le_trans'`) do.
+`Graded/Traverse.lean`'s concrete `foldGrade_le` needs only the order,
+exactly as predicted, via `Grade.join_le`/`Grade.bot_le`/`Grade.le_refl'`.
+Its generic sibling in `Graded/Obligations.lean`, `foldG_le`, is where the
+table's mechanical properties column is honestly incomplete rather than
+wrong: its own proof text mentions only order tokens (`bot_le`,
+`le_refl'`, the generic `join_le`), so the table shows `order` — but
+[obligations](#obligations) already recorded that this `join_le` is
+*itself* only provable from `join_mono` **and** `join_idem` together, once
+a grade's `join_le` is not assumed as a primitive. So `foldG_le` genuinely
+needs `IsIdemPomonoid`, not bare `Pomonoid`; the table shows what its
+proof text cites, not what its type class hypothesis is, and the two
+diverge exactly here. Read [#obligations](#obligations)'s own
+layer-to-law table for the accurate version; don't take this table's
+`order` tag for `foldG_le` as contradicting it.
+
+**The at-most-one-error condition: four sites, not three, and it is not
+the same finding four times.**
+
+- `ap_flip` (`Graded/Applicative.lean`): the hypothesis `(∃ f', f =
+  .ok f') ∨ (∃ a, x = .ok a)` is load-bearing — without it `ap` and
+  `apFlipped` disagree on *which* error survives, only on the grade do
+  they always agree (via `join_comm`).
+- `Graded/Accum.lean`'s `toGraded_grade` states the *same* hypothesis,
+  by design, to match `ap_flip` — but it turned out **not** to be needed:
+  `toGraded_grade'` proves the unconditional form. `Accum.ap`'s
+  concatenation puts the function's errors first, and `Graded.ap` always
+  keeps the function's error when the function fails, so "first element
+  of the accumulated list" and "the error `Graded.ap` keeps" coincide by
+  construction, not by luck, on every input, not just the one-sided ones.
+- `flatten_comm` (`Graded/Compose.lean`) needs **no** hypothesis at all.
+  `ap`/`apFlipped` combine two *independent* values, each of which can
+  independently fail; `flatten`'s nested carrier is a single value with
+  exactly three inhabited shapes and can never hold two errors at once,
+  so the condition that mattered for `ap_flip`/`toGraded_grade` is
+  vacuously true here and never needs writing down.
+- `flatten_ap` (`Graded/ComposeApp.lean`) needs a **different**,
+  three-way disjunctive hypothesis discovered during its own proof:
+  `ff`'s outer layer fails, *or* `ff` succeeds all the way through
+  (outer *and* inner), *or* `xx`'s outer layer succeeds. This is not a
+  restatement of `ap_flip`'s condition — it rules out the one case where
+  `Comp.ap`'s short-circuit order (outer error, then outer error, then
+  `ff`'s *inner* error, then `xx`'s) disagrees with flatten-then-`ap`'s
+  (which surfaces `ff`'s inner error immediately). `flatten_ap` is also
+  where the mechanical scan itself found nothing to cite: its own proof
+  text names no property at all, because the grade equation it needs
+  (`Comp.grade_reassoc`, associative + commutative) is cited by name as a
+  cast target rather than re-derived — a real, load-bearing theorem the
+  dumb heuristic cannot see through. See "What the checker refused" in
+  [blog/letters/oracle-export.org](../blog/letters/oracle-export.org).
+
+**What a different grade pomonoid must supply.** [#obligations](#obligations)
+already names this precisely — `Pomonoid`, `IsCommPomonoid extends
+Pomonoid`, `IsIdemPomonoid extends IsCommPomonoid` — and this table's
+"unit/associative", "commutative", "idempotent" columns line up with that
+hierarchy's three layers by construction. But which layer a given row
+*actually* needs is now an open question, not a closed one:
+[grade-join-strength](#grade-join-strength) (OPEN) asks whether a grade's
+`join` must be a least upper bound. Under the stronger reading, `join_le`
+(this table's `order` tag) plus antisymmetry *proves* `join_idem`, so
+every row this document calls "idempotent" — the nine sites above — would
+be a theorem rather than an independent axiom, and a future grade
+satisfying the stronger reading gets `foldGrade_cons_ne_nil`,
+`traverse_cons`, and the rest for free. This document does not answer
+that question; it only notes that the "idempotent" column's *meaning*
+depends on it.
 
 ## blog-series
 
