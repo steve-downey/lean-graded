@@ -12,7 +12,7 @@ Mark your own step done before writing the next step's handoff.
 - [x] 7. [applicative-accumulation](step-applicative-accumulation.md)
 - [x] 8. [traverse-list](step-traverse-list.md)
 - [x] 9. [traverse-tuple](step-traverse-tuple.md)
-- [ ] 10. [compose-flatten](step-compose-flatten.md)
+- [x] 10. [compose-flatten](step-compose-flatten.md) — partial: traverse composition law refuted, see [graded-traversable-composition](../../docs/design.md#graded-traversable-composition)
 - [ ] 11. [graded-morphism](step-graded-morphism.md)
 - [ ] 12. [canonical-representation](step-canonical-representation.md)
 - [ ] 13. [oracle-export](step-oracle-export.md)

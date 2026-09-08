@@ -704,6 +704,55 @@ gives the outer layer. Settling this needs an applicative/traversable
 instance for genuinely composed (unflattened) functors — out of this
 step's scope; not attempted here beyond the counterexample.
 
+### graded-traversable-composition
+
+**Question.** Does a graded Traversable satisfy the classical
+composition law, and if not, what is the right statement of it?
+
+**Status: OPEN.** Not answered by [compose-flatten]; see
+`tmp/plan/blocked-compose-flatten.md` for the full record.
+
+**What is settled.** The naive single-carrier form
+
+```lean
+flatten (map (traverse k) (traverse f xs)) = traverse (fun a => flatten (map k (f a))) xs
+```
+
+is **false**, refuted by a counterexample confirmed with `#eval`, not by
+hand-argument. `flatten (map (traverse k) (traverse f xs))` runs every
+element's outer stage before any inner stage; `traverse (fun a => flatten
+(map k (f a))) xs` interleaves the two per element. When an earlier
+element's inner stage fails and a later element's outer stage also fails,
+the two report different errors from different positions.
+
+**What is settled about its scope.** The refutation is **not** a fact
+about grading. Re-run at a single grade `g = h`, so both sides sit at the
+same grade and only the values can differ, the two sides still disagree.
+The same counterexample refutes the same naive law for an ungraded nested
+`expected<expected<T, E>, E>`. The cause is `flatten` destroying the
+distinction between layers, which an ordinary `Either` flattening does
+just as thoroughly. So this is evidence that flatten-then-traverse is the
+wrong shape for a composition law, graded or not — it is not evidence
+against graded traversables.
+
+**What is not settled.** Whether the law matters enough to P3200 to
+justify building a `Compose`-aware applicative and traversable (an `ap`
+for `Graded g ∘ Graded h` kept genuinely nested rather than pre-flattened
+through `Grade.join`) in order to state a version that is true. That is
+new infrastructure of roughly [monad-laws]'s size, not an extension of
+`flatten`. Deferred deliberately: the load-bearing-ness of the classical
+law for the C++ design is the open part, and it is a judgment about the
+paper rather than about the code.
+
+**Log.**
+
+- 2026-09-08 — [compose-flatten] refuted the naive form; recorded the
+  counterexample, the mechanism, and what a faithful version would cost.
+  Everything else in the step merged; only this law is open.
+- 2026-09-08 — orchestrator re-ran the counterexample at a single grade
+  and confirmed the failure is independent of grading. Narrows the
+  finding: it is about flattening, not about grades.
+
 ## morphisms
 
 Filled by [graded-morphism](../tmp/plan/step-graded-morphism.md).
@@ -739,6 +788,11 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 - [#toolchain](#toolchain) — build-time numbers are machine- and
   network-dependent.
 - [#blog-series](#blog-series) — addressee name "Dear colleague".
+- [#compose](#graded-traversable-composition) — **OPEN question**
+  `graded-traversable-composition`: the classical Traversable composition
+  law is refuted for the flattened carrier (and the refutation is not
+  about grading); whether a `Compose`-aware version is worth building is
+  undecided.
 - [#carrier](#carrier) — laws stated with exact union grades and `cast`,
   rather than `bind` at any sufficient grade.
 - [#applicative](#applicative) — `Accum`'s error field is a `List Err`
