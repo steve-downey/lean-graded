@@ -190,34 +190,100 @@ struct Foldable : protected Impl {
         "Specialize beman::transpose::foldable_typeclass<T> for your "
         "type T and provide fold_map(F, T) or fold_right(T, STATE, F) "
         "+ element_type.");
-    // Alternate-core: Impl provides either fold_map or fold_right as primitive.
-    // The Map class's using-declaration selects which; the base derives the
-    // other. Haskell equivalent: {-# MINIMAL foldMap | foldr #-}
+    // Alternate-core: Impl provides either fold_map or fold_right as
+    // primitive. Haskell equivalent: {-# MINIMAL foldMap | foldr #-}
+    //
+    // fold_map and fold_right are a mutually-derivable pair, done the
+    // apply.hpp way: each probes Impl for its own native version first, and
+    // each derivation addresses Impl directly (impl_of(self), never self)
+    // for the other operation. Before this conversion, both derivations were
+    // self-routed, and the only thing standing between that and unbounded
+    // mutual template recursion -- fold_map deriving from fold_right
+    // deriving from fold_map, each round nesting another RightFoldProgram --
+    // was a Map's using-declaration happening to shadow one side. A Map that
+    // omitted it fell into the cycle. Addressing Impl directly closes that
+    // structurally: neither derivation can re-enter the other through self,
+    // because self is never named. The Maps' using-declarations are no
+    // longer what selects the primitive; the base decides, per
+    // instantiation, from whichever basis Impl actually provides.
 
-    // Derived fold_map from fold_right. Active when a fold_right-primitive
-    // Impl's using-declaration shadows the base's derived fold_right with the
-    // real one. Requires element_type to deduce the monoid result type. foldMap
-    // f = foldr (\x acc -> f x <> acc) mempty
+    // Derived fold_map from fold_right. Requires element_type to deduce the
+    // monoid result type. foldMap f = foldr (\x acc -> f x <> acc) mempty
     template <class F, class T>
     auto fold_map(this auto &&self, F &&function, T &&value)
-        requires requires { typename Impl::element_type; }
+        requires requires(const Impl &impl) {
+            impl.fold_map(std::forward<F>(function), std::forward<T>(value));
+        } || requires(const Impl &impl) {
+            typename Impl::element_type;
+            impl.fold_right(std::forward<T>(value),
+                            monoid_identity<remove_cvref_t<std::invoke_result_t<
+                                F, const typename Impl::element_type &>>>(),
+                            [](const auto &,
+                               remove_cvref_t<std::invoke_result_t<
+                                   F, const typename Impl::element_type &>>
+                                   acc) { return acc; });
+        }
     {
-        using Result = remove_cvref_t<
-            std::invoke_result_t<F, const typename Impl::element_type &>>;
-        return self.fold_right(
-            std::forward<T>(value), monoid_identity<Result>(),
-            [&function](const auto &elem, Result acc) {
-                return monoid_combine(std::invoke(function, elem),
-                                      std::move(acc));
-            });
+        if constexpr (requires {
+                          impl_of(self).fold_map(std::forward<F>(function),
+                                                 std::forward<T>(value));
+                      }) {
+            return impl_of(self).fold_map(std::forward<F>(function),
+                                          std::forward<T>(value));
+        } else {
+            using Result = remove_cvref_t<
+                std::invoke_result_t<F, const typename Impl::element_type &>>;
+            // Non-capturing marker, matching the declaration's second
+            // alternative: a lambda inside a requires-expression that
+            // captures a local (here, `function`) is accepted by GCC but
+            // rejected by the Clang front end the wording generator uses
+            // ("variable cannot be implicitly captured" / "reference to
+            // local variable declared in enclosing function"). This
+            // static_assert is provable redundant given the declaration's
+            // constraint already selected this branch -- it is the
+            // GHC-MINIMAL-style last-resort message, not load-bearing SFINAE
+            // -- so the marker shape is exactly as informative.
+            static_assert(
+                requires {
+                    impl_of(self).fold_right(
+                        std::forward<T>(value), monoid_identity<Result>(),
+                        [](const auto &, Result acc) { return acc; });
+                }, "Foldable Impl must provide at least one basis: "
+                   "fold_map(f, container), or fold_right(container, state, f) "
+                   "plus element_type.");
+            return impl_of(self).fold_right(
+                std::forward<T>(value), monoid_identity<Result>(),
+                [&function](const auto &elem, Result acc) {
+                    return monoid_combine(std::invoke(function, elem),
+                                          std::move(acc));
+                });
+        }
     }
 
     /** Returns the number of elements in the foldable container. */
     template <class T>
-    auto length(this auto &&self, T &&value) -> std::size_t {
-        const auto count = self.fold_map([](const auto &) { return Count{1}; },
-                                         std::forward<T>(value));
-        return count.d_value;
+    auto length(this auto &&self, T &&value) -> std::size_t
+        requires requires(const Impl &impl) {
+            impl.length(std::forward<T>(value));
+        } || requires {
+            // self, not impl: fold_map is itself now a probing member with
+            // its own either-basis constraint, so checking availability
+            // through self is what correctly admits a fold_right +
+            // element_type Impl. Checking impl.fold_map directly would
+            // reject that Impl, since it has no fold_map member at all.
+            self.fold_map([](const auto &) { return Count{1}; },
+                          std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).length(std::forward<T>(value));
+                      }) {
+            return impl_of(self).length(std::forward<T>(value));
+        } else {
+            const auto count = self.fold_map(
+                [](const auto &) { return Count{1}; }, std::forward<T>(value));
+            return count.d_value;
+        }
     }
 
     /** Left-associative fold: applies `function(state, element)` for each
@@ -225,21 +291,50 @@ struct Foldable : protected Impl {
      */
     template <class T, class STATE, class F>
     auto fold_left(this auto &&self, T &&value, STATE initial_state,
-                   F &&function) {
-        using StateType = remove_cvref_t<STATE>;
-        auto step = std::forward<F>(function);
+                   F &&function)
+        requires requires(const Impl &impl) {
+            impl.fold_left(std::forward<T>(value), initial_state,
+                           std::forward<F>(function));
+        } || requires {
+            // self, not impl -- see length's second alternative. Also a
+            // non-capturing marker: fold_map is generic in its callable, so
+            // only the return-type shape (LeftFoldProgram<StateType>)
+            // matters for the probe. A capturing lambda naming `function`
+            // here would reference a function parameter from inside a
+            // trailing requires-clause's lambda, which GCC rejects
+            // (-Wtemplate-body, "use of parameter outside function body").
+            self.fold_map(
+                [](const auto &)
+                    -> detail::LeftFoldProgram<remove_cvref_t<STATE>> {
+                    return {};
+                },
+                std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).fold_left(std::forward<T>(value),
+                                                  initial_state,
+                                                  std::forward<F>(function));
+                      }) {
+            return impl_of(self).fold_left(std::forward<T>(value),
+                                           std::move(initial_state),
+                                           std::forward<F>(function));
+        } else {
+            using StateType = remove_cvref_t<STATE>;
+            auto step = std::forward<F>(function);
 
-        const auto program = self.fold_map(
-            [&step](const auto &x) {
-                using ValueType = remove_cvref_t<decltype(x)>;
-                return detail::LeftFoldProgram<StateType>{
-                    [x_copy = ValueType(x), &step](StateType s) {
-                        return std::invoke(step, std::move(s), x_copy);
-                    }};
-            },
-            std::forward<T>(value));
+            const auto program = self.fold_map(
+                [&step](const auto &x) {
+                    using ValueType = remove_cvref_t<decltype(x)>;
+                    return detail::LeftFoldProgram<StateType>{
+                        [x_copy = ValueType(x), &step](StateType s) {
+                            return std::invoke(step, std::move(s), x_copy);
+                        }};
+                },
+                std::forward<T>(value));
 
-        return program(StateType(std::move(initial_state)));
+            return program(StateType(std::move(initial_state)));
+        }
     }
 
     /** Right-associative fold: applies `function(element, state)` for each
@@ -247,95 +342,254 @@ struct Foldable : protected Impl {
      */
     template <class T, class STATE, class F>
     auto fold_right(this auto &&self, T &&value, STATE initial_state,
-                    F &&function) {
-        using StateType = remove_cvref_t<STATE>;
-        auto step = std::forward<F>(function);
+                    F &&function)
+        requires requires(const Impl &impl) {
+            impl.fold_right(std::forward<T>(value), initial_state,
+                            std::forward<F>(function));
+        } || requires(const Impl &impl) {
+            impl.fold_map(
+                [](const auto &)
+                    -> detail::RightFoldProgram<remove_cvref_t<STATE>> {
+                    return {};
+                },
+                std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).fold_right(std::forward<T>(value),
+                                                   initial_state,
+                                                   std::forward<F>(function));
+                      }) {
+            return impl_of(self).fold_right(std::forward<T>(value),
+                                            std::move(initial_state),
+                                            std::forward<F>(function));
+        } else {
+            using StateType = remove_cvref_t<STATE>;
+            auto step = std::forward<F>(function);
 
-        const auto program = self.fold_map(
-            [&step](const auto &x) {
-                using ValueType = remove_cvref_t<decltype(x)>;
-                return detail::RightFoldProgram<StateType>{
-                    [x_copy = ValueType(x), &step](StateType s) {
-                        return std::invoke(step, x_copy, std::move(s));
-                    }};
-            },
-            std::forward<T>(value));
+            // Non-capturing marker; see fold_map's static_assert for why.
+            static_assert(
+                requires {
+                    impl_of(self).fold_map(
+                        [](const auto &)
+                            -> detail::RightFoldProgram<StateType> {
+                            return {};
+                        },
+                        std::forward<T>(value));
+                }, "Foldable Impl must provide at least one basis: "
+                   "fold_map(f, container), or fold_right(container, state, f) "
+                   "plus element_type.");
+            const auto program = impl_of(self).fold_map(
+                [&step](const auto &x) {
+                    using ValueType = remove_cvref_t<decltype(x)>;
+                    return detail::RightFoldProgram<StateType>{
+                        [x_copy = ValueType(x), &step](StateType s) {
+                            return std::invoke(step, x_copy, std::move(s));
+                        }};
+                },
+                std::forward<T>(value));
 
-        return program(StateType(std::move(initial_state)));
+            return program(StateType(std::move(initial_state)));
+        }
     }
 
     /** Combines all elements using the Monoid of the element type
      * (requires elements themselves to be Monoid values).
      */
     template <class T>
-    auto combine_all(this auto &&self, T &&value) {
-        return self.fold_map([](const auto &x) { return x; },
-                             std::forward<T>(value));
+    auto combine_all(this auto &&self, T &&value)
+        requires requires(const Impl &impl) {
+            impl.combine_all(std::forward<T>(value));
+        } || requires {
+            // self, not impl -- see length's second alternative.
+            self.fold_map([](const auto & x) { return x; },
+                          std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).combine_all(std::forward<T>(value));
+                      }) {
+            return impl_of(self).combine_all(std::forward<T>(value));
+        } else {
+            return self.fold_map([](const auto &x) { return x; },
+                                 std::forward<T>(value));
+        }
     }
 
-    /** Alias for `combine_all`. */
+    /** Alias for `combine_all`. Its second alternative names what it
+     * actually calls -- self.combine_all, which is itself a probing member
+     * -- rather than fold_map. Naming fold_map here would reject an Impl
+     * that provides a native combine_all directly but no fold_map at all.
+     */
     template <class T>
-    auto fold(this auto &&self, T &&value) {
-        return self.combine_all(std::forward<T>(value));
+    auto fold(this auto &&self, T &&value)
+        requires requires(const Impl &impl) {
+            impl.fold(std::forward<T>(value));
+        } || requires { self.combine_all(std::forward<T>(value)); }
+    {
+        if constexpr (requires {
+                          impl_of(self).fold(std::forward<T>(value));
+                      }) {
+            return impl_of(self).fold(std::forward<T>(value));
+        } else {
+            return self.combine_all(std::forward<T>(value));
+        }
     }
 
     /** Returns `true` if any element satisfies `predicate`. */
     template <class T, class PREDICATE>
-    auto any_of(this auto &&self, T &&value, PREDICATE &&predicate) -> bool {
-        const auto result = self.fold_map(
-            [&predicate](const auto &x) {
-                return Any{std::invoke(predicate, x)};
-            },
-            std::forward<T>(value));
+    auto any_of(this auto &&self, T &&value, PREDICATE &&predicate) -> bool
+        requires requires(const Impl &impl) {
+            impl.any_of(std::forward<T>(value),
+                        std::forward<PREDICATE>(predicate));
+        } || requires {
+            // self, not impl -- see length's second alternative. Also a
+            // non-capturing marker: only the Any-shaped return matters for
+            // the probe, and capturing `predicate` here would reference a
+            // function parameter from inside a trailing requires-clause's
+            // lambda, which GCC rejects.
+            self.fold_map([](const auto &) { return Any{true}; },
+                          std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).any_of(
+                              std::forward<T>(value),
+                              std::forward<PREDICATE>(predicate));
+                      }) {
+            return impl_of(self).any_of(std::forward<T>(value),
+                                        std::forward<PREDICATE>(predicate));
+        } else {
+            const auto result = self.fold_map(
+                [&predicate](const auto &x) {
+                    return Any{std::invoke(predicate, x)};
+                },
+                std::forward<T>(value));
 
-        return result.d_value;
+            return result.d_value;
+        }
     }
 
     /** Returns `true` if all elements satisfy `predicate`. */
     template <class T, class PREDICATE>
-    auto all_of(this auto &&self, T &&value, PREDICATE &&predicate) -> bool {
-        const auto result = self.fold_map(
-            [&predicate](const auto &x) {
-                return All{std::invoke(predicate, x)};
-            },
-            std::forward<T>(value));
+    auto all_of(this auto &&self, T &&value, PREDICATE &&predicate) -> bool
+        requires requires(const Impl &impl) {
+            impl.all_of(std::forward<T>(value),
+                        std::forward<PREDICATE>(predicate));
+        } || requires {
+            // self, not impl; see any_of's second alternative.
+            self.fold_map([](const auto &) { return All{true}; },
+                          std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).all_of(
+                              std::forward<T>(value),
+                              std::forward<PREDICATE>(predicate));
+                      }) {
+            return impl_of(self).all_of(std::forward<T>(value),
+                                        std::forward<PREDICATE>(predicate));
+        } else {
+            const auto result = self.fold_map(
+                [&predicate](const auto &x) {
+                    return All{std::invoke(predicate, x)};
+                },
+                std::forward<T>(value));
 
-        return result.d_value;
+            return result.d_value;
+        }
     }
 
-    /** Returns `true` if the container holds no elements. */
+    /** Returns `true` if the container holds no elements. Its second
+     * alternative names self.any_of for the same reason `fold`'s names
+     * self.combine_all: an Impl may provide a native any_of directly, with
+     * no fold_map at all.
+     */
     template <class T>
-    auto empty(this auto &&self, T &&value) -> bool {
-        return !self.any_of(std::forward<T>(value),
-                            [](const auto &) { return true; });
+    auto empty(this auto &&self, T &&value) -> bool
+        requires requires(const Impl &impl) {
+            impl.empty(std::forward<T>(value));
+        } || requires {
+            self.any_of(std::forward<T>(value),
+                        [](const auto &) { return true; });
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).empty(std::forward<T>(value));
+                      }) {
+            return impl_of(self).empty(std::forward<T>(value));
+        } else {
+            return !self.any_of(std::forward<T>(value),
+                                [](const auto &) { return true; });
+        }
     }
 
     /** Collects all elements into a `std::vector` in traversal order. */
     template <class T>
-    auto to_vector(this auto &&self, T &&value) {
-        return self.fold_map(
-            [](const auto &x) {
-                using ValueType = remove_cvref_t<decltype(x)>;
-                return std::vector<ValueType>{x};
-            },
-            std::forward<T>(value));
+    auto to_vector(this auto &&self, T &&value)
+        requires requires(const Impl &impl) {
+            impl.to_vector(std::forward<T>(value));
+        } || requires {
+            // self, not impl -- see length's second alternative.
+            self.fold_map(
+                [](const auto & x) {
+                    using ValueType = remove_cvref_t<decltype(x)>;
+                    return std::vector<ValueType>{x};
+                },
+                std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).to_vector(std::forward<T>(value));
+                      }) {
+            return impl_of(self).to_vector(std::forward<T>(value));
+        } else {
+            return self.fold_map(
+                [](const auto &x) {
+                    using ValueType = remove_cvref_t<decltype(x)>;
+                    return std::vector<ValueType>{x};
+                },
+                std::forward<T>(value));
+        }
     }
 
     /** Returns the first element satisfying `predicate`, or an empty optional.
      */
     template <class T, class PREDICATE>
-    auto find_first(this auto &&self, T &&value, PREDICATE &&predicate) {
-        const auto result = self.fold_map(
-            [&predicate](const auto &x) {
-                using X = remove_cvref_t<decltype(x)>;
-                if (std::invoke(predicate, x)) {
-                    return detail::First<X>{{x}};
-                }
-                return detail::First<X>{{}};
-            },
-            std::forward<T>(value));
+    auto find_first(this auto &&self, T &&value, PREDICATE &&predicate)
+        requires requires(const Impl &impl) {
+            impl.find_first(std::forward<T>(value),
+                            std::forward<PREDICATE>(predicate));
+        } || requires {
+            // self, not impl; see any_of's second alternative.
+            self.fold_map(
+                [](const auto &
+                   x) -> detail::First<remove_cvref_t<decltype(x)>> {
+                    return {};
+                },
+                std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).find_first(
+                              std::forward<T>(value),
+                              std::forward<PREDICATE>(predicate));
+                      }) {
+            return impl_of(self).find_first(std::forward<T>(value),
+                                            std::forward<PREDICATE>(predicate));
+        } else {
+            const auto result = self.fold_map(
+                [&predicate](const auto &x) {
+                    using X = remove_cvref_t<decltype(x)>;
+                    if (std::invoke(predicate, x)) {
+                        return detail::First<X>{{x}};
+                    }
+                    return detail::First<X>{{}};
+                },
+                std::forward<T>(value));
 
-        return result.d_value;
+            return result.d_value;
+        }
     }
 
   private:

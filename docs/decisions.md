@@ -1377,3 +1377,52 @@ add one.
   `apply.test.cpp`: preference and fallback tests for `map`, `zip_with`,
   `lift`, `discard_first`, `discard_second`, plus one per-instantiation test
   for `map`).
+- 2026-09-07 —
+  [foldable-derived-probing](../tmp/plan/step-foldable-derived-probing.md)
+  converted `Foldable`'s whole surface — `fold_map`/`fold_right` (the third
+  mutually-derivable pair) plus the nine one-way derived members (`length`,
+  `fold_left`, `combine_all`, `fold`, `any_of`, `all_of`, `empty`,
+  `to_vector`, `find_first`) — to the probe-then-derive shape, closing the
+  latent `fold_map`/`fold_right` mutual-recursion hazard structurally:
+  before this step, a `Map` that omitted a `using`-declaration for one side
+  of the pair sent the two derivations into unbounded mutual template
+  recursion (each round nesting another `RightFoldProgram`); both
+  derivations now address `Impl` directly (`impl_of(self)`), so neither can
+  re-enter the other through `self`, and an `Impl` with neither basis fails
+  as a clean constraint (its `fold_map`/`fold_right` members do not exist,
+  verified with a `has_fold_map` concept the way the library's other
+  "does not exist" cases are tested), with a `static_assert` naming both
+  acceptable bases as a last-resort message that is unreachable given the
+  declaration-level constraint already did the work. `VectorFoldableImpl`
+  gained a native `length` (`values.size()`) with **no** edit to
+  `VectorFoldableMap` — the ergonomics demonstration this step exists to
+  make. One correction to the one-way members' shape, found empirically: the
+  seven members deriving directly from `fold_map` (`length`, `fold_left`,
+  `combine_all`, `any_of`, `all_of`, `to_vector`, `find_first`) must probe
+  `self.fold_map(...)` in their second alternative, not `impl.fold_map(...)`
+  — since `fold_map` is now itself conditionally available via either basis,
+  the Impl-level shallow check the rest of the codebase uses for one-way
+  derivations (`map`, `zip_with`, ... in `apply.hpp`) wrongly excludes an
+  `Impl` that only provides `fold_right` + `element_type`; a hazard-Impl test
+  calling `to_vector` caught this directly (compiled-away member, not a
+  runtime failure). `fold`/`empty`, which derive from `combine_all`/`any_of`
+  rather than `fold_map` directly, already needed this `self`-routed shape
+  per this step's own file. Two lambda-related GCC/Clang portability notes
+  worth carrying forward: a lambda that captures a declaration-level
+  parameter (`function`, `predicate`) inside a trailing requires-clause
+  fails under GCC (`-Wtemplate-body`, "use of parameter outside function
+  body"), and a lambda that captures a local variable inside a `requires{}`
+  used in a `static_assert` body fails under the Clang front end the wording
+  generator uses ("variable cannot be implicitly captured" / "reference to
+  local variable declared in enclosing function") even though GCC accepts
+  it; both are fixed the same way, with a non-capturing marker lambda whose
+  return-type shape is all the probe needs. `fold.hpp` is not
+  wording-generating and stayed that way; `sequence.hpp`'s new native
+  `length` is `\omit`ted, confirmed by regenerating and diffing wording —
+  only the five pre-existing drifted fragments appear, nothing under
+  `transpose.range.*`. Suite went from 146 to 151 (5 added: a native-`length`
+  preference test, a per-instantiation `to_vector` test, the hazard test
+  exercising a `fold_right` + `element_type` `Impl` through a `Map` with no
+  `using`-declaration at all, the `has_fold_map` non-existence test, plus one
+  more assertion added to the existing `sequence.hpp` `length` test for
+  empty/one-element vectors).

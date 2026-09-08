@@ -50,6 +50,12 @@ struct VectorFoldableImpl {
         }
         return accumulated;
     }
+
+    //! \omit
+    auto length(this auto &&, const std::vector<VALUE_TYPE> &values)
+        -> std::size_t {
+        return values.size();
+    }
 };
 
 //! \omit
