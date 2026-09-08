@@ -145,6 +145,14 @@ union grade. It is two layers and a bridge, verified before planning:
     and the question of whether commutativity was ever needed by the
     applicative or only by computing the grade exactly.
 
-Everything beyond those two is the open question
+21. obligation-layering — re-derive the obligation on a grade. Both
+    planned steps came back with commutativity and idempotence *absent*
+    from the cast-free layer, which suggests the three-layer account in
+    `#obligations` describes the cost of canonical exact grade spelling
+    rather than three tiers of grade. Tests that hypothesis by classifying
+    every consumer of both axioms as operational or canonicalization, and
+    reframes `grade-join-strength` accordingly.
+
+Everything beyond those is the open question
 `cast-burden-migration-scope` in `docs/design.md`, deliberately unplanned
 until the measurements exist.
