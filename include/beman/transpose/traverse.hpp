@@ -134,7 +134,7 @@ concept traversable_impl = requires(const IMPL &impl,
     typename IMPL::element_type;
     impl.traverse(
         applicative_typeclass<std::optional<applicative_value_t<STRUCTURE>>>,
-        probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
+        detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
         structure);
 };
 
@@ -158,13 +158,13 @@ concept traversable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
         obj.traverse(
             applicative_typeclass<std::optional<applicative_value_t<STRUCTURE>>>,
-            probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
+            detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
             structure);
         obj.for_each(
             structure,
-            probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{});
+            detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{});
         obj.traverse_with(
-            obj, probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
+            obj, detail::probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
             structure);
     } &&
     (!requires(const OBJ &) {

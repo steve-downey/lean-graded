@@ -1062,6 +1062,26 @@ the marker that would end the chain -- `\seebelow` on an exposition-only alias
   variable does not help a trait whose *value* is the point, and
   `error_set_is_canonical_v` rendered as `unspecified` would be worse than
   omitted.
+- 2026-09-08 — `probe_witness` and `probe_witness2` were placed in the main
+  namespace by `typeclass-object-concepts` and reached
+  `transpose.applicative.syn.md` and `transpose.traversable.syn.md` undeclared:
+  they are implementation machinery -- witness callables that let a concept
+  check a derived operation's existence for one representative callable,
+  never a proof it holds for every callable -- and nothing outside the
+  concept definitions ever named them. They now live in `detail` and are
+  marked `\expos` where they are defined, and their uses -- inside the
+  `applicative_impl`/`applicative_object`/`traversable_impl`/
+  `traversable_object` concept bodies themselves, not merely a declaration
+  that names them -- render as `$probe-witness$`/`$probe-witness2$` with no
+  qualifier and no leakage finding. That the `\expos` marker composes on a
+  concept's own requires-expression, not only on a trailing return type or a
+  constraint, was the open question this step existed to answer; it does.
+  `applicative_value_t` was deliberately left alone as public vocabulary the
+  baseline audit lists and `examples/binary_tree.hpp` uses -- its wording
+  problem is the pipeline's, not the library's, and the specification does
+  not get to change the library to suit itself. Filed upstream as
+  steve-downey/specgen#84 (`--validate` should catch a name that appears in
+  generated wording but is declared nowhere in it).
 
 ---
 

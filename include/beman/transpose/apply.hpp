@@ -120,9 +120,9 @@ concept applicative_impl =
         impl.pure(element);
     } &&
     (requires(const IMPL &impl, const CONTEXT &context) {
-        impl.invoke(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        impl.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
     } || requires(const IMPL &impl, const CONTEXT &context) {
-        impl.ap(impl.pure(probe_witness<applicative_value_t<CONTEXT>>{}),
+        impl.ap(impl.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{}),
                 context);
     });
 
@@ -301,20 +301,20 @@ concept applicative_object =
     requires(const OBJ &obj, const CONTEXT &context,
              const applicative_value_t<CONTEXT> &element) {
         obj.pure(element);
-        obj.invoke(probe_witness<applicative_value_t<CONTEXT>>{}, context);
-        obj.map(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.map(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
         obj.lift(element);
-        obj.zip_with(probe_witness2<applicative_value_t<CONTEXT>>{}, context,
+        obj.zip_with(detail::probe_witness2<applicative_value_t<CONTEXT>>{}, context,
                      context);
         obj.discard_first(context, context);
         obj.discard_second(context, context);
-        obj.invoke_with(obj, probe_witness<applicative_value_t<CONTEXT>>{},
+        obj.invoke_with(obj, detail::probe_witness<applicative_value_t<CONTEXT>>{},
                         context);
     } &&
     (!requires(const OBJ &obj) {
-        obj.pure(probe_witness<applicative_value_t<CONTEXT>>{});
+        obj.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{});
     } || requires(const OBJ &obj, const CONTEXT &context) {
-        obj.ap(obj.pure(probe_witness<applicative_value_t<CONTEXT>>{}),
+        obj.ap(obj.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{}),
                context);
     }) &&
     (!graded_context<CONTEXT> ||
