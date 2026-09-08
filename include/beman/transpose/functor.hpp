@@ -81,6 +81,27 @@ struct Functor : protected Impl {
 template <class T>
 inline constexpr auto functor_typeclass = std::false_type{};
 
+/** Deep object concept for a Functor object over `CONTEXT`: satisfied when
+ * `OBJ` provides the full object surface -- `fmap` (probed with a
+ * representative witness callable, not a proof for every callable) and the
+ * derived `replace`. Conformance here is structural, so a hand-implemented
+ * object that never uses the `Functor` CRTP base can satisfy this concept
+ * too; nothing here requires deriving from `Functor<Impl>`.
+ *
+ * There is no superclass edge to `Applicative` or `Monad`. In particular, a
+ * bare `Monad` object correctly fails this concept: `Monad<Impl>` grows only
+ * the Functor basis (`fmap`), never the derived surface, so it has no
+ * `replace`. Wrapping the monad object in `Functor<>` (`Functor<SomeMonadMap>`)
+ * is today's remedy; a later presentation member on `Monad` is expected to
+ * name the same wrapping.
+ */
+template <class OBJ, class CONTEXT>
+concept functor_object = requires(const OBJ &obj, const CONTEXT &context,
+                                  const applicative_value_t<CONTEXT> &element) {
+    obj.fmap(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+    obj.replace(context, element);
+};
+
 template <class VALUE_TYPE>
 struct OptionalFunctorImpl {
     template <class F>

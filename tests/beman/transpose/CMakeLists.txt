@@ -15,6 +15,7 @@ set(transpose_tests
     grade
     laws
     monad
+    objects
     traverse
     transpose
     sequence

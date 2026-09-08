@@ -1481,3 +1481,89 @@ add one.
   a `has_map`/`has_zip_with` concept pair proving an inapplicable callable
   still makes `map`/`zip_with` disappear rather than hard-error against the
   shipped invoke-basis object).
+
+## typeclass-conformance-depth
+
+**Question:** What does a typeclass concept check — the basis, or the full
+operation surface?
+**Status:** DECIDED 2026-09-07
+**Decided by:** the design, applied by
+[typeclass-object-concepts](../tmp/plan/step-typeclass-object-concepts.md).
+**Decision:** Two concepts, at two depths. The concept for a typeclass
+**object** (`functor_object`, `applicative_object`, `monad_object`,
+`foldable_object`, `traversable_object`, one per class, carrier-indexed)
+checks all operations, basis and derived, with conditionally-available
+operations required conditionally and operations templated over an
+arbitrary callable probed with one representative witness
+(`probe_witness`/`probe_witness2` in `detail/typeclass_base.hpp`). There are
+no superclass edges: `monad_object` does not require `functor_object`, and
+`traversable_object` does not require a Foldable object — the latter is the
+DELIBERATE CONSTRAINT `traverse.hpp` already carried and the former is the
+whole point of `as-functor-presentation`, the next step. The restricted
+`Impl` concept — the other half, naming only the minimal complete bases — is
+`typeclass-impl-concepts`, the step after that.
+
+`traverse.hpp`'s existing `applicative_object_for<POLICY, CONTEXT>` becomes
+sugar over `applicative_object`, strengthened with the
+`pure`-returns-exactly-`CONTEXT` requirement `traverse`'s policy parameter
+needs and `applicative_object` itself does not make (that concept only asks
+that `pure` exist, not what it returns).
+
+**Why:** Conformance in this library is structural throughout — a program
+may hand-implement a typeclass object without ever touching the CRTP base —
+so the previous single object concept, `applicative_object_for`, probed
+`pure` alone. It accepted an object with `pure` and nothing else and
+deferred the failure to whenever some code written much later first reached
+a derived operation, three frames deep inside a template, with a diagnostic
+about the wrong thing. The deep concept moves the surprise to the gate and
+doubles as the specification's statement of the class's full surface, which
+is what a specification wants to say anyway.
+
+Record the two cautions from the step file as part of the decision, not as
+footnotes: an unconditional `ap` requirement wrongly rejects the simd
+object, and a witness is a witness, not a proof that an operation holds for
+every callable.
+
+**Record as provisional:** which operations are conditional, and what
+licenses each, is a fact about the current basis sets and the current
+shipped instances; a new instance's shape could add one. The witness
+instantiation is one representative callable because that suffices for "the
+operation is missing entirely"; what would justify revisiting is a failure
+mode a single witness cannot see.
+
+**Log:**
+- 2026-09-07 — [typeclass-object-concepts](../tmp/plan/step-typeclass-object-concepts.md)
+  added the five concepts and found two conditional operations the step
+  file's own text did not name, on top of the two (`ap`, `subsume`) it did:
+  `Foldable::combine_all`/`fold` fold over the *elements themselves* via the
+  identity function, so they need the element type — not a wrapped
+  accumulator type — to have a registered `Monoid`; `std::vector<int>` is
+  Foldable but `int` carries no `Monoid` since
+  [monoid-carrier-canonicity](#monoid-carrier-canonicity), so probing them
+  unconditionally on `VectorFoldableMap<int>` is a hard, non-SFINAE error
+  (`monoid_v<int>`'s definition needs `Monoid<int>` complete), not a graceful
+  constraint failure — confirmed empirically, not assumed. The fix is a
+  `detail::has_registered_monoid<VALUE_TYPE>` guard in `fold.hpp`, gating
+  `combine_all`/`fold` the same way `ap` and `subsume` are gated elsewhere.
+  Symmetrically, `Traversable::transpose`/`transpose_with` are hard-wired to
+  `applicative_typeclass<element_type>`, which names no applicative object
+  for a structure like `std::vector<int>`; probing them unconditionally is
+  the same class of hard error, guarded the same way.
+  Also measured directly (see `applicative-ap-only-probing`'s existing
+  rider, now confirmed rather than merely asserted): probing an
+  unconstrained member like `Applicative<Impl>::invoke` or
+  `Monad<Impl>::kleisli` with real, type-compatible arguments against an
+  `Impl` that has *no* basis at all is not reliably vacuous — it can be a
+  hard, non-SFINAE compile error (the `ap`-derivation's own
+  `static_assert` fires during the body instantiation a `requires`-expression
+  forces to resolve the deduced return type). The concepts here never rely
+  on such a member as basis evidence, and the one negative test that needs a
+  "pure and nothing else" object (`applicative_object`'s shallow-gate
+  regression) uses a hand-rolled, non-CRTP struct for exactly that reason:
+  such an object has no `invoke`/`map`/etc. member at all, so probing it is
+  a plain, always-safe name-lookup failure rather than a body instantiation.
+  `papers/wording/transpose.applicative.syn.md` and
+  `transpose.traversable.syn.md` were regenerated and copied over, alongside
+  the five pre-existing drifted fragments left untouched. Suite went from
+  153 to 154: one new test executable, `objects`, added to
+  `tests/beman/transpose/CMakeLists.txt`.
