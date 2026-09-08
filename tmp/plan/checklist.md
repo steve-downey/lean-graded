@@ -15,7 +15,7 @@ Mark your own step done before writing the next step's handoff.
 - [x] 10. [compose-flatten](step-compose-flatten.md) — partial: flattened traverse composition law refuted, product-graded case untested, see [graded-traversable-composition](../../docs/design.md#graded-traversable-composition)
 - [x] 11. [graded-morphism](step-graded-morphism.md)
 - [x] 12. [canonical-representation](step-canonical-representation.md)
-- [ ] 13. [compose-applicative](step-compose-applicative.md) — added 2026-09-08 to answer [graded-traversable-composition](../../docs/design.md#graded-traversable-composition)
+- [x] 13. [compose-applicative](step-compose-applicative.md) — product-graded composition law (`traverseComp_eq`) holds unconditionally; `flatten_ap` holds only conditionally and explains [compose-flatten]'s counterexample; [graded-traversable-composition](../../docs/design.md#graded-traversable-composition) now CLOSED
 - [ ] 14. [ungraded-baseline](step-ungraded-baseline.md) — added 2026-09-08: the comparison column, what grading adds
 - [ ] 15. [grade-obligations](step-grade-obligations.md) — added 2026-09-08: what a grade must be, layered, with a non-idempotent counter-instance
 - [ ] 16. [oracle-export](step-oracle-export.md)
