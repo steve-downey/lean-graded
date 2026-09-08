@@ -36,7 +36,8 @@ namespace {
 // tell which member ran.
 struct MarkedReplaceImpl {
     template <class F>
-    auto fmap(this auto &&, F &&function, const std::vector<int> &values) {
+    [[maybe_unused]] auto fmap(this auto &&, F &&function,
+                               const std::vector<int> &values) {
         std::vector<int> output;
         output.reserve(values.size());
         for (const auto &v : values) {

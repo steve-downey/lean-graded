@@ -23,16 +23,16 @@ namespace {
 // and returns a sentinel the invoke derivation could never produce.
 struct MarkedMapImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function,
-                const std::optional<FIRST> &first,
-                const std::optional<REST> &...rest)
+    [[maybe_unused]] auto invoke(this auto &&, FUNCTION &&function,
+                                 const std::optional<FIRST> &first,
+                                 const std::optional<REST> &...rest)
         -> std::optional<bt::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
         using Result = bt::remove_cvref_t<
@@ -56,7 +56,7 @@ struct MarkedMapMap : bt::Applicative<MarkedMapImpl> {};
 // type on the same Map still reaches the invoke derivation.
 struct PerInstantiationMapImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
@@ -90,16 +90,16 @@ struct PerInstantiationMapMap : bt::Applicative<PerInstantiationMapImpl> {};
 // sentinel the invoke derivation could never produce.
 struct MarkedZipWithImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class FUNCTION, class FIRST, class... REST>
-    auto invoke(this auto &&, FUNCTION &&function,
-                const std::optional<FIRST> &first,
-                const std::optional<REST> &...rest)
+    [[maybe_unused]] auto invoke(this auto &&, FUNCTION &&function,
+                                 const std::optional<FIRST> &first,
+                                 const std::optional<REST> &...rest)
         -> std::optional<bt::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const FIRST &, const REST &...>>> {
         using Result = bt::remove_cvref_t<
