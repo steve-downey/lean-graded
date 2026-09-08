@@ -615,7 +615,94 @@ before ever forcing the third.
 
 ## compose
 
-Filled by [compose-flatten](../tmp/plan/step-compose-flatten.md).
+`Graded.flatten : Graded g (Graded h α) → Graded (Grade.join g h) α` (in
+`Graded/Compose.lean`) collapses a nested carrier to a single one. C++
+routinely collapses `expected<expected<T, error_set<Es1...>>,
+error_set<Es2...>>` to `expected<T, error_set<Es1..., Es2...>>` and treats
+it as obviously safe; `flatten` is that collapse, made precise.
+
+**Product pomonoid, not a flat union.** The nested carrier's *natural*
+grade is the *pair* `(g, h)` — two genuinely different layers, an outer
+one and an inner one, tracked separately until something identifies
+them. `flatten`'s target grade `Grade.join g h` is that identification:
+it is where the pair collapses to one `Finset`, not where it started.
+Every theorem below is about what survives the collapse.
+
+**`flatten` is the monad's own multiplication.** `flatten_eq_bind_id :
+flatten x = bind x (fun y => y)` says so directly: `flatten` is not a
+second primitive needing its own proofs from scratch, it is `bind`
+applied to the identity continuation. Every compatibility law below is
+really a [monad](#monad) law in disguise, and reads that way:
+
+- `flatten_map` (naturality): mapping the inner payload before
+  flattening agrees with flattening then mapping outside.
+- `flatten_pure_outer`, `flatten_pure_inner` (unit, `Grade.bot_join` /
+  `Grade.join_bot`): wrapping either layer with `pure` and flattening
+  recovers the other layer untouched — an empty-graded layer contributes
+  nothing to the union.
+- `flatten_flatten` (associative, `Grade.join_assoc`): flattening the
+  outer two layers of a *triple*-nested carrier first, or the inner two
+  first (via `map flatten`), agree — the same fact `bind_assoc` states
+  for sequencing, here for nesting.
+- `flatten_widen_outer`, `flatten_widen_inner` (order, `Grade.join_mono`):
+  widening either layer before flattening agrees with flattening then
+  widening the joined result. Both are proved by plain `rfl` case
+  analysis — no `cast` at all, since widening produces an inclusion
+  between grades, not an equation, exactly as `Widen.widen_map` needed
+  none.
+
+**A universe wrinkle, resolved.** `Graded h α` (the inner carrier) lives
+in `Type (max u v)`, not `Type v` — a genuinely higher universe than the
+bare payload `α`. `Monad.bind`'s declared signature ties its own two
+payload type-variables to a single shared universe, so calling it on a
+value whose payload is itself a `Graded` (as `flatten_eq_bind_id` and
+`flatten_flatten` both need) only typechecks when that shared universe
+equation is satisfiable. `Graded/Compose.lean` quantifies its own
+payloads at `Type u` — the same universe as `Err` itself — rather than
+this codebase's usual separate `Type v`, specifically so `max u u = u`
+resolves the constraint definitionally. This is local to `Compose.lean`;
+no other module's universes changed.
+
+**`flatten_comm` needs *no* hypothesis — a genuinely different answer
+than the question expected.** The "at most one side is an error"
+condition has appeared twice before this step: `ap_flip`'s hypothesis
+`(∃ f', f = .ok f') ∨ (∃ a, x = .ok a)`
+([applicative](#applicative)), and again in the accumulating
+applicative's laws. Both needed it because `ap`/`apFlipped` combine two
+*independent* graded values, each of which can independently be an
+error — which one's error survives the reordering is a genuine question.
+`flatten x = cast (Grade.join_comm h g) (flatten (swap x))` needed no
+such hypothesis, and not because it is a third confirmation of the same
+condition stated differently: `Graded g (Graded h α)` is not two
+independent values, it is *one* value, nested, and it has exactly three
+inhabited shapes (`ok (ok _)`, `ok (err _ _)`, `err _ _`) — never two
+errors at once, by construction. The condition that mattered for
+`ap_flip` is true of every `flatten`/`swap` input *vacuously*, so it
+never needed writing down. Proved unconditionally by case analysis, each
+case closing by `cast_ok`/`cast_err` plus the ambient proof irrelevance
+on `Finset` membership.
+
+**The traverse composition law is false, not merely hard.** The
+"cleanest form that typechecks" —
+`flatten (map (traverse k) (traverse f xs)) = traverse (fun a => flatten
+(map k (f a))) xs` — is refuted by a concrete counterexample (recorded in
+[blocked-compose-flatten](../tmp/plan/blocked-compose-flatten.md)): the
+left side commits to *all* of `f` across the whole list before ever
+consulting `k` (so a later position's `f`-failure wins over an earlier
+position's `k`-failure), while the right side flattens `f` and `k`
+together at each position before traversing (so `traverse`'s own
+left-to-right short circuit sees whichever position fails first,
+regardless of which function caused it). These are different
+algorithms, and they disagree exactly when an earlier element's `k`
+fails while a later element's `f` also fails. The classical Traversable
+composition law is true for a *`Compose F G`*-aware traversal, which
+keeps the two layers distinct until the very end; `Graded g'` conflates
+"which layer failed" into one flat grade the moment a value is
+constructed, so no per-element `flatten`-then-traverse on one flat
+carrier can recover the priority a genuine `Compose`-aware traversal
+gives the outer layer. Settling this needs an applicative/traversable
+instance for genuinely composed (unflattened) functors — out of this
+step's scope; not attempted here beyond the counterexample.
 
 ## morphisms
 

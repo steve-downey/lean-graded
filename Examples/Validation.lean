@@ -5,6 +5,7 @@ import Graded.Applicative
 import Graded.Accum
 import Graded.Traverse
 import Graded.Tuple
+import Graded.Compose
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
@@ -235,5 +236,34 @@ def renderTuple :
 -- element's error, exactly as a C++ `transpose` short-circuiting on the
 -- second field would.
 #guard renderTuple (validateTuple "42" 9999) = "err Examples.Validation.E.range"
+
+-- ---------------------------------------------------------------------
+-- `flatten`: a stage that returns a graded value *inside* a graded
+-- value — `lookup s` first performs an I/O-graded fetch (which can fail
+-- with `E.io`, e.g. "not found"), and, on success, hands back a
+-- `parseNat`-graded `Nat` (which can fail with `E.parse`) without having
+-- committed to a union grade yet. This is the C++
+-- `expected<expected<int, error_set<parse>>, error_set<io>> lookup(std::string)`
+-- shape [compose-flatten] collapses via `flatten` to a single
+-- `expected<int, error_set<io, parse>>`.
+
+/-- Fetch `s`, modelling an I/O stage that fails with `E.io` on the empty
+    string and otherwise hands back an *unflattened* `parseNat` result. -/
+def lookup (s : String) : Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat) :=
+  if s = "" then .err E.io (Finset.mem_singleton_self E.io)
+  else .ok (parseNat s)
+
+/-- Render a `flatten (lookup s)` result for `#eval`/`#guard`. -/
+def renderLookup : Graded ({E.io, E.parse} : Grade E) Nat → String
+  | .ok n => s!"ok {n}"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderLookup (flatten (lookup "42"))   -- ok 42: the I/O fetch and the parse both succeed
+#eval renderLookup (flatten (lookup ""))     -- err E.io: the I/O fetch itself fails
+#eval renderLookup (flatten (lookup "abc"))  -- err E.parse: the fetch succeeds, the parse fails
+
+#guard renderLookup (flatten (lookup "42")) = "ok 42"
+#guard renderLookup (flatten (lookup "")) = "err Examples.Validation.E.io"
+#guard renderLookup (flatten (lookup "abc")) = "err Examples.Validation.E.parse"
 
 end Examples.Validation

@@ -6,6 +6,7 @@ import Tests.Applicative
 import Tests.Accum
 import Tests.Traverse
 import Tests.Tuple
+import Tests.Compose
 
 -- populated by later steps
 example : True := trivial
