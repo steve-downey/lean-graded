@@ -7,6 +7,15 @@ defaultTargets = ["Graded", "Tests", "Examples"]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
 relaxedAutoImplicit = false
 weak.linter.mathlibStandardSet = true
+# Mathlib's standard lint set assumes files destined for Mathlib itself.
+# Three of its rules do not apply to this project and are turned off:
+#   style.header  - wants a Mathlib copyright block in every file
+#   hashCommand   - forbids `#guard`/`#eval`, which docs/RULES.md requires
+#                   in every test file so definitions are known to compute
+#   dupNamespace  - flags `Graded.Graded`, the name the plan specifies
+weak.linter.style.header = false
+weak.linter.hashCommand = false
+weak.linter.dupNamespace = false
 maxSynthPendingDepth = 3
 
 [[require]]

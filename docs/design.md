@@ -24,6 +24,18 @@ Build times (`make verify`, i.e. `lake build`), measured on this step:
 > this network path to the Mathlib cache blob store. Revisit if a later
 > step's CI run reports a materially different floor.
 
+### Lint configuration
+
+The Mathlib `math` template enables `weak.linter.mathlibStandardSet`, whose
+rules assume files destined for Mathlib itself. Three are turned off in
+`lakefile.toml` because they contradict this project rather than describe
+it: `style.header` (wants a Mathlib copyright block in every file),
+`hashCommand` (forbids `#guard`/`#eval`, which `docs/RULES.md` *requires* in
+every test file so that definitions are known to compute and not merely
+typecheck), and `dupNamespace` (flags `Graded.Graded`, the name this plan
+specifies). The rest of the set is left on. A green build is expected to be
+a silent build; a warning means someone introduced one.
+
 ## cpp-counterpart
 
 The grade is `error_set<Es...>`: a set of error *types*, ordered by

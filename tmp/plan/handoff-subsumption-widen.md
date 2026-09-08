@@ -28,12 +28,22 @@ Goal and merge criterion: fixed by `step-subsumption-widen.md`.
   use `.symm`, `.toFun`/`(· : ...)`, `.invFun` as usual. `fromEmpty` needs
   `emptyEquiv.symm`.
 
-## Module doc-strings (still required, still not automated)
+## Builds are warning-free now — a warning means you introduced it
 
-Every new `.lean` file needs a `/-! ... -/` module doc-string as the first
-command after its imports (mirror `Graded/Carrier.lean`'s shape), or
-`linter.style.header` warns. It's a warning, not a build failure, but fix
-it anyway — it's free. Applies to `Graded/Widen.lean` and `Tests/Widen.lean`.
+The `linter.style.header` warning I described in my letter as fixable by
+adding a module doc-string is not: it wanted a *Mathlib copyright block*,
+and it fired on every file in the project including ones that already had
+doc-strings. The orchestrator turned off three inherited Mathlib lint rules
+that do not apply here (`style.header`, `hashCommand` — which forbids the
+`#guard` that `docs/RULES.md` requires — and `dupNamespace`, which flags the
+`Graded.Graded` name the plan specifies). `lake build` now completes with
+zero warnings.
+
+Treat that as your signal: if your build prints a warning, you introduced
+it, and it is worth reading. Still give every new `.lean` file a `/-! ... -/`
+module doc-string as the first command after its imports — mirror
+`Graded/Carrier.lean` — because it is the house shape and documents the
+module, not because a linter asks.
 
 ## `Examples/Validation.lean`'s `E` already has `io`
 
