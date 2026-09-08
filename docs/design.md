@@ -55,7 +55,39 @@ it the *only possible* grade.
 
 ## grade
 
-Filled by [grade-pomonoid](../tmp/plan/step-grade-pomonoid.md).
+`Graded.Grade Err := Finset Err`, for `[DecidableEq Err]`: a grade is a
+finite set of error kinds. `Err` stands in for the universe of C++ error
+types (see [cpp-counterpart](#cpp-counterpart)); `DecidableEq` is what lets
+Lean form a `Finset` over it at all — the closest thing to "these are
+distinct types" that Lean needs spelled out, where C++ gets it for free
+from nominal typing.
+
+`bot := ∅`, `join g h := g ∪ h`; the order is `⊆` (Finset's own
+`PartialOrder`), read as "subset" rather than translated to `≤`, so a C++
+reader sees the relation they already know.
+
+Every pomonoid property `Graded.Grade.join`/`bot`/`⊆` has is a *separately
+named* lemma in `Graded/Grade.lean`, each proved by one Mathlib `Finset`
+lemma, never re-derived inline, so a later step can cite the property by
+name:
+
+- `join_assoc`, `join_comm`, `join_idem`
+- `bot_join`, `join_bot`
+- `le_join_left`, `le_join_right`, `join_le`, `join_mono`
+- `le_refl'`, `le_trans'`, `bot_le`
+- `join_eq_right_of_le`
+
+Five of these carry a `/-- PROPERTY: ... -/` docstring tag —
+`associative`, `commutative`, `idempotent`, `unit` (on both `bot_join` and
+`join_bot`), `order` (on both `le_refl'` and `le_trans'`) — which is what
+[oracle-export](../tmp/plan/step-oracle-export.md) greps to find which laws
+depend on which property.
+
+> **Provisional.** `Grade` is deliberately *not* registered as a Mathlib
+> `SemilatticeSup`/`OrderedCommMonoid` instance, so that lemma use stays
+> greppable: an instance would let `simp` reach for these properties
+> invisibly, which defeats the point of naming them. Revisit if a later
+> step needs Mathlib's lattice API for a proof that is otherwise long.
 
 ## carrier
 
