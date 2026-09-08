@@ -1712,9 +1712,16 @@ should match it rather than the earlier "Dear colleague" / "— Steve" form.
 Letters directory: `blog/letters/`, one `<slug>.org` per step, per the
 template in `docs/RULES.md#letter-template`.
 
-Ordering and index: not decided here. [blog-series-edit] assembles the
-reading order and the index page from the letters this plan produces; this
-step writes only letter 0 (`blog/letters/baseline-capture.org`).
+**Ordering, numbering, and index: decided by [blog-series-edit].** Letters
+0-15 run in checklist order (`baseline-capture` = Letter 0 through
+`oracle-export` = Letter 15); `blog/letters/closing.org` is Letter 16.
+Several letters from `monad-laws` (checklist step 5) onward had
+self-numbered one higher than this (matching their raw checklist step
+number rather than the step number minus one that `baseline-capture`'s
+own "Letter 0" already implied); [blog-series-edit] corrected all of them
+to the consistent, gap-free sequence. Every letter carries `#+SERIES_PREV`
+/ `#+SERIES_NEXT` by slug. The reading index is
+[`blog/letters/index.org`](../blog/letters/index.org).
 
 **Decided, no longer provisional.** The placeholder "Dear colleague" was
 replaced by the author on 2026-09-08; [blog-series-edit] must preserve

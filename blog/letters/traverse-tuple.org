@@ -1,7 +1,9 @@
-#+TITLE: Letter 9: Tuples are where the grade is really computed
+#+TITLE: Letter 8: Tuples are where the grade is really computed
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 #+STEP: traverse-tuple
+#+SERIES_PREV: traverse-list
+#+SERIES_NEXT: compose-flatten
 
 Steve,
 

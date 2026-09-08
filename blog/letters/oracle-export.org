@@ -1,20 +1,22 @@
-#+TITLE: Letter 16: The table I actually wanted
+#+TITLE: Letter 15: The table I actually wanted
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 #+STEP: oracle-export
+#+SERIES_PREV: grade-obligations
+#+SERIES_NEXT: closing
 
-Dear colleague,
+Steve,
 
 * What I set out to do
 
 For fifteen letters I've been telling you, one theorem at a time, which
-property of the error set a given law needed — commutativity here,
+property of the error set a given law needed: commutativity here,
 idempotence there. What I never did was put all of it in one place, or
 check that what I'd told you actually matched what the proofs say. So
 today I wrote a small Python script that reads every theorem in every
 Lean file, looks at what each proof's text actually mentions, and builds
 the table itself. If a theorem's proof doesn't say which property it
-uses, the script refuses to guess — it stops and names the theorem. I
+uses, the script refuses to guess: it stops and names the theorem. I
 wanted a table that couldn't quietly drift away from the code, and a
 list of everywhere it couldn't reach on its own.
 
@@ -22,8 +24,8 @@ The result is bigger than the fifteen letters: 146 theorems, not the
 handful I'd been narrating. Two of my own earlier summaries turned out
 to be wrong in the specifics. I'd said commutativity showed up in three
 places; the mechanical count says six. I'd said the "at most one side
-can fail" condition appeared in three places; it's four, and — this is
-the part I got most wrong — it isn't the same finding four times.
+can fail" condition appeared in three places; it's four, and (this is
+the part I got most wrong) it isn't the same finding four times.
 
 * What the checker refused
 
@@ -42,7 +44,7 @@ theorem widen_map (h : g ⊆ g') (f : α → β) (x : Graded g α) :
   | err e he => rfl
 #+END_SRC
 
-never puts two error sets together at all — mapping a function and
+never puts two error sets together at all: mapping a function and
 widening the allowed errors are independent moves, so there's nothing
 for any property to do. Reduction lemmas like "what does `ap` do when
 both sides succeed" are the same story: the success case never touches
@@ -52,13 +54,13 @@ A more interesting group delegates. =canon_perm=, the theorem saying two
 orderings of the same error kinds produce the same canonical form, does
 all its work by citing another theorem (=joinAll_perm=) that already
 carries commutativity and associativity honestly. The script can't
-follow that citation, so it saw nothing — but the property is genuinely
+follow that citation, so it saw nothing, but the property is genuinely
 recorded, just one theorem over.
 
 The one I want to flag hardest is =flatten_ap=, the theorem explaining
 exactly when collapsing two nested error-carrying values commutes with
 combining them. Its proof cites no property at all, and unlike
-=canon_perm= that's not because it delegates cleanly — it needs a grade
+=canon_perm= that's not because it delegates cleanly: it needs a grade
 equation, proved by a separate helper (=Comp.grade_reassoc=) that uses
 *both* associativity and commutativity, but =flatten_ap= reaches that
 helper by name as a cast target, never by re-deriving the fact. A human
@@ -79,7 +81,7 @@ table so it can't go stale. =docs/design.md='s laws-inventory section now
 holds the corrected counts instead of my earlier guesses.
 
 The corrected commutativity count taught me something I'd undercounted:
-=Graded/Tuple.lean= uses it twice, not once — once in the theorem saying
+=Graded/Tuple.lean= uses it twice, not once: once in the theorem saying
 order doesn't matter, and again in a helper that theorem's own
 "duplicates collapse" cousin depends on. And the "at most one side can
 fail" condition, which I'd been treating as one recurring idea, is
@@ -97,7 +99,7 @@ would need to trust about a graded error type, here's the Lean theorem,
 here's exactly which algebraic property of the error set it leans on,
 and here's the C++ equation to go check against real =std::expected=
 code. If you're building a *different* kind of grade than a set of error
-types — counting instead of collecting, say — this table tells you
+types (counting instead of collecting, say) this table tells you
 precisely which of your operations stay available at which layer: unit
 and associativity alone gets you the monad and most of the applicative;
 add commutativity and reordering guarantees hold; add idempotence (the
@@ -105,8 +107,8 @@ one =error_set= gets for free from being a set) and the traversal
 signature that doesn't grow with input length becomes writable at all.
 Whether idempotence is really a separate requirement or falls out for
 free once you insist your grade is a genuine least upper bound is still
-an open question on my end — I've flagged it rather than answered it,
+an open question on my end. I've flagged it rather than answered it,
 because it changes how several rows in this table should be read, and I
 didn't want to bake in an answer while it's still contested.
 
-Yours,
+--SMD

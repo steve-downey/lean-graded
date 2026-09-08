@@ -2,6 +2,8 @@
 #+DATE: 2026-09-07
 #+CATEGORY: lean-transpose
 #+STEP: graded-carrier
+#+SERIES_PREV: grade-pomonoid
+#+SERIES_NEXT: subsumption-widen
 
 Steve,
 

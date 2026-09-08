@@ -1,7 +1,9 @@
-#+TITLE: Letter 7: Same grade, twice as many errors
+#+TITLE: Letter 6: Same grade, twice as many errors
 #+DATE: 2026-09-07
 #+CATEGORY: lean-transpose
 #+STEP: applicative-accumulation
+#+SERIES_PREV: applicative-from-monad
+#+SERIES_NEXT: traverse-list
 
 Steve,
 

@@ -2,11 +2,17 @@
 # For every "- [x] N. [slug]" line in tmp/plan/checklist.md, require
 # blog/letters/<slug>.org to exist and contain the four required headings.
 # baseline-capture is exempt from the "What the checker refused" heading.
-# blog-series-edit is exempt entirely (its output is the index, not a letter).
+# blog-series-edit is exempt entirely (its output is the index and the
+# closing letter, not a per-step letter).
+#
+# Separately, require blog/letters/index.org to exist and to mention the
+# slug of every *.org file in blog/letters/ (except index.org itself), so
+# a letter can't be added or renamed without the index following it.
 set -u
 
 checklist="tmp/plan/checklist.md"
 letters_dir="blog/letters"
+index="${letters_dir}/index.org"
 
 fail() {
 	echo "check-letters: $1" >&2
@@ -38,5 +44,13 @@ while IFS= read -r line; do
 			|| fail "$letter missing heading: * What the checker refused"
 	fi
 done < "$checklist"
+
+[ -f "$index" ] || fail "missing $index"
+
+for letter in "${letters_dir}"/*.org; do
+	slug=$(basename "$letter" .org)
+	[ "$slug" = "index" ] && continue
+	grep -qF "$slug" "$index" || fail "$index does not list slug: $slug"
+done
 
 exit 0

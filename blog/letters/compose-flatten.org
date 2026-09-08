@@ -1,7 +1,9 @@
-#+TITLE: Letter 10: Nested expecteds and the distributive law nobody wrote down
+#+TITLE: Letter 9: Nested expecteds and the distributive law nobody wrote down
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 #+STEP: compose-flatten
+#+SERIES_PREV: traverse-tuple
+#+SERIES_NEXT: graded-morphism
 
 Steve,
 
@@ -27,11 +29,10 @@ The first refusal was small and mechanical. I wanted to state that
 flattening a nested value is exactly the same operation as =and_then=
 with the identity function: the "it's just the monad's own multiplication"
 fact. Lean rejected the statement outright, before it even got to
-checking a proof, over what it called a universe mismatch. The short
-version: a =Graded h α= value (the inner, still-nested carrier) is a
-*strictly bigger* kind of type than the plain payload =α= it will
-eventually flatten down to, in a sense Lean tracks and C++ doesn't. The
-existing =and_then= was written expecting its "before" and "after"
+checking a proof, over the same kind of universe accounting from Letter
+8's =GList=: a =Graded h α= value (the inner, still-nested carrier) is
+*strictly bigger*, in that sense, than the plain payload =α= it will
+eventually flatten down to. The existing =and_then= was written expecting its "before" and "after"
 payload types to be the same *size* of type, which is true every time you
 call it directly, and stopped being true the moment I asked it to accept
 another =Graded= as the payload. It's the C++ equivalent of a function

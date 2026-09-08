@@ -2,6 +2,8 @@
 #+DATE: 2026-09-07
 #+CATEGORY: lean-transpose
 #+STEP: subsumption-widen
+#+SERIES_PREV: graded-carrier
+#+SERIES_NEXT: monad-laws
 
 Steve,
 
