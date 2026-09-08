@@ -4,6 +4,7 @@ import Graded.Monad
 import Graded.Applicative
 import Graded.Accum
 import Graded.Traverse
+import Graded.Tuple
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
@@ -188,5 +189,51 @@ def renderNats : Graded ({E.parse} : Grade E) (List Nat) → String
 -- consumer in this codebase has needed since [monad-laws].
 #guard renderNats (traverse parseNat ([] : List String)) =
   renderNats (fromEmpty [] : Graded ({E.parse} : Grade E) (List Nat))
+
+-- ---------------------------------------------------------------------
+-- `sequence`: a heterogeneous 3-tuple — `parseNat s` (`Nat`, grade
+-- `{E.parse}`), `checkRange n` (`Nat`, grade `{E.range}`), `logIt n`
+-- (`Unit`, grade `{E.io}`) — combined into one graded `HList [Nat, Nat,
+-- Unit]`. Unlike `traverse`'s uniform-grade `List`, every element here
+-- has its *own* grade and its *own* payload type: this is the C++
+-- `transpose(tuple<expected<int, error_set<parse>>, expected<int,
+-- error_set<range>>, expected<Unit, error_set<io>>>)` case, and the
+-- result grade below is the *union* `{E.parse, E.range, E.io}`, computed
+-- once from the tuple's shape rather than folded at runtime.
+
+/-- Three independent validations, combined by `sequence` into one graded
+    heterogeneous tuple. The result grade is `joinAll [{E.parse},
+    {E.range}, {E.io}]`, which the type ascription below states as the
+    literal union `{E.parse, E.range, E.io}` — accepted by Lean
+    definitionally, the same way `validate`'s `bind`-computed grade above
+    is accepted against its own literal-union ascription. -/
+def validateTuple (s : String) (n : Nat) :
+    Graded ({E.parse, E.range, E.io} : Grade E) (HList ([Nat, Nat, Unit] : List (Type))) :=
+  sequence (GList.cons (parseNat s) (GList.cons (checkRange n) (GList.cons (logIt n) GList.nil)))
+
+-- The result grade, displayed by `#check` as the union of the three
+-- element grades — the C++ `error_set<parse, range, io>` this tuple's
+-- `transpose` would produce.
+#check (validateTuple "42" 50 :
+  Graded ({E.parse, E.range, E.io} : Grade E) (HList ([Nat, Nat, Unit] : List (Type))))
+
+/-- Render a `validateTuple` result for `#eval`/`#guard`. -/
+def renderTuple :
+    Graded ({E.parse, E.range, E.io} : Grade E) (HList ([Nat, Nat, Unit] : List (Type))) → String
+  | .ok (a, b, _) => s!"ok ({a}, {b})"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderTuple (validateTuple "42" 50)     -- ok (42, 50): all three succeed
+#eval renderTuple (validateTuple "42" 9999)   -- err E.range: the *middle* element fails
+#eval renderTuple (validateTuple "abc" 50)    -- err E.parse: the first element fails
+
+#guard renderTuple (validateTuple "42" 50) = "ok (42, 50)"
+
+-- The failure-in-the-middle-element case: `parseNat "42"` succeeds,
+-- `checkRange 9999` fails (`9999 > 100`), `logIt` is never in question
+-- (it cannot fail) — the whole tuple reports `E.range`, the middle
+-- element's error, exactly as a C++ `transpose` short-circuiting on the
+-- second field would.
+#guard renderTuple (validateTuple "42" 9999) = "err Examples.Validation.E.range"
 
 end Examples.Validation

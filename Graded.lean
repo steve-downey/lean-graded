@@ -6,3 +6,4 @@ import Graded.Monad
 import Graded.Applicative
 import Graded.Accum
 import Graded.Traverse
+import Graded.Tuple
