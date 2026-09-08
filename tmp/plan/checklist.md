@@ -13,7 +13,7 @@ Mark your own step done before writing the next step's handoff.
 - [x] 8. [traverse-list](step-traverse-list.md)
 - [x] 9. [traverse-tuple](step-traverse-tuple.md)
 - [x] 10. [compose-flatten](step-compose-flatten.md) — partial: flattened traverse composition law refuted, product-graded case untested, see [graded-traversable-composition](../../docs/design.md#graded-traversable-composition)
-- [ ] 11. [graded-morphism](step-graded-morphism.md)
+- [x] 11. [graded-morphism](step-graded-morphism.md)
 - [ ] 12. [canonical-representation](step-canonical-representation.md)
 - [ ] 13. [compose-applicative](step-compose-applicative.md) — added 2026-09-08 to answer [graded-traversable-composition](../../docs/design.md#graded-traversable-composition)
 - [ ] 14. [oracle-export](step-oracle-export.md)
