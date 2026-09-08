@@ -2,9 +2,13 @@
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 
-Seventeen letters, written across one project: a Lean 4 model of the
+Eighteen letters, written across one project: a Lean 4 model of the
 grading design behind P3200 and beman.transpose, built one law at a time
 to find out exactly which property of a grade each law actually needs.
+Letter 16 called itself the close of the series; a review afterward found
+the cast burden it had signed off on had grown past what it measured, so
+the series continued past its own ending. Letter 17 says so in its first
+line.
 
 Reading note: each letter was written the day its proof went green, in
 the order below. Nothing was rewritten to look more decided in hindsight
@@ -28,3 +32,4 @@ the earlier letter says so in place rather than being quietly edited.
 - [[file:grade-obligations.org][Letter 14: What a grade has to be, and what you lose when it isn't]] (slug: grade-obligations)
 - [[file:oracle-export.org][Letter 15: The table I actually wanted]] (slug: oracle-export)
 - [[file:closing.org][Letter 16: What I'd tell the committee]] (slug: closing)
+- [[file:sufficient-grade-bind.org][Letter 17: The casts were telling me something, and it wasn't 'clean me up']] (slug: sufficient-grade-bind)

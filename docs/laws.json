@@ -767,6 +767,76 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "bindK_ok",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_err",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_ok",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_err",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_pure_left",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_pure_right",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_assoc",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_widen",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_irrel",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bind_eq_bindK",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "foldGrade_nil",
     "module": "Graded/Traverse.lean",
     "properties": [],

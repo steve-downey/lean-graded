@@ -2,6 +2,7 @@ import Tests.Grade
 import Tests.Carrier
 import Tests.Widen
 import Tests.Monad
+import Tests.Sufficient
 import Tests.Applicative
 import Tests.Accum
 import Tests.Traverse

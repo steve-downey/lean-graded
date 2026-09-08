@@ -3,6 +3,7 @@ import Graded.Grade
 import Graded.Carrier
 import Graded.Widen
 import Graded.Monad
+import Graded.Sufficient
 import Graded.Applicative
 import Graded.Accum
 import Graded.Traverse
