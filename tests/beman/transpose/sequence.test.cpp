@@ -18,6 +18,19 @@ TEST_CASE("sequence: vector foldable length and to_vector") {
     REQUIRE(f.fold_left(xs, 0, [](int a, int x) { return a + x; }) == 15);
 }
 
+TEST_CASE("sequence: vector foldable length takes the native path, no Map "
+          "edit needed") {
+    // VectorFoldableImpl grows a native length in this step; VectorFoldableMap
+    // is untouched (no `using length;` was added). length must still answer
+    // correctly for empty, one-element, and many-element vectors -- it is
+    // now taking the native size()-based path instead of the fold_map-derived
+    // one, and the answer must not move.
+    const auto &f = bt::foldable_typeclass<std::vector<int>>;
+    REQUIRE(f.length(std::vector<int>{}) == 0);
+    REQUIRE(f.length(std::vector<int>{42}) == 1);
+    REQUIRE(f.length(std::vector<int>{1, 2, 3, 4, 5}) == 5);
+}
+
 TEST_CASE("sequence: vector traversable primitive sequences effects") {
     const auto &t = bt::traversable_typeclass<std::vector<int>>;
     const auto &app = bt::applicative_typeclass<std::optional<int>>;

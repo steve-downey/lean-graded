@@ -10,6 +10,46 @@ inline constexpr $unspecified$ applicative_eval;
 
 :::
 
+::: wording
+
+```cpp
+inline constexpr $unspecified$ discard_first_eval;
+```
+
+[x+1]{.pnum} *Remarks*: `discard_first_eval` discards its first argument and returns its second. It is the evaluator `discard_first`'s second alternative probes, and that alternative is satisfied exactly when `discard_first`'s own `invoke`-based derivation would be.
+
+:::
+
+::: wording
+
+```cpp
+inline constexpr $unspecified$ discard_second_eval;
+```
+
+[x+2]{.pnum} *Remarks*: `discard_second_eval` discards its second argument and returns its first. It is the evaluator `discard_second`'s second alternative probes, and that alternative is satisfied exactly when `discard_second`'s own `invoke`-based derivation would be.
+
+:::
+
+::: wording
+
+```cpp
+template <class IMPL, class CONTEXT>
+concept applicative_impl =
+    requires(const IMPL &impl, const applicative_value_t<CONTEXT> &element) {
+        impl.pure(element);
+    } &&
+    (requires(const IMPL &impl, const CONTEXT &context) {
+        impl.invoke($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
+    } || requires(const IMPL &impl, const CONTEXT &context) {
+        impl.ap(impl.pure($probe-witness$<applicative_value_t<CONTEXT>>{}),
+                context);
+    });
+```
+
+[x+3]{.pnum} *Remarks*: This concept is satisfied when `IMPL` supplies the minimal complete basis the `Applicative` CRTP base needs: `pure`, together with either `invoke` or `ap`. This is the `MINIMAL` pragma to `applicative_object`'s class declaration -- an `IMPL` may satisfy this concept and still fail `applicative_object`, which is exactly the bargain the CRTP base exists to keep. `map`, `lift`, `zip_with`, `discard_first`, `discard_second`, `invoke_with` and `subsume` are all derived and belong to `applicative_object` alone. `pure` is checked for existence only, matching `applicative_object`'s own treatment.
+
+:::
+
 ```cpp
 template<class Impl>
 struct Applicative : protected Impl {
@@ -33,21 +73,51 @@ struct Applicative : protected Impl {
 
   // @[transpose.applicative.derived]{- .sref}@, derived operations
   template<class FUNCTION, class ARGUMENT>
-  auto map(this auto&& self, FUNCTION&& function, ARGUMENT&& argument);
+  auto map(this auto&& self, FUNCTION&& function, ARGUMENT&& argument)
+    requires requires(const Impl& impl) {
+      impl.map(forward<FUNCTION>(function), forward<ARGUMENT>(argument));
+    } || requires {
+      self.invoke(forward<FUNCTION>(function), forward<ARGUMENT>(argument));
+    };
 
-  template<class VALUE> auto lift(this auto&& self, VALUE&& value);
+  template<class VALUE>
+  auto lift(this auto&& self, VALUE&& value)
+    requires requires(const Impl& impl) { impl.lift(forward<VALUE>(value)); } ||
+             requires { self.pure(forward<VALUE>(value)); };
 
   template<class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT>
   auto zip_with(this auto&& self, FUNCTION&& function, FIRST_ARGUMENT&& first_argument,
-                SECOND_ARGUMENT&& second_argument);
+                SECOND_ARGUMENT&& second_argument)
+    requires requires(const Impl& impl) {
+      impl.zip_with(forward<FUNCTION>(function),
+                    forward<FIRST_ARGUMENT>(first_argument),
+                    forward<SECOND_ARGUMENT>(second_argument));
+    } || requires {
+      self.invoke(forward<FUNCTION>(function), forward<FIRST_ARGUMENT>(first_argument),
+                  forward<SECOND_ARGUMENT>(second_argument));
+    };
 
   template<class FIRST_ARGUMENT, class SECOND_ARGUMENT>
   auto discard_first(this auto&& self, FIRST_ARGUMENT&& first_argument,
-                     SECOND_ARGUMENT&& second_argument);
+                     SECOND_ARGUMENT&& second_argument)
+    requires requires(const Impl& impl) {
+      impl.discard_first(forward<FIRST_ARGUMENT>(first_argument),
+                         forward<SECOND_ARGUMENT>(second_argument));
+    } || requires {
+      self.invoke(discard_first_eval, forward<FIRST_ARGUMENT>(first_argument),
+                  forward<SECOND_ARGUMENT>(second_argument));
+    };
 
   template<class FIRST_ARGUMENT, class SECOND_ARGUMENT>
   auto discard_second(this auto&& self, FIRST_ARGUMENT&& first_argument,
-                      SECOND_ARGUMENT&& second_argument);
+                      SECOND_ARGUMENT&& second_argument)
+    requires requires(const Impl& impl) {
+      impl.discard_second(forward<FIRST_ARGUMENT>(first_argument),
+                          forward<SECOND_ARGUMENT>(second_argument));
+    } || requires {
+      self.invoke(discard_second_eval, forward<FIRST_ARGUMENT>(first_argument),
+                  forward<SECOND_ARGUMENT>(second_argument));
+    };
 
   // @[transpose.applicative.grade]{- .sref}@, grade re-indexing
   template<class TARGET_GRADE, class CARRIER>
@@ -70,7 +140,7 @@ struct Applicative : protected Impl {
 
 ::: wording
 
-[x+1]{.pnum} A program that instantiates `Applicative<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false`.
+[x+4]{.pnum} A program that instantiates `Applicative<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false`.
 
 :::
 
@@ -80,7 +150,7 @@ struct Applicative : protected Impl {
 template<class T> inline constexpr auto applicative_typeclass = false_type{};
 ```
 
-[x+2]{.pnum} *Remarks*: This variable template is the lookup point for the Applicative object of a context type. A program may specialize it for a program-defined context. The primary template names no applicative object.
+[x+5]{.pnum} *Remarks*: This variable template is the lookup point for the Applicative object of a context type. A program may specialize it for a program-defined context. The primary template names no applicative object.
 
 :::
 
@@ -91,7 +161,41 @@ template<class T>
 inline constexpr auto accumulating_applicative_typeclass = false_type{};
 ```
 
-[x+3]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative_typeclass`, naming the accumulating Applicative object. Where the object named by `applicative_typeclass` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed.
+[x+6]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative_typeclass`, naming the accumulating Applicative object. Where the object named by `applicative_typeclass` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed.
+
+:::
+
+::: wording
+
+```cpp
+template <class OBJ, class CONTEXT>
+concept applicative_object =
+    requires(const OBJ &obj, const CONTEXT &context,
+             const applicative_value_t<CONTEXT> &element) {
+        obj.pure(element);
+        obj.invoke($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
+        obj.map($probe-witness$<applicative_value_t<CONTEXT>>{}, context);
+        obj.lift(element);
+        obj.zip_with($probe-witness2$<applicative_value_t<CONTEXT>>{}, context,
+                     context);
+        obj.discard_first(context, context);
+        obj.discard_second(context, context);
+        obj.invoke_with(obj, $probe-witness$<applicative_value_t<CONTEXT>>{},
+                        context);
+    } &&
+    (!requires(const OBJ &obj) {
+        obj.pure($probe-witness$<applicative_value_t<CONTEXT>>{});
+    } || requires(const OBJ &obj, const CONTEXT &context) {
+        obj.ap(obj.pure($probe-witness$<applicative_value_t<CONTEXT>>{}),
+               context);
+    }) &&
+    (!graded_context<CONTEXT> ||
+     requires(const OBJ &obj, const CONTEXT &context) {
+         obj.template subsume<grade_of_t<CONTEXT>>(context);
+     });
+```
+
+[x+7]{.pnum} *Remarks*: This concept is satisfied when `OBJ` provides the full Applicative object surface over `CONTEXT`: `pure`, the `invoke` basis, and the derived `map`, `lift`, `zip_with`, `discard_first`, `discard_second` and `invoke_with`. `ap` and `subsume` are required only where their own condition -- the same one their own declarations carry, not a second spelling of it -- licenses them: `ap` where `CONTEXT` can hold a callable (probed by lifting a witness callable through `OBJ`'s own `pure`, the same mechanism the library's own ap-from-invoke derivation uses), `subsume` where `CONTEXT` participates in grading. Operations templated over an arbitrary callable are probed with one representative witness ($probe-witness$/$probe-witness2$): this checks that the operation exists, not that it holds for every callable. Conformance here is structural, so a hand-implemented object that never derives from `Applicative<Impl>` can satisfy this concept.
 
 :::
 

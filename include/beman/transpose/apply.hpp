@@ -31,6 +31,55 @@ namespace beman::transpose {
 //! only where the context can hold a callable.
 inline constexpr detail::applicative_eval_t applicative_eval{};
 
+namespace detail {
+
+// A generic lambda-expression is a distinct, unrelated type at every
+// occurrence in the source, so it cannot be the shared expression a
+// disjunctive requires-clause needs at both the in-class declaration and
+// the out-of-line definition (they must be spelled with the same tokens
+// naming the same entity). discard_first_eval_t and discard_second_eval_t
+// give `discard_first` and `discard_second` a named, stable callable for
+// that purpose -- the same role applicative_eval_t plays for `ap`.
+
+//! \omit
+struct discard_first_eval_t {
+    template <class FIRST, class SECOND>
+    constexpr auto operator()(const FIRST &, SECOND &&second) const
+        -> SECOND && {
+        return std::forward<SECOND>(second);
+    }
+};
+
+//! \omit
+struct discard_second_eval_t {
+    template <class FIRST, class SECOND>
+    constexpr auto operator()(FIRST &&first, const SECOND &) const -> FIRST && {
+        return std::forward<FIRST>(first);
+    }
+};
+
+} // namespace detail
+
+/// Namespace-scope spelling of the evaluator named by `discard_first`'s
+/// constraint, for the same reason `applicative_eval` is named rather than
+/// spelled inline: a lambda-expression cannot be repeated identically
+/// between an in-class declaration and its out-of-line definition.
+//! \seebelow
+//! \remarks `discard_first_eval` discards its first argument and returns
+//! its second. It is the evaluator `discard_first`'s second alternative
+//! probes, and that alternative is satisfied exactly when `discard_first`'s
+//! own `invoke`-based derivation would be.
+inline constexpr detail::discard_first_eval_t discard_first_eval{};
+
+/// Namespace-scope spelling of the evaluator named by `discard_second`'s
+/// constraint; see `discard_first_eval` above.
+//! \seebelow
+//! \remarks `discard_second_eval` discards its second argument and returns
+//! its first. It is the evaluator `discard_second`'s second alternative
+//! probes, and that alternative is satisfied exactly when `discard_second`'s
+//! own `invoke`-based derivation would be.
+inline constexpr detail::discard_second_eval_t discard_second_eval{};
+
 /// Applicative pattern invariants:
 /// - Dual BASIS, single INTERFACE. An instance opts in with pure + invoke
 ///   or pure + ap -- both are perfectly cromulent bases, and the base class
@@ -56,6 +105,27 @@ inline constexpr detail::applicative_eval_t applicative_eval{};
 /// - Dispatch happens through a provided object or
 ///   applicative_typeclass<Concrete>.
 /// - Do not introduce hidden alternate semantics without a distinct map/type.
+//! \remarks This concept is satisfied when `IMPL` supplies the minimal
+//! complete basis the `Applicative` CRTP base needs: `pure`, together with
+//! either `invoke` or `ap`. This is the `MINIMAL` pragma to
+//! `applicative_object`'s class declaration -- an `IMPL` may satisfy this
+//! concept and still fail `applicative_object`, which is exactly the
+//! bargain the CRTP base exists to keep. `map`, `lift`, `zip_with`,
+//! `discard_first`, `discard_second`, `invoke_with` and `subsume` are all
+//! derived and belong to `applicative_object` alone. `pure` is checked for
+//! existence only, matching `applicative_object`'s own treatment.
+template <class IMPL, class CONTEXT>
+concept applicative_impl =
+    requires(const IMPL &impl, const applicative_value_t<CONTEXT> &element) {
+        impl.pure(element);
+    } &&
+    (requires(const IMPL &impl, const CONTEXT &context) {
+        impl.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+    } || requires(const IMPL &impl, const CONTEXT &context) {
+        impl.ap(impl.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{}),
+                context);
+    });
+
 /// CRTP base for Applicative instances.
 /// `Impl` must provide `pure(value)` and either the n-ary
 /// `invoke(f, args_in_context...)` or the one-step
@@ -91,23 +161,58 @@ struct Applicative : protected Impl {
 
     // \ref{transpose.applicative.derived}, derived operations
     template <class FUNCTION, class ARGUMENT>
-    auto map(this auto &&self, FUNCTION &&function, ARGUMENT &&argument);
+    auto map(this auto &&self, FUNCTION &&function, ARGUMENT &&argument)
+        requires requires(const Impl &impl) {
+            impl.map(std::forward<FUNCTION>(function),
+                     std::forward<ARGUMENT>(argument));
+        } || requires {
+            self.invoke(std::forward<FUNCTION>(function),
+                        std::forward<ARGUMENT>(argument));
+        };
 
     template <class VALUE>
-    auto lift(this auto &&self, VALUE &&value);
+    auto lift(this auto &&self, VALUE &&value)
+        requires requires(const Impl &impl) {
+            impl.lift(std::forward<VALUE>(value));
+        } || requires { self.pure(std::forward<VALUE>(value)); };
 
     template <class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT>
     auto zip_with(this auto &&self, FUNCTION &&function,
                   FIRST_ARGUMENT &&first_argument,
-                  SECOND_ARGUMENT &&second_argument);
+                  SECOND_ARGUMENT &&second_argument)
+        requires requires(const Impl &impl) {
+            impl.zip_with(std::forward<FUNCTION>(function),
+                          std::forward<FIRST_ARGUMENT>(first_argument),
+                          std::forward<SECOND_ARGUMENT>(second_argument));
+        } || requires {
+            self.invoke(std::forward<FUNCTION>(function),
+                        std::forward<FIRST_ARGUMENT>(first_argument),
+                        std::forward<SECOND_ARGUMENT>(second_argument));
+        };
 
     template <class FIRST_ARGUMENT, class SECOND_ARGUMENT>
     auto discard_first(this auto &&self, FIRST_ARGUMENT &&first_argument,
-                       SECOND_ARGUMENT &&second_argument);
+                       SECOND_ARGUMENT &&second_argument)
+        requires requires(const Impl &impl) {
+            impl.discard_first(std::forward<FIRST_ARGUMENT>(first_argument),
+                               std::forward<SECOND_ARGUMENT>(second_argument));
+        } || requires {
+            self.invoke(discard_first_eval,
+                        std::forward<FIRST_ARGUMENT>(first_argument),
+                        std::forward<SECOND_ARGUMENT>(second_argument));
+        };
 
     template <class FIRST_ARGUMENT, class SECOND_ARGUMENT>
     auto discard_second(this auto &&self, FIRST_ARGUMENT &&first_argument,
-                        SECOND_ARGUMENT &&second_argument);
+                        SECOND_ARGUMENT &&second_argument)
+        requires requires(const Impl &impl) {
+            impl.discard_second(std::forward<FIRST_ARGUMENT>(first_argument),
+                                std::forward<SECOND_ARGUMENT>(second_argument));
+        } || requires {
+            self.invoke(discard_second_eval,
+                        std::forward<FIRST_ARGUMENT>(first_argument),
+                        std::forward<SECOND_ARGUMENT>(second_argument));
+        };
 
     // \ref{transpose.applicative.grade}, grade re-indexing
     template <class TARGET_GRADE, class CARRIER>
@@ -130,6 +235,12 @@ struct Applicative : protected Impl {
                      REST_ARGUMENTS &&...rest_arguments);
 
   private:
+    //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
+    }
+
     //! \omit
     template <class ACCUMULATED>
     auto ap_chain(this auto &&, ACCUMULATED &&accumulated) {
@@ -170,6 +281,46 @@ inline constexpr auto applicative_typeclass = std::false_type{};
 //! computation that accumulation admits may have failed.
 template <class T>
 inline constexpr auto accumulating_applicative_typeclass = std::false_type{};
+
+//! \remarks This concept is satisfied when `OBJ` provides the full
+//! Applicative object surface over `CONTEXT`: `pure`, the `invoke` basis, and
+//! the derived `map`, `lift`, `zip_with`, `discard_first`, `discard_second`
+//! and `invoke_with`. `ap` and `subsume` are required only where their own
+//! condition -- the same one their own declarations carry, not a second
+//! spelling of it -- licenses them: `ap` where `CONTEXT` can hold a
+//! callable (probed by lifting a witness callable through `OBJ`'s own
+//! `pure`, the same mechanism the library's own ap-from-invoke derivation
+//! uses), `subsume` where `CONTEXT` participates in grading. Operations
+//! templated over an arbitrary callable are probed with one representative
+//! witness ($probe-witness$/$probe-witness2$): this checks that the
+//! operation exists, not that it holds for every callable. Conformance here
+//! is structural, so a hand-implemented object that never derives from
+//! `Applicative<Impl>` can satisfy this concept.
+template <class OBJ, class CONTEXT>
+concept applicative_object =
+    requires(const OBJ &obj, const CONTEXT &context,
+             const applicative_value_t<CONTEXT> &element) {
+        obj.pure(element);
+        obj.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.map(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.lift(element);
+        obj.zip_with(detail::probe_witness2<applicative_value_t<CONTEXT>>{}, context,
+                     context);
+        obj.discard_first(context, context);
+        obj.discard_second(context, context);
+        obj.invoke_with(obj, detail::probe_witness<applicative_value_t<CONTEXT>>{},
+                        context);
+    } &&
+    (!requires(const OBJ &obj) {
+        obj.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{});
+    } || requires(const OBJ &obj, const CONTEXT &context) {
+        obj.ap(obj.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{}),
+               context);
+    }) &&
+    (!graded_context<CONTEXT> ||
+     requires(const OBJ &obj, const CONTEXT &context) {
+         obj.template subsume<grade_of_t<CONTEXT>>(context);
+     });
 
 /// Applicative instance for std::optional: the flagship of the invoke core.
 /// The trailing return type keeps invoke SFINAE-friendly so availability
@@ -219,17 +370,13 @@ template <class FUNCTION, class FIRST_ARGUMENT, class... REST_ARGUMENTS>
 auto Applicative<Impl>::invoke(this auto &&self, FUNCTION &&function,
                                FIRST_ARGUMENT &&first_argument,
                                REST_ARGUMENTS &&...rest_arguments) {
-    using SELF = std::remove_reference_t<decltype(self)>;
-    using IMPL_BASE =
-        std::conditional_t<std::is_const_v<SELF>, const Impl, Impl>;
-
-    if constexpr (requires(IMPL_BASE &impl) {
-                      impl.invoke(
+    if constexpr (requires {
+                      impl_of(self).invoke(
                           std::forward<FUNCTION>(function),
                           std::forward<FIRST_ARGUMENT>(first_argument),
                           std::forward<REST_ARGUMENTS>(rest_arguments)...);
                   }) {
-        return static_cast<IMPL_BASE &>(self).invoke(
+        return impl_of(self).invoke(
             std::forward<FUNCTION>(function),
             std::forward<FIRST_ARGUMENT>(first_argument),
             std::forward<REST_ARGUMENTS>(rest_arguments)...);
@@ -239,12 +386,10 @@ auto Applicative<Impl>::invoke(this auto &&self, FUNCTION &&function,
         auto lifted_function = self.pure(
             detail::make_terminating_partial(std::forward<FUNCTION>(function)));
         static_assert(
-            requires(IMPL_BASE &impl) {
-                impl.ap(std::move(lifted_function),
-                        std::forward<FIRST_ARGUMENT>(first_argument));
-            }, "Applicative Impl must provide pure and at least one basis: "
-               "invoke(f, args_in_context...) or "
-               "ap(f_in_context, arg_in_context).");
+            applicative_impl<Impl, remove_cvref_t<FIRST_ARGUMENT>>,
+            "Applicative Impl must provide pure and at least one basis: "
+            "invoke(f, args_in_context...) or "
+            "ap(f_in_context, arg_in_context).");
         return self.ap_chain(
             self.ap(std::move(lifted_function),
                     std::forward<FIRST_ARGUMENT>(first_argument)),
@@ -278,18 +423,15 @@ auto Applicative<Impl>::ap(this auto &&self, FUNCTION_IN_CONTEXT &&function,
                     std::forward<ARGUMENT_IN_CONTEXT>(argument));
     }
 {
-    using SELF = std::remove_reference_t<decltype(self)>;
-    using IMPL_BASE =
-        std::conditional_t<std::is_const_v<SELF>, const Impl, Impl>;
-    if constexpr (requires(IMPL_BASE &impl) {
-                      impl.ap(std::forward<FUNCTION_IN_CONTEXT>(function),
-                              std::forward<ARGUMENT_IN_CONTEXT>(argument));
+    if constexpr (requires {
+                      impl_of(self).ap(
+                          std::forward<FUNCTION_IN_CONTEXT>(function),
+                          std::forward<ARGUMENT_IN_CONTEXT>(argument));
                   }) {
-        return static_cast<IMPL_BASE &>(self).ap(
-            std::forward<FUNCTION_IN_CONTEXT>(function),
-            std::forward<ARGUMENT_IN_CONTEXT>(argument));
+        return impl_of(self).ap(std::forward<FUNCTION_IN_CONTEXT>(function),
+                                std::forward<ARGUMENT_IN_CONTEXT>(argument));
     } else {
-        return static_cast<IMPL_BASE &>(self).invoke(
+        return impl_of(self).invoke(
             detail::applicative_eval,
             std::forward<FUNCTION_IN_CONTEXT>(function),
             std::forward<ARGUMENT_IN_CONTEXT>(argument));
@@ -298,59 +440,180 @@ auto Applicative<Impl>::ap(this auto &&self, FUNCTION_IN_CONTEXT &&function,
 
 // \rSec3[transpose.applicative.derived]{Derived operations}
 
-//! \effects-equiv
+//! \constraints `Impl` provides either a `map` accepting `function` and
+//! `argument`, or an `invoke` accepting `function` and `argument`, whether
+//! native to `Impl` or derived from `Impl`'s basis.
+//! \effects If `Impl` provides `map`, the effect is that of `Impl`'s own
+//! `map`; otherwise the application is expressed through the object's own
+//! `invoke`, available for either half of the dual basis.
+//! \returns The single value in context holding the result of applying
+//! `function` to the value held by `argument`.
 template <class Impl>
 template <class FUNCTION, class ARGUMENT>
 auto Applicative<Impl>::map(this auto &&self, FUNCTION &&function,
-                            ARGUMENT &&argument) {
-    return self.invoke(std::forward<FUNCTION>(function),
-                       std::forward<ARGUMENT>(argument));
+                            ARGUMENT &&argument)
+    requires requires(const Impl &impl) {
+        impl.map(std::forward<FUNCTION>(function),
+                 std::forward<ARGUMENT>(argument));
+    } || requires {
+        self.invoke(std::forward<FUNCTION>(function),
+                    std::forward<ARGUMENT>(argument));
+    }
+{
+    if constexpr (requires {
+                      impl_of(self).map(std::forward<FUNCTION>(function),
+                                        std::forward<ARGUMENT>(argument));
+                  }) {
+        return impl_of(self).map(std::forward<FUNCTION>(function),
+                                 std::forward<ARGUMENT>(argument));
+    } else {
+        return self.invoke(std::forward<FUNCTION>(function),
+                           std::forward<ARGUMENT>(argument));
+    }
 }
 
-//! \effects-equiv
+//! \constraints `Impl` provides either a `lift` accepting `value`, or a
+//! `pure` accepting `value`.
+//! \effects If `Impl` provides `lift`, the effect is that of `Impl`'s own
+//! `lift`; otherwise `value` is lifted into the context using the object's
+//! own `pure`, which `Impl` is required to provide directly.
+//! \returns The single value in context holding `value`.
 template <class Impl>
 template <class VALUE>
-auto Applicative<Impl>::lift(this auto &&self, VALUE &&value) {
-    return self.pure(std::forward<VALUE>(value));
+auto Applicative<Impl>::lift(this auto &&self, VALUE &&value)
+    requires requires(const Impl &impl) {
+        impl.lift(std::forward<VALUE>(value));
+    } || requires { self.pure(std::forward<VALUE>(value)); }
+{
+    if constexpr (requires {
+                      impl_of(self).lift(std::forward<VALUE>(value));
+                  }) {
+        return impl_of(self).lift(std::forward<VALUE>(value));
+    } else {
+        return self.pure(std::forward<VALUE>(value));
+    }
 }
 
-//! \effects-equiv
+//! \constraints `Impl` provides either a `zip_with` accepting `function` and
+//! the two arguments, or an `invoke` accepting `function` and the two
+//! arguments, whether native to `Impl` or derived from `Impl`'s basis.
+//! \effects If `Impl` provides `zip_with`, the effect is that of `Impl`'s
+//! own `zip_with`; otherwise the application is expressed through the
+//! object's own `invoke`, available for either half of the dual basis.
+//! \returns The single value in context holding the result of applying
+//! `function` to the values held by `first_argument` and `second_argument`.
 template <class Impl>
 template <class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT>
 auto Applicative<Impl>::zip_with(this auto &&self, FUNCTION &&function,
                                  FIRST_ARGUMENT &&first_argument,
-                                 SECOND_ARGUMENT &&second_argument) {
-    return self.invoke(std::forward<FUNCTION>(function),
-                       std::forward<FIRST_ARGUMENT>(first_argument),
-                       std::forward<SECOND_ARGUMENT>(second_argument));
+                                 SECOND_ARGUMENT &&second_argument)
+    requires requires(const Impl &impl) {
+        impl.zip_with(std::forward<FUNCTION>(function),
+                      std::forward<FIRST_ARGUMENT>(first_argument),
+                      std::forward<SECOND_ARGUMENT>(second_argument));
+    } || requires {
+        self.invoke(std::forward<FUNCTION>(function),
+                    std::forward<FIRST_ARGUMENT>(first_argument),
+                    std::forward<SECOND_ARGUMENT>(second_argument));
+    }
+{
+    if constexpr (requires {
+                      impl_of(self).zip_with(
+                          std::forward<FUNCTION>(function),
+                          std::forward<FIRST_ARGUMENT>(first_argument),
+                          std::forward<SECOND_ARGUMENT>(second_argument));
+                  }) {
+        return impl_of(self).zip_with(
+            std::forward<FUNCTION>(function),
+            std::forward<FIRST_ARGUMENT>(first_argument),
+            std::forward<SECOND_ARGUMENT>(second_argument));
+    } else {
+        return self.invoke(std::forward<FUNCTION>(function),
+                           std::forward<FIRST_ARGUMENT>(first_argument),
+                           std::forward<SECOND_ARGUMENT>(second_argument));
+    }
 }
 
-//! \effects-equiv
+//! \constraints `Impl` provides either a `discard_first` accepting
+//! `first_argument` and `second_argument`, or an `invoke` accepting a
+//! callable that ignores its first parameter and returns its second,
+//! together with `first_argument` and `second_argument` -- an `invoke`
+//! native to `Impl` or derived from `Impl`'s basis.
+//! \effects If `Impl` provides `discard_first`, the effect is that of
+//! `Impl`'s own `discard_first`; otherwise the application is expressed
+//! through the object's own `invoke`, applying a callable that discards the
+//! value held by `first_argument` and returns the value held by
+//! `second_argument`.
+//! \returns The single value in context holding the value that
+//! `second_argument` holds.
 template <class Impl>
 template <class FIRST_ARGUMENT, class SECOND_ARGUMENT>
 auto Applicative<Impl>::discard_first(this auto &&self,
                                       FIRST_ARGUMENT &&first_argument,
-                                      SECOND_ARGUMENT &&second_argument) {
-    return self.invoke(
-        [](const auto &, auto &&rhs) {
-            return std::forward<decltype(rhs)>(rhs);
-        },
-        std::forward<FIRST_ARGUMENT>(first_argument),
-        std::forward<SECOND_ARGUMENT>(second_argument));
+                                      SECOND_ARGUMENT &&second_argument)
+    requires requires(const Impl &impl) {
+        impl.discard_first(std::forward<FIRST_ARGUMENT>(first_argument),
+                           std::forward<SECOND_ARGUMENT>(second_argument));
+    } || requires {
+        self.invoke(discard_first_eval,
+                    std::forward<FIRST_ARGUMENT>(first_argument),
+                    std::forward<SECOND_ARGUMENT>(second_argument));
+    }
+{
+    if constexpr (requires {
+                      impl_of(self).discard_first(
+                          std::forward<FIRST_ARGUMENT>(first_argument),
+                          std::forward<SECOND_ARGUMENT>(second_argument));
+                  }) {
+        return impl_of(self).discard_first(
+            std::forward<FIRST_ARGUMENT>(first_argument),
+            std::forward<SECOND_ARGUMENT>(second_argument));
+    } else {
+        return self.invoke(discard_first_eval,
+                           std::forward<FIRST_ARGUMENT>(first_argument),
+                           std::forward<SECOND_ARGUMENT>(second_argument));
+    }
 }
 
-//! \effects-equiv
+//! \constraints `Impl` provides either a `discard_second` accepting
+//! `first_argument` and `second_argument`, or an `invoke` accepting a
+//! callable that returns its first parameter and ignores its second,
+//! together with `first_argument` and `second_argument` -- an `invoke`
+//! native to `Impl` or derived from `Impl`'s basis.
+//! \effects If `Impl` provides `discard_second`, the effect is that of
+//! `Impl`'s own `discard_second`; otherwise the application is expressed
+//! through the object's own `invoke`, applying a callable that returns the
+//! value held by `first_argument` and discards the value held by
+//! `second_argument`.
+//! \returns The single value in context holding the value that
+//! `first_argument` holds.
 template <class Impl>
 template <class FIRST_ARGUMENT, class SECOND_ARGUMENT>
 auto Applicative<Impl>::discard_second(this auto &&self,
                                        FIRST_ARGUMENT &&first_argument,
-                                       SECOND_ARGUMENT &&second_argument) {
-    return self.invoke(
-        [](auto &&lhs, const auto &) {
-            return std::forward<decltype(lhs)>(lhs);
-        },
-        std::forward<FIRST_ARGUMENT>(first_argument),
-        std::forward<SECOND_ARGUMENT>(second_argument));
+                                       SECOND_ARGUMENT &&second_argument)
+    requires requires(const Impl &impl) {
+        impl.discard_second(std::forward<FIRST_ARGUMENT>(first_argument),
+                            std::forward<SECOND_ARGUMENT>(second_argument));
+    } || requires {
+        self.invoke(discard_second_eval,
+                    std::forward<FIRST_ARGUMENT>(first_argument),
+                    std::forward<SECOND_ARGUMENT>(second_argument));
+    }
+{
+    if constexpr (requires {
+                      impl_of(self).discard_second(
+                          std::forward<FIRST_ARGUMENT>(first_argument),
+                          std::forward<SECOND_ARGUMENT>(second_argument));
+                  }) {
+        return impl_of(self).discard_second(
+            std::forward<FIRST_ARGUMENT>(first_argument),
+            std::forward<SECOND_ARGUMENT>(second_argument));
+    } else {
+        return self.invoke(discard_second_eval,
+                           std::forward<FIRST_ARGUMENT>(first_argument),
+                           std::forward<SECOND_ARGUMENT>(second_argument));
+    }
 }
 
 // \rSec3[transpose.applicative.grade]{Grade re-indexing}

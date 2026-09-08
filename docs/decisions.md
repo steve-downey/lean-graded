@@ -1062,6 +1062,26 @@ the marker that would end the chain -- `\seebelow` on an exposition-only alias
   variable does not help a trait whose *value* is the point, and
   `error_set_is_canonical_v` rendered as `unspecified` would be worse than
   omitted.
+- 2026-09-08 — `probe_witness` and `probe_witness2` were placed in the main
+  namespace by `typeclass-object-concepts` and reached
+  `transpose.applicative.syn.md` and `transpose.traversable.syn.md` undeclared:
+  they are implementation machinery -- witness callables that let a concept
+  check a derived operation's existence for one representative callable,
+  never a proof it holds for every callable -- and nothing outside the
+  concept definitions ever named them. They now live in `detail` and are
+  marked `\expos` where they are defined, and their uses -- inside the
+  `applicative_impl`/`applicative_object`/`traversable_impl`/
+  `traversable_object` concept bodies themselves, not merely a declaration
+  that names them -- render as `$probe-witness$`/`$probe-witness2$` with no
+  qualifier and no leakage finding. That the `\expos` marker composes on a
+  concept's own requires-expression, not only on a trailing return type or a
+  constraint, was the open question this step existed to answer; it does.
+  `applicative_value_t` was deliberately left alone as public vocabulary the
+  baseline audit lists and `examples/binary_tree.hpp` uses -- its wording
+  problem is the pipeline's, not the library's, and the specification does
+  not get to change the library to suit itself. Filed upstream as
+  steve-downey/specgen#84 (`--validate` should catch a name that appears in
+  generated wording but is declared nowhere in it).
 
 ---
 
@@ -1082,3 +1102,578 @@ the discussion twice. D3200R0 says so in the wording preamble rather than
 shipping the spellings as if they were settled.
 **Log:**
 - 2026-09-03 — Recorded when the wording pipeline landed.
+
+---
+
+## monoid-carrier-canonicity
+
+**Question:** Which carriers get a default `Monoid<T>` registration, and
+which are named instead?
+**Status:** DECIDED 2026-09-07
+**Decided by:** Steve Downey, in the typeclass-relationships design
+discussion of 2026-09-07, recorded in
+`docs/coordination-worklist-2026-09-07.md`.
+**Decision:** A raw carrier gets a default `Monoid<T>` registration only where
+one instance is canonical: string and vector concatenation, and `Count`.
+Where no instance is so right that any one of them can be the default —
+numbers, booleans — the choice is spelled by a named carrier type instead of
+a registration on the bare type.
+**Why:** Addition and multiplication are both monoids on a number; maximum
+and minimum are both monoids on any ordered type; a `bool` carries both
+conjunction and disjunction. Registering one of these as `Monoid<int>` or
+`Monoid<bool>` makes the library pick for the caller, silently, at every
+`fold_map` whose function happens to return that type. Naming the carrier —
+`Sum<int>`, `Max<int>`, `Any` — makes the choice something the caller writes
+down instead.
+**Log:**
+- 2026-09-07 — [named-monoid-carriers](../tmp/plan/step-named-monoid-carriers.md)
+  added the six named carriers (`Sum`, `Product`, `Max`, `Min`, `Any`, `All`)
+  to `monoid.hpp`, and moved `fold.hpp`'s `detail::Any`/`detail::All` onto the
+  new public `Any`/`All` so `any_of`/`all_of` exercise them. The carrier set
+  is provisional: six because these are what the fold family and the
+  worklist named; a consumer needing a seventh (`First`, `Last`, `Endo`)
+  extends the set rather than working around it. The bare-numeric
+  `Monoid<int|long|size_t>` registrations are still present; removing them is
+  the following step,
+  [numeric-monoid-defaults](../tmp/plan/step-numeric-monoid-defaults.md).
+- 2026-09-07 — [numeric-monoid-defaults](../tmp/plan/step-numeric-monoid-defaults.md)
+  removed the three bare-numeric `Monoid<int>`, `Monoid<long>`, and
+  `Monoid<std::size_t>` registrations from `monoid.hpp`. The only in-tree
+  consumer was `monoid.test.cpp`'s additive-int `TEST_CASE`, migrated to
+  `Sum<int>`. The sentinel is a `has_monoid` concept with
+  `static_assert(!has_monoid<int>)` (and `long`, `std::size_t`), so a future
+  re-registration fails a test instead of silently restoring the old default.
+- 2026-09-07 —
+  [monad-induced-monoids](../tmp/plan/step-monad-induced-monoids.md) added
+  two more induced, named, unregistered carriers, in their own header
+  (`induced_monoid.hpp`, not `monoid.hpp`, which knows about no typeclass
+  instances): `KleisliEndo<MONAD_OBJECT, A>`, the Kleisli endomorphism
+  monoid on `A -> M<A>` arrows (identity `pure`, combine `>=>`), and
+  `LiftedMonoid<APPLICATIVE_OBJECT, CONTEXT>`, `F<A>` lifted from a
+  `Monoid<A>` through an applicative object (identity `pure(identity_A)`,
+  combine `invoke(combine_A, ·, ·)`). Both are registered only on their own
+  carrier type; `std::optional<int>` and `std::optional<Sum<int>>` gain no
+  `Monoid`. Worth not rediscovering: the categorical statement "a monad is a
+  monoid in the category of endofunctors" is inexpressible at `Monoid<T>` —
+  its tensor is composition, not product, and its carrier is a type
+  constructor, not a type — and `KleisliEndo` is the value-level statement
+  that survives that gap, not the categorical statement itself. The Kleisli
+  carrier erases its arrow through `std::function`, following
+  `detail::LeftFoldProgram` (`fold.hpp`): a monoid's `combine` must return
+  what it takes, and a bare lambda type does not close under composition.
+  `Monad<Impl>::kleisli`'s derived branch returns a closure that captures
+  `self` by reference, so `combine` cannot store the result of
+  `MONAD_OBJECT{}.kleisli(...)` directly; it instead stores a lambda that
+  constructs its own `MONAD_OBJECT{}` and calls `kleisli` on it in the same
+  full expression that invokes the result, keeping the temporary alive for
+  exactly as long as it is used.
+
+## impl-access-through-bases
+
+**Question:** How does a derived member of a typeclass base (`Functor`,
+`Applicative`, `Monad`, `Foldable`, `Traversable`) address its `Impl`, given
+that `self` is a deducing-this parameter typed as the most-derived class —
+which may be a `Map`, a user class, or another typeclass object wrapping this
+one?
+**Status:** DECIDED 2026-09-07
+**Decided by:** Steve, for the half that keeps `protected`: the published
+wording is not changed as a side effect of an implementation convenience.
+`struct Applicative : protected Impl` and `struct Traversable : protected
+Impl` are published wording, appearing verbatim in
+`papers/wording/transpose.applicative.syn.md` and
+`transpose.traversable.syn.md`, generated from these headers, so the
+inheritance keyword itself is out of scope for any refactor. The mechanism
+that reaches `Impl` under that constraint is decided by this step, from
+compile evidence gathered in the amendment consult's throwaway worktree.
+**Decision:** Three parts, all needed by later steps:
+- The five bases keep `protected Impl`. Not renegotiable by a later step:
+  `Applicative` and `Traversable`'s class heads are published, and changing
+  the inheritance changes what D3200R0 proposes.
+- Addressing goes through **`impl_of(self)`, a private member of each
+  base**, with the const rule shared as `impl_ref_t` in
+  `include/beman/transpose/detail/typeclass_base.hpp`. A namespace-scope
+  helper cannot perform the conversion, because it is a member or friend of
+  nothing, and under protected inheritance only a member of the base that
+  owns the `Impl` sub-object may cast to it.
+- **A base exposes an operation as its own member, never as a `using
+  Impl::op;` re-export, wherever that base may itself be wrapped.** This is
+  the half that keeps a two-deep composition (`Functor<SomeMonadMap>`, where
+  `SomeMonadMap` is itself built from `Monad<Impl>`) reachable: an external
+  call enters the outer base's own member, which hands the inner base's
+  member a `self` typed as the `Map` — one level deep, where addressing
+  already works. If a later step turns a probing member back into a
+  re-export, the deep chain re-forms and the inner base's `impl_of` sees a
+  `self` typed as the *outer* wrapper instead of the `Map`, and the cast
+  fails: `'X' is an inaccessible base of 'Functor<SomeMap>'`, raised from
+  inside the inner base's member.
+**Why:** Measured, with the inheritance untouched:
+- A namespace-scope helper performing `static_cast<Impl &>(self)` fails
+  access control even one level deep — it is a member or friend of nothing,
+  and protected base-class accessibility has no clause that walks upward
+  into it.
+- A member of an *inner* base cannot touch an *outer* object's inherited
+  surface at all: `Monad<Impl>` is a base of `Functor<Map>`, not a friend or
+  member of it, and base-class accessibility does not walk upward.
+- A `using Impl::op;` re-export at the wrapping base fails the two-deep case
+  specifically, with `'Probe' is an inaccessible base of 'Outer<InnerMap>'`
+  (reproduced directly in
+  `tests/beman/transpose/detail/typeclass_base.test.cpp`'s two-deep
+  `TEST_CASE`s, which use the own-member shape and pass; the re-export
+  failure itself is documented here rather than compiled, since it is a hard
+  error rather than a SFINAE-friendly one).
+- The full suite is green and unchanged after converting
+  `Applicative<Impl>::invoke`, `Applicative<Impl>::ap`, and
+  `Monad<Impl>::invoke` from the open-coded `SELF`/`IMPL_BASE` cast to
+  `impl_of(self)` — same probes, same derivations, same passing count
+  (119, then 124 with this step's five added `TEST_CASE`s exercising the
+  mechanism directly).
+- The generated wording is byte-identical: `scripts/gen-wording.sh` produced
+  a diff against only the four fragments already known to drift for
+  unrelated reasons (`transpose.errset.recover.md`,
+  `transpose.errset.syn.md`, `transpose.expected.syn.md`,
+  `transpose.grade.syn.md`); neither `transpose.applicative.syn.md` nor
+  `transpose.traversable.syn.md` appears. `impl_of` is `//! \omit`-marked and
+  in a trailing private section in `apply.hpp` and `traverse.hpp`, which
+  renders as nothing.
+
+A trailing *requires-clause* is not a complete-class context, so `impl_of`
+cannot be named there: `Applicative<Impl>::ap`'s declaration-level
+disjunctive `requires`-clause keeps its existing `requires(const Impl &impl)
+{ impl.op(...); }` form rather than being rewritten to name `impl_of`.
+Member *bodies* are complete-class contexts and use `impl_of(self)` freely;
+this split — declaration clauses one way, bodies another — is the shape
+every later probing member copies.
+
+**Provisional:** the cast is repeated in five classes rather than shared.
+What would justify sharing it is a language change that lets a non-member
+perform the conversion, or a base gaining genuinely private state, which no
+typeclass object has today — every one of them is stateless and empty. What
+is not repeated is the const propagation, which lives once in `impl_ref_t`.
+**Log:**
+- 2026-09-07 — [impl-probe-helper](../tmp/plan/step-impl-probe-helper.md)
+  added `impl_ref_t` to `detail/typeclass_base.hpp` and a private `impl_of`
+  to each of `Functor`, `Applicative`, `Monad`, `Foldable`, `Traversable`,
+  then converted the three existing native-`Impl` probes
+  (`Applicative<Impl>::invoke`, `Applicative<Impl>::ap`,
+  `Monad<Impl>::invoke`) to call through it. Pure refactor: no other member
+  gained a probe, no `: protected Impl` changed, no `using Impl::op;`
+  re-export changed. The own-member rule (this decision's third part) is
+  applied to a real member for the first time by
+  [monad-fmap-basis](../tmp/plan/step-monad-fmap-basis.md), the next step.
+
+## functor-monad-grounding
+
+**Question:** How does a type with a `Monad` instance and no separate
+`Functor` registration obtain its `fmap`, given that `fmap f x == bind(x,
+pure . f)` is a theorem rather than a coincidence?
+**Status:** DECIDED 2026-09-07
+**Decided by:** the design, applied by
+[monad-fmap-basis](../tmp/plan/step-monad-fmap-basis.md).
+**Decision:** Structurally, not by a superclass constraint. `Monad<Impl>`
+provides the Functor **basis** operation, `fmap`, derived as `bind(ma, pure .
+f)` with native preference for an `Impl::fmap` when the instance supplies
+one. The full Functor instance is then spelled at the registration or call
+site as `Functor<SomeMonadMap>{}` — no adapter type, no nominal wrapper
+requirement. The CRTP base is the adapter.
+
+**Monad grows only the basis operations of the classes it can ground, never
+their derived operations.** `replace` stays on `Functor<>` and is reached
+through the layered instance, not duplicated onto `Monad`. This is what
+keeps a monad-grounded instance tracking Functor's derived surface instead
+of forking from it as that surface gains operations.
+
+**Why:** Conformance in this library is structural throughout — provide the
+operations, claim the laws at the registration site — so a superclass
+constraint would be foreign to the rest of the design where a theorem
+suffices. Growing only the basis, and never the derived surface, is the rule
+that keeps the two typeclasses from drifting: if `Monad` also grew `replace`
+directly, a change to `Functor::replace`'s derivation would have to be
+mirrored onto `Monad` by hand, and nothing would catch a missed mirror. The
+agreement test in `laws.test.cpp` is the sentinel: where a hand-written
+`Functor` and a `Monad` coexist on the same carrier (`std::optional`), the
+hand-written `fmap` and the Monad-derived one are checked equal, so the
+redundancy cannot drift silently.
+
+`fmap`'s `requires`-clause is a disjunction — native `Impl::fmap`, or
+`Impl::bind` — spelled in the `Applicative<Impl>::ap` shape from
+`apply.hpp`, for the same reason: an unconstrained probing member is
+satisfied by substitution alone, so a later deep object concept checking for
+`fmap` would find it vacuously present even when neither `Impl` operation
+exists. Both branches address `Impl` directly, never `self` — `fmap` and
+`bind` are one of the mutually-derivable pairs (`bind` is recoverable from
+`join` + `fmap`) that `apply.hpp`'s cycle discipline exists to keep from
+recursing into each other, and generalizing Impl-direction to other members
+is out of scope for this decision.
+**Log:**
+- 2026-09-07 — [monad-fmap-basis](../tmp/plan/step-monad-fmap-basis.md) added
+  `fmap` to `Monad<Impl>` and converted `Functor<Impl>::fmap` from a `using
+  Impl::fmap;` re-export to its own forwarding member — the own-member rule
+  from [impl-access-through-bases](#impl-access-through-bases), applied to a
+  real member for the first time. That conversion is what makes
+  `Functor<OptionalMonadMap<int>>` compile at all: with the re-export, an
+  external call landed directly in `Monad<Impl>::fmap` with `self` typed as
+  the outer `Functor<...>`, where the protected-inherited `Impl` is
+  unreachable (`'OptionalMonadImpl<int>' is an inaccessible base of
+  'Functor<OptionalMonadMap<int>>'`); with `Functor` owning the member, the
+  call enters `Functor::fmap` first, where the conversion is accessible, and
+  hands `Monad<Impl>::fmap` a `self` typed as the `Map` — one level deep,
+  where addressing already works. Surfaced along the way: `OptionalMonadImpl
+  ::bind` computed its result type only in the body (bare `auto`, `using
+  Result = ...std::invoke_result_t<F, const A &>...`), which is exactly the
+  non-SFINAE-friendly shape `apply.hpp`'s basis invariant warns against —
+  probing it from `fmap`'s disjunctive `requires`-clause with an
+  incompatible `F` produced a hard error rather than a clean constraint
+  failure. Given a trailing return type (`-> remove_cvref_t<
+  std::invoke_result_t<F, const A &>>`), the probe fails cleanly, matching
+  the invariant `apply.hpp` already states for `Applicative` impls. Suite
+  went from 124 to 131.
+- 2026-09-07 — [as-functor-presentation](../tmp/plan/step-as-functor-presentation.md)
+  added `Monad<Impl>::as_functor()`, the free presentation member this
+  section's decision text forward-pointed to: `Functor<remove_cvref_t<
+  decltype(self)>>{}`, constructed fresh at the call site rather than looked
+  up. It deliberately does not consult `functor_typeclass<T>` — that
+  registered object may be an unrelated optimized instance, and the coherent
+  functor here is the one derived from the monad object in hand,
+  law-compatible with its `bind` by construction. It is free because every
+  typeclass object is stateless and empty (asserted with
+  `std::is_empty_v`), and it is optimization-preserving because the derived
+  members it exposes already probe `Impl` first: the sentinel test presents
+  a monad object whose own `Impl`-equivalent (the Map itself, since
+  `Functor<ThisMap>`'s `Impl` is the Map) supplies a native `replace`
+  returning a doubled-replacement marker, and asserts `as_functor().replace`
+  returns the marker, not the `fmap`-derived answer. Suite went from 154 to
+  159.
+
+## derived-op-native-preference
+
+**Question:** How does a derived operation on a typeclass base find a
+better native implementation, and what may it address?
+**Status:** DECIDED 2026-09-07
+**Decided by:** the design, applied by
+[functor-monad-derived-probing](../tmp/plan/step-functor-monad-derived-probing.md).
+**Decision:** Two parts.
+1. Every derived member probes `Impl` for a native version and forwards to
+   it when present, deriving otherwise, and carries a disjunctive
+   `requires`-clause: native present, or the derivation's own requirement on
+   the basis holds.
+2. **A derived member's second alternative must name the same expression
+   its body's derivation branch evaluates — same receiver, same spelling.**
+   An alternative may address `Impl` only if the operation it names is one
+   `Impl` is required to supply directly: a hard requirement, or the other
+   half of a mutually-derivable pair — `invoke`/`ap`, `fold_map`/
+   `fold_right`, `bind`/`join`+`fmap`. Anything the base can *synthesize* is
+   addressed through `self`.
+
+`Functor::replace`, `Monad::join`, `Monad::kleisli` and `Monad::ap` all
+adopted the shape. `join`/`bind` is one of the mutually-derivable pairs, so
+its derivation addresses `impl_of(self).bind(...)` directly, matching
+`fmap`'s bind-basis branch; `replace`, `kleisli` and `ap`'s bind + pure
+derivation are one-way and keep routing through `self`. `subsume` and
+`bind_with` were deliberately left unprobed: `subsume` is grade machinery
+defaulted from the algebra, not a derivation over `Impl`, and `bind_with` is
+explicit delegation to an object the caller passed — neither has an `Impl`
+operation to prefer.
+
+**Not every member has an expressible second alternative.** `kleisli`
+returns a closure whose body calls `bind` on an argument type ("a") that is
+not known until the closure is invoked, so there is no concrete expression
+to probe at `kleisli`'s own instantiation. `bind`'s existence is already
+guaranteed unconditionally by `Monad<Impl>`'s class invariant (the
+`static_assert` plus `using Impl::bind;` at the top of the class fail the
+whole class before `kleisli`'s clause is ever reached if `Impl` lacks
+`bind`), so `kleisli`'s second alternative is spelled `true` rather than a
+tautological re-check. `invoke`'s second alternative could not name
+`FUNCTION` directly either — its arity does not match `bind`'s
+single-argument callback shape, since the derivation applies it only after
+unwinding nested `bind` calls — so it probes `impl.bind(first, <a
+single-argument passthrough lambda>)` instead, checking that `FIRST` is
+bind-compatible without asserting anything about `FUNCTION`.
+
+**Why:** The constraint keeps the deep object concept a later step
+introduces from being satisfied vacuously by substitution alone, and
+restores "missing basis" as a clean constraint failure. The pairs-only rule
+keeps `Map`-level shadows at exactly their current reach — broad
+Impl-direction would let external calls hit a shadow while internal
+derivations skipped it. Hand-rolled objects never touch the bases and are
+unaffected.
+
+**Record as provisional:** which pairs are mutually derivable is a fact
+about the current basis sets, and admitting an alternate Monad basis would
+add one.
+**Log:**
+- 2026-09-07 —
+  [functor-monad-derived-probing](../tmp/plan/step-functor-monad-derived-probing.md)
+  converted `Functor::replace` and `Monad::join`/`kleisli`/`ap`/`invoke` to
+  the probe-then-derive shape and added preference tests, including one
+  per-instantiation test (`Monad::join` native for
+  `std::optional<std::optional<int>>` only, falling back for
+  `std::optional<std::optional<std::string>>` on the same Map) exercising
+  the property a Map-level `using`-declaration could never express. No
+  `Map`'s `using`-declarations were removed. Suite went from 131 to 135.
+- 2026-09-07 —
+  [applicative-derived-probing](../tmp/plan/step-applicative-derived-probing.md)
+  converted `Applicative`'s five derived members — `map`, `lift`,
+  `zip_with`, `discard_first`, `discard_second` — to the probe-then-derive
+  shape, all one-way (`Applicative` has no mutually-derivable pair besides
+  `invoke`/`ap`, already converted). This is the first conversion to reach a
+  wording-generating header: the `\effects-equiv` markup on all five, which
+  renders the body, had to become explicit `\constraints`/`\effects`/
+  `\returns` prose in the shape `ap` already uses, since a probing body is
+  not specification text. `papers/wording/transpose.applicative.derived.md`
+  and `transpose.applicative.syn.md` were regenerated and copied over; the
+  five pre-existing drifted fragments (`transpose.errset.obs.md`,
+  `transpose.errset.recover.md`, `transpose.errset.syn.md`,
+  `transpose.expected.syn.md`, `transpose.grade.syn.md` — one more than this
+  step's own file expected, `errset.obs.md` having drifted since) were left
+  untouched. `discard_first` and `discard_second` needed a second alternative
+  that names a callable, and a lambda-expression cannot be spelled
+  identically at both an in-class declaration and its out-of-line
+  definition — each occurrence is a distinct, unrelated closure type, so the
+  two declarations stop matching. `apply.hpp` gained two small named
+  evaluator objects, `discard_first_eval` and `discard_second_eval`, in a
+  `\omit`ted nested `detail` namespace, the same role `applicative_eval`
+  already plays for `ap`. Traversable's derived members (`for_each`,
+  `transpose`, `traverse_with`, `transpose_with`) were deliberately left
+  unconverted per this step's file: two are delegation to a caller-supplied
+  object rather than derivations over `Impl`, and `traverse.hpp` carries a
+  DELIBERATE CONSTRAINT comment that makes widening it a decision rather
+  than a chore. Suite went from 135 to 146 (11 added, all in
+  `apply.test.cpp`: preference and fallback tests for `map`, `zip_with`,
+  `lift`, `discard_first`, `discard_second`, plus one per-instantiation test
+  for `map`).
+- 2026-09-07 —
+  [foldable-derived-probing](../tmp/plan/step-foldable-derived-probing.md)
+  converted `Foldable`'s whole surface — `fold_map`/`fold_right` (the third
+  mutually-derivable pair) plus the nine one-way derived members (`length`,
+  `fold_left`, `combine_all`, `fold`, `any_of`, `all_of`, `empty`,
+  `to_vector`, `find_first`) — to the probe-then-derive shape, closing the
+  latent `fold_map`/`fold_right` mutual-recursion hazard structurally:
+  before this step, a `Map` that omitted a `using`-declaration for one side
+  of the pair sent the two derivations into unbounded mutual template
+  recursion (each round nesting another `RightFoldProgram`); both
+  derivations now address `Impl` directly (`impl_of(self)`), so neither can
+  re-enter the other through `self`, and an `Impl` with neither basis fails
+  as a clean constraint (its `fold_map`/`fold_right` members do not exist,
+  verified with a `has_fold_map` concept the way the library's other
+  "does not exist" cases are tested), with a `static_assert` naming both
+  acceptable bases as a last-resort message that is unreachable given the
+  declaration-level constraint already did the work. `VectorFoldableImpl`
+  gained a native `length` (`values.size()`) with **no** edit to
+  `VectorFoldableMap` — the ergonomics demonstration this step exists to
+  make. One correction to the one-way members' shape, found empirically: the
+  seven members deriving directly from `fold_map` (`length`, `fold_left`,
+  `combine_all`, `any_of`, `all_of`, `to_vector`, `find_first`) must probe
+  `self.fold_map(...)` in their second alternative, not `impl.fold_map(...)`
+  — since `fold_map` is now itself conditionally available via either basis,
+  the Impl-level shallow check the rest of the codebase uses for one-way
+  derivations (`map`, `zip_with`, ... in `apply.hpp`) wrongly excludes an
+  `Impl` that only provides `fold_right` + `element_type`; a hazard-Impl test
+  calling `to_vector` caught this directly (compiled-away member, not a
+  runtime failure). `fold`/`empty`, which derive from `combine_all`/`any_of`
+  rather than `fold_map` directly, already needed this `self`-routed shape
+  per this step's own file. Two lambda-related GCC/Clang portability notes
+  worth carrying forward: a lambda that captures a declaration-level
+  parameter (`function`, `predicate`) inside a trailing requires-clause
+  fails under GCC (`-Wtemplate-body`, "use of parameter outside function
+  body"), and a lambda that captures a local variable inside a `requires{}`
+  used in a `static_assert` body fails under the Clang front end the wording
+  generator uses ("variable cannot be implicitly captured" / "reference to
+  local variable declared in enclosing function") even though GCC accepts
+  it; both are fixed the same way, with a non-capturing marker lambda whose
+  return-type shape is all the probe needs. `fold.hpp` is not
+  wording-generating and stayed that way; `sequence.hpp`'s new native
+  `length` is `\omit`ted, confirmed by regenerating and diffing wording —
+  only the five pre-existing drifted fragments appear, nothing under
+  `transpose.range.*`. Suite went from 146 to 151 (5 added: a native-`length`
+  preference test, a per-instantiation `to_vector` test, the hazard test
+  exercising a `fold_right` + `element_type` `Impl` through a `Map` with no
+  `using`-declaration at all, the `has_fold_map` non-existence test, plus one
+  more assertion added to the existing `sequence.hpp` `length` test for
+  empty/one-element vectors).
+- 2026-09-07 —
+  [applicative-ap-only-probing](../tmp/plan/step-applicative-ap-only-probing.md)
+  found bullet 2 above stated too broadly for a dual-basis class: `map`,
+  `zip_with`, `discard_first` and `discard_second`'s second alternative,
+  written by
+  [applicative-derived-probing](../tmp/plan/step-applicative-derived-probing.md),
+  probed `impl.invoke(...)` while their bodies derive through
+  `self.invoke(...)`. For an ap-only `Impl` (`pure` + `ap`, no native
+  `invoke`) the body still compiles, through the base's own synthesized
+  `invoke`, but the Impl-directed clause is false, so the member silently
+  vanished from overload resolution — a regression against the commit
+  before that step, invisible because no in-tree `Impl` is ap-only. `lift`
+  was unaffected: its second alternative names `pure`, a hard `Impl`
+  requirement, so `impl.pure` and `self.pure` cannot disagree. The four
+  members' second alternatives were readdressed to `self.invoke(...)`;
+  `lift` converted to `self.pure(...)` too, not because it was broken, but
+  so clause and body agree everywhere rather than carrying one documented
+  exception. `ap` itself is untouched — `invoke`/`ap` is the
+  mutually-derivable pair, and both of its alternatives correctly address
+  `Impl` directly, which is what closes the derivation cycle.
+  `Monad::fmap`'s Impl-directed derivation is a licensed exception distinct
+  from both patterns: it is reached only through a wrapping
+  `Functor<SomeMonadMap>`, where `self` is the outer `Functor` and the
+  inner base's own surface is `protected` and unreachable, so
+  `self`-routing is not an option there, and `bind`/`pure` are hard
+  requirements, so nothing can vanish. The rider that matters downstream: a
+  self-routed probe is only as strong as the constraint on the member it
+  names — `self.fold_map(...)` is strong because `Foldable::fold_map` is
+  itself constrained, while `self.invoke(...)` is weak, because
+  `Applicative<Impl>::invoke` carries no `requires`-clause at all and
+  reports a missing basis only through its own body's `static_assert`, by
+  design, the GHC-`MINIMAL` message. The four converted members' second
+  alternatives are therefore vacuously satisfied for a `Map` with no
+  `using Impl::invoke;` re-export — correct, since the class invariant
+  already guarantees a complete basis, but no later step may treat those
+  clauses as proof that `Impl` itself has one; the strong check belongs on
+  `applicative_impl`, over `Impl` directly. Left open: constraining
+  `Applicative::invoke` itself would make the probe strong, and was
+  deliberately not done here — its ap-derivation runs through
+  `detail::terminating_partial` currying and has no spellable
+  single-expression probe, which is a design change to a published basis
+  member, not a defect fix. `papers/wording/transpose.applicative.derived.md`
+  and `transpose.applicative.syn.md` were regenerated and copied over,
+  alongside the five pre-existing drifted fragments
+  (`transpose.errset.obs.md`, `transpose.errset.recover.md`,
+  `transpose.errset.syn.md`, `transpose.expected.syn.md`,
+  `transpose.grade.syn.md`), left untouched. Suite went from 151 to 153 (2
+  added: an ap-only `Impl`/`Map` exercising the whole derived surface, and
+  a `has_map`/`has_zip_with` concept pair proving an inapplicable callable
+  still makes `map`/`zip_with` disappear rather than hard-error against the
+  shipped invoke-basis object).
+
+## typeclass-conformance-depth
+
+**Question:** What does a typeclass concept check — the basis, or the full
+operation surface?
+**Status:** DECIDED 2026-09-07
+**Decided by:** the design, applied by
+[typeclass-object-concepts](../tmp/plan/step-typeclass-object-concepts.md).
+**Decision:** Two concepts, at two depths. The concept for a typeclass
+**object** (`functor_object`, `applicative_object`, `monad_object`,
+`foldable_object`, `traversable_object`, one per class, carrier-indexed)
+checks all operations, basis and derived, with conditionally-available
+operations required conditionally and operations templated over an
+arbitrary callable probed with one representative witness
+(`probe_witness`/`probe_witness2` in `detail/typeclass_base.hpp`). There are
+no superclass edges: `monad_object` does not require `functor_object`, and
+`traversable_object` does not require a Foldable object — the latter is the
+DELIBERATE CONSTRAINT `traverse.hpp` already carried and the former is the
+whole point of `as-functor-presentation`, the next step. The restricted
+`Impl` concept — the other half, naming only the minimal complete bases — is
+`typeclass-impl-concepts`, the step after that.
+
+`traverse.hpp`'s existing `applicative_object_for<POLICY, CONTEXT>` becomes
+sugar over `applicative_object`, strengthened with the
+`pure`-returns-exactly-`CONTEXT` requirement `traverse`'s policy parameter
+needs and `applicative_object` itself does not make (that concept only asks
+that `pure` exist, not what it returns).
+
+**Why:** Conformance in this library is structural throughout — a program
+may hand-implement a typeclass object without ever touching the CRTP base —
+so the previous single object concept, `applicative_object_for`, probed
+`pure` alone. It accepted an object with `pure` and nothing else and
+deferred the failure to whenever some code written much later first reached
+a derived operation, three frames deep inside a template, with a diagnostic
+about the wrong thing. The deep concept moves the surprise to the gate and
+doubles as the specification's statement of the class's full surface, which
+is what a specification wants to say anyway.
+
+Record the two cautions from the step file as part of the decision, not as
+footnotes: an unconditional `ap` requirement wrongly rejects the simd
+object, and a witness is a witness, not a proof that an operation holds for
+every callable.
+
+**Record as provisional:** which operations are conditional, and what
+licenses each, is a fact about the current basis sets and the current
+shipped instances; a new instance's shape could add one. The witness
+instantiation is one representative callable because that suffices for "the
+operation is missing entirely"; what would justify revisiting is a failure
+mode a single witness cannot see.
+
+**Log:**
+- 2026-09-07 — [typeclass-object-concepts](../tmp/plan/step-typeclass-object-concepts.md)
+  added the five concepts and found two conditional operations the step
+  file's own text did not name, on top of the two (`ap`, `subsume`) it did:
+  `Foldable::combine_all`/`fold` fold over the *elements themselves* via the
+  identity function, so they need the element type — not a wrapped
+  accumulator type — to have a registered `Monoid`; `std::vector<int>` is
+  Foldable but `int` carries no `Monoid` since
+  [monoid-carrier-canonicity](#monoid-carrier-canonicity), so probing them
+  unconditionally on `VectorFoldableMap<int>` is a hard, non-SFINAE error
+  (`monoid_v<int>`'s definition needs `Monoid<int>` complete), not a graceful
+  constraint failure — confirmed empirically, not assumed. The fix is a
+  `detail::has_registered_monoid<VALUE_TYPE>` guard in `fold.hpp`, gating
+  `combine_all`/`fold` the same way `ap` and `subsume` are gated elsewhere.
+  Symmetrically, `Traversable::transpose`/`transpose_with` are hard-wired to
+  `applicative_typeclass<element_type>`, which names no applicative object
+  for a structure like `std::vector<int>`; probing them unconditionally is
+  the same class of hard error, guarded the same way.
+  Also measured directly (see `applicative-ap-only-probing`'s existing
+  rider, now confirmed rather than merely asserted): probing an
+  unconstrained member like `Applicative<Impl>::invoke` or
+  `Monad<Impl>::kleisli` with real, type-compatible arguments against an
+  `Impl` that has *no* basis at all is not reliably vacuous — it can be a
+  hard, non-SFINAE compile error (the `ap`-derivation's own
+  `static_assert` fires during the body instantiation a `requires`-expression
+  forces to resolve the deduced return type). The concepts here never rely
+  on such a member as basis evidence, and the one negative test that needs a
+  "pure and nothing else" object (`applicative_object`'s shallow-gate
+  regression) uses a hand-rolled, non-CRTP struct for exactly that reason:
+  such an object has no `invoke`/`map`/etc. member at all, so probing it is
+  a plain, always-safe name-lookup failure rather than a body instantiation.
+  `papers/wording/transpose.applicative.syn.md` and
+  `transpose.traversable.syn.md` were regenerated and copied over, alongside
+  the five pre-existing drifted fragments left untouched. Suite went from
+  153 to 154: one new test executable, `objects`, added to
+  `tests/beman/transpose/CMakeLists.txt`.
+- 2026-09-07 —
+  [typeclass-impl-concepts](../tmp/plan/step-typeclass-impl-concepts.md)
+  added the other half: `functor_impl`, `applicative_impl`, `monad_impl`,
+  `foldable_impl` and `traversable_impl`, each naming only the minimal
+  complete basis its class's CRTP base needs, beside that class's object
+  concept. `applicative_impl` admits `pure` with either `invoke` or `ap`;
+  `foldable_impl` admits `fold_map` alone or `fold_right` with
+  `element_type`; both disjunctions are now sayable in one place instead of
+  spread across a `static_assert` message and a comment. `monad_impl`
+  admits only `pure` + `bind` — Monad's other complete bases (`pure` +
+  `fmap` + `join`, and `pure` + `kleisli`) are deliberately not admitted, a
+  recorded contingency and not scheduled work. The sentinel for the whole
+  discipline is a paired assertion, present for all five classes in
+  `tests/beman/transpose/objects.test.cpp`: an `Impl` supplying only its
+  basis satisfies the `Impl` concept and fails the object concept
+  (`OptionalFunctorImpl`, `OptionalApplicativeImpl`, `OptionalMonadImpl`,
+  `VectorFoldableImpl` and `VectorTraversableImpl` against their object
+  concepts). The dual-basis assertion from `applicative-ap-only-probing`
+  carries over unchanged in spirit: `ApOnlyImpl` (`pure`+`ap`, no `invoke`)
+  and `OptionalApplicativeImpl` (`pure`+`invoke`, no `ap`) both satisfy
+  `applicative_impl`, and a local `FoldRightOnlyImpl`
+  (`fold_right`+`element_type`, no `fold_map`) alongside the shipped
+  `VectorFoldableImpl` (`fold_map`, no `fold_right`) both satisfy
+  `foldable_impl`. A basis-less struct with no operations at all fails all
+  five.
+  `applicative_impl` and `foldable_impl` had to be declared *before* their
+  CRTP base (`Applicative`, `Foldable`), not merely beside their object
+  concept: each base's `invoke`/`fold_map`/`fold_right` body now names the
+  concept in a `static_assert`, so two-phase lookup needs the concept
+  visible at the class template's definition point. `functor_impl`,
+  `monad_impl` and `traversable_impl` are not referenced from inside their
+  bases — `Functor::fmap` has no derivation branch to assert from, and
+  `Monad`/`Traversable` already enforce their one basis unconditionally via
+  `using`-declarations at the top of the class — so those three stayed
+  beside their object concept, after the base.
+  `Applicative<Impl>::invoke`'s existing basis `static_assert` (message:
+  "Applicative Impl must provide pure and at least one basis…") and
+  `Foldable<Impl>::fold_map`/`fold_right`'s existing basis `static_assert`s
+  (both already documented as provably redundant given the declaration's
+  own constraint, per the comments this step left in place) were replaced
+  with the concept-based condition rather than duplicated, per this step's
+  file. No new diagnostic site was added for `Functor`, `Monad` or
+  `Traversable`, since none of the three has a class-body location where a
+  concrete `CONTEXT`/`STRUCTURE` is both known and a derivation-branch body
+  already exists to hold the assert.
+  `papers/wording/transpose.applicative.syn.md` and
+  `transpose.traversable.syn.md` were regenerated and copied over again
+  (this step's two new concepts), alongside the five pre-existing drifted
+  fragments left untouched. Suite stayed at 154: the additions are
+  `static_assert`s in the existing `objects` translation unit.

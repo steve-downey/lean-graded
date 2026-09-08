@@ -27,16 +27,52 @@ namespace beman::transpose {
  */
 template <class Impl>
 struct Functor : protected Impl {
-    using Impl::fmap;
+    /** Applies `function` to every element of `value`. */
+    template <class FUNCTION, class T>
+    auto fmap(this auto &&self, FUNCTION &&function, T &&value)
+        requires requires(const Impl &impl) {
+            impl.fmap(std::forward<FUNCTION>(function), std::forward<T>(value));
+        }
+    {
+        return impl_of(self).fmap(std::forward<FUNCTION>(function),
+                                  std::forward<T>(value));
+    }
 
     /** Replaces every element of `value` with `replacement`, ignoring the
-     * original element values.
+     * original element values. Prefers a native `Impl::replace` when the
+     * instance supplies one.
      */
     template <class T, class U>
-    auto replace(this auto &&self, T &&value, U &&replacement) {
-        return self.fmap([replacement = std::forward<U>(replacement)](
-                             const auto &) { return replacement; },
-                         std::forward<T>(value));
+    auto replace(this auto &&self, T &&value, U &&replacement)
+        requires requires(const Impl &impl) {
+            impl.replace(std::forward<T>(value), std::forward<U>(replacement));
+        } || requires(const Impl &impl) {
+            impl.fmap([replacement = std::forward<U>(replacement)](
+                          const auto &) { return replacement; },
+                      std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).replace(std::forward<T>(value),
+                                                std::forward<U>(replacement));
+                      }) {
+            return impl_of(self).replace(std::forward<T>(value),
+                                         std::forward<U>(replacement));
+        } else {
+            // One-way derivation (not a mutually-derivable pair): route
+            // through self, not Impl, so a shadow on a wrapping Map is
+            // still reached.
+            return self.fmap([replacement = std::forward<U>(replacement)](
+                                 const auto &) { return replacement; },
+                             std::forward<T>(value));
+        }
+    }
+
+  private:
+    //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
     }
 };
 
@@ -44,6 +80,40 @@ struct Functor : protected Impl {
  */
 template <class T>
 inline constexpr auto functor_typeclass = std::false_type{};
+
+/** Restricted `Impl` concept for Functor: satisfied when `IMPL` supplies the
+ * minimal complete basis the `Functor` CRTP base needs -- `fmap` alone,
+ * probed with a representative witness callable. This is the `MINIMAL`
+ * pragma to `functor_object`'s class declaration: an `IMPL` may satisfy
+ * this concept and still fail `functor_object`, which is exactly the
+ * bargain the CRTP base exists to keep. Never demand a derived operation
+ * (`replace`) here; that surface belongs to `functor_object` alone.
+ */
+template <class IMPL, class CONTEXT>
+concept functor_impl = requires(const IMPL &impl, const CONTEXT &context) {
+    impl.fmap(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+};
+
+/** Deep object concept for a Functor object over `CONTEXT`: satisfied when
+ * `OBJ` provides the full object surface -- `fmap` (probed with a
+ * representative witness callable, not a proof for every callable) and the
+ * derived `replace`. Conformance here is structural, so a hand-implemented
+ * object that never uses the `Functor` CRTP base can satisfy this concept
+ * too; nothing here requires deriving from `Functor<Impl>`.
+ *
+ * There is no superclass edge to `Applicative` or `Monad`. In particular, a
+ * bare `Monad` object correctly fails this concept: `Monad<Impl>` grows only
+ * the Functor basis (`fmap`), never the derived surface, so it has no
+ * `replace`. Wrapping the monad object in `Functor<>` (`Functor<SomeMonadMap>`)
+ * is today's remedy; a later presentation member on `Monad` is expected to
+ * name the same wrapping.
+ */
+template <class OBJ, class CONTEXT>
+concept functor_object = requires(const OBJ &obj, const CONTEXT &context,
+                                  const applicative_value_t<CONTEXT> &element) {
+    obj.fmap(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+    obj.replace(context, element);
+};
 
 template <class VALUE_TYPE>
 struct OptionalFunctorImpl {

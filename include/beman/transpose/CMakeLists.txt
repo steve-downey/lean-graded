@@ -15,6 +15,7 @@ target_sources(
                 fold.hpp
                 functor.hpp
                 grade.hpp
+                induced_monoid.hpp
                 monad.hpp
                 monoid.hpp
                 sender.hpp

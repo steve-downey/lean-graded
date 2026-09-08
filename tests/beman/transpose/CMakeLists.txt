@@ -15,6 +15,8 @@ set(transpose_tests
     grade
     laws
     monad
+    induced_monoid
+    objects
     traverse
     transpose
     sequence
