@@ -10,6 +10,26 @@ inline constexpr $unspecified$ applicative_eval;
 
 :::
 
+::: wording
+
+```cpp
+inline constexpr $unspecified$ discard_first_eval;
+```
+
+[x+1]{.pnum} *Remarks*: `discard_first_eval` discards its first argument and returns its second. It is the evaluator `discard_first`'s second alternative probes, and that alternative is satisfied exactly when `discard_first`'s own `invoke`-based derivation would be.
+
+:::
+
+::: wording
+
+```cpp
+inline constexpr $unspecified$ discard_second_eval;
+```
+
+[x+2]{.pnum} *Remarks*: `discard_second_eval` discards its second argument and returns its first. It is the evaluator `discard_second`'s second alternative probes, and that alternative is satisfied exactly when `discard_second`'s own `invoke`-based derivation would be.
+
+:::
+
 ```cpp
 template<class Impl>
 struct Applicative : protected Impl {
@@ -33,21 +53,51 @@ struct Applicative : protected Impl {
 
   // @[transpose.applicative.derived]{- .sref}@, derived operations
   template<class FUNCTION, class ARGUMENT>
-  auto map(this auto&& self, FUNCTION&& function, ARGUMENT&& argument);
+  auto map(this auto&& self, FUNCTION&& function, ARGUMENT&& argument)
+    requires requires(const Impl& impl) {
+      impl.map(forward<FUNCTION>(function), forward<ARGUMENT>(argument));
+    } || requires(const Impl& impl) {
+      impl.invoke(forward<FUNCTION>(function), forward<ARGUMENT>(argument));
+    };
 
-  template<class VALUE> auto lift(this auto&& self, VALUE&& value);
+  template<class VALUE>
+  auto lift(this auto&& self, VALUE&& value)
+    requires requires(const Impl& impl) { impl.lift(forward<VALUE>(value)); } ||
+             requires(const Impl& impl) { impl.pure(forward<VALUE>(value)); };
 
   template<class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT>
   auto zip_with(this auto&& self, FUNCTION&& function, FIRST_ARGUMENT&& first_argument,
-                SECOND_ARGUMENT&& second_argument);
+                SECOND_ARGUMENT&& second_argument)
+    requires requires(const Impl& impl) {
+      impl.zip_with(forward<FUNCTION>(function),
+                    forward<FIRST_ARGUMENT>(first_argument),
+                    forward<SECOND_ARGUMENT>(second_argument));
+    } || requires(const Impl& impl) {
+      impl.invoke(forward<FUNCTION>(function), forward<FIRST_ARGUMENT>(first_argument),
+                  forward<SECOND_ARGUMENT>(second_argument));
+    };
 
   template<class FIRST_ARGUMENT, class SECOND_ARGUMENT>
   auto discard_first(this auto&& self, FIRST_ARGUMENT&& first_argument,
-                     SECOND_ARGUMENT&& second_argument);
+                     SECOND_ARGUMENT&& second_argument)
+    requires requires(const Impl& impl) {
+      impl.discard_first(forward<FIRST_ARGUMENT>(first_argument),
+                         forward<SECOND_ARGUMENT>(second_argument));
+    } || requires(const Impl& impl) {
+      impl.invoke(discard_first_eval, forward<FIRST_ARGUMENT>(first_argument),
+                  forward<SECOND_ARGUMENT>(second_argument));
+    };
 
   template<class FIRST_ARGUMENT, class SECOND_ARGUMENT>
   auto discard_second(this auto&& self, FIRST_ARGUMENT&& first_argument,
-                      SECOND_ARGUMENT&& second_argument);
+                      SECOND_ARGUMENT&& second_argument)
+    requires requires(const Impl& impl) {
+      impl.discard_second(forward<FIRST_ARGUMENT>(first_argument),
+                          forward<SECOND_ARGUMENT>(second_argument));
+    } || requires(const Impl& impl) {
+      impl.invoke(discard_second_eval, forward<FIRST_ARGUMENT>(first_argument),
+                  forward<SECOND_ARGUMENT>(second_argument));
+    };
 
   // @[transpose.applicative.grade]{- .sref}@, grade re-indexing
   template<class TARGET_GRADE, class CARRIER>
@@ -70,7 +120,7 @@ struct Applicative : protected Impl {
 
 ::: wording
 
-[x+1]{.pnum} A program that instantiates `Applicative<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false`.
+[x+3]{.pnum} A program that instantiates `Applicative<Impl>` is ill-formed unless `is_same_v<Impl, false_type>` is `false`.
 
 :::
 
@@ -80,7 +130,7 @@ struct Applicative : protected Impl {
 template<class T> inline constexpr auto applicative_typeclass = false_type{};
 ```
 
-[x+2]{.pnum} *Remarks*: This variable template is the lookup point for the Applicative object of a context type. A program may specialize it for a program-defined context. The primary template names no applicative object.
+[x+4]{.pnum} *Remarks*: This variable template is the lookup point for the Applicative object of a context type. A program may specialize it for a program-defined context. The primary template names no applicative object.
 
 :::
 
@@ -91,7 +141,7 @@ template<class T>
 inline constexpr auto accumulating_applicative_typeclass = false_type{};
 ```
 
-[x+3]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative_typeclass`, naming the accumulating Applicative object. Where the object named by `applicative_typeclass` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed.
+[x+5]{.pnum} *Remarks*: This variable template is a second lookup point, over the same carrier and grade algebra as `applicative_typeclass`, naming the accumulating Applicative object. Where the object named by `applicative_typeclass` stops at the first failing operand, this object combines the evidence of every failing operand. Neither object is selected automatically for a carrier: the context type alone does not determine which composition discipline a caller wants. This object has no Monad instance, because sequencing requires a value from a computation that accumulation admits may have failed.
 
 :::
 

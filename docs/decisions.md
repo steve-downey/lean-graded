@@ -1346,3 +1346,34 @@ add one.
   `std::optional<std::optional<std::string>>` on the same Map) exercising
   the property a Map-level `using`-declaration could never express. No
   `Map`'s `using`-declarations were removed. Suite went from 131 to 135.
+- 2026-09-07 —
+  [applicative-derived-probing](../tmp/plan/step-applicative-derived-probing.md)
+  converted `Applicative`'s five derived members — `map`, `lift`,
+  `zip_with`, `discard_first`, `discard_second` — to the probe-then-derive
+  shape, all one-way (`Applicative` has no mutually-derivable pair besides
+  `invoke`/`ap`, already converted). This is the first conversion to reach a
+  wording-generating header: the `\effects-equiv` markup on all five, which
+  renders the body, had to become explicit `\constraints`/`\effects`/
+  `\returns` prose in the shape `ap` already uses, since a probing body is
+  not specification text. `papers/wording/transpose.applicative.derived.md`
+  and `transpose.applicative.syn.md` were regenerated and copied over; the
+  five pre-existing drifted fragments (`transpose.errset.obs.md`,
+  `transpose.errset.recover.md`, `transpose.errset.syn.md`,
+  `transpose.expected.syn.md`, `transpose.grade.syn.md` — one more than this
+  step's own file expected, `errset.obs.md` having drifted since) were left
+  untouched. `discard_first` and `discard_second` needed a second alternative
+  that names a callable, and a lambda-expression cannot be spelled
+  identically at both an in-class declaration and its out-of-line
+  definition — each occurrence is a distinct, unrelated closure type, so the
+  two declarations stop matching. `apply.hpp` gained two small named
+  evaluator objects, `discard_first_eval` and `discard_second_eval`, in a
+  `\omit`ted nested `detail` namespace, the same role `applicative_eval`
+  already plays for `ap`. Traversable's derived members (`for_each`,
+  `transpose`, `traverse_with`, `transpose_with`) were deliberately left
+  unconverted per this step's file: two are delegation to a caller-supplied
+  object rather than derivations over `Impl`, and `traverse.hpp` carries a
+  DELIBERATE CONSTRAINT comment that makes widening it a decision rather
+  than a chore. Suite went from 135 to 146 (11 added, all in
+  `apply.test.cpp`: preference and fallback tests for `map`, `zip_with`,
+  `lift`, `discard_first`, `discard_second`, plus one per-instantiation test
+  for `map`).
