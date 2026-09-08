@@ -1487,6 +1487,75 @@ necessity (`joinAllG_perm`'s dependence on `IsCommPomonoid`) is therefore
 argued — via the layer-to-law table and the `Grade`/`Nat` agreement above
 — but not demonstrated by a instance where it actually fails.
 
+### grade-join-strength
+
+**Question.** How strong is the obligation on a grade's `join`: must it be
+a *least upper bound* for the order (a join-semilattice, which is what
+`error_set`'s union is and what [grade](#grade) calls it throughout), or
+merely an associative, unital, monotone operation (an ordered monoid)?
+
+**Status: OPEN.** Raised by the orchestrator after [grade-obligations],
+which had to choose and chose the weaker reading.
+
+**Why it matters, and it is not a small difference.** [grade-obligations]
+deliberately left `join_le` (`a ≤ c → b ≤ c → join a b ≤ c`, the
+least-upper-bound property) *out* of the `Pomonoid` class, because
+including it would stop `Nat` under `+` from being an instance and
+foreclose that step's counter-demonstration. That is documented and
+defensible as an exploratory choice. But it has a consequence the step did
+not draw out:
+
+> **`join_le` together with antisymmetry of the order implies
+> `join_idem`.** Verified in Lean: `join_le le_refl' le_refl'` gives
+> `join a a ≤ a`, `join_mono le_refl' (bot_le a)` rewritten by `join_bot`
+> gives `a ≤ join a a`, and antisymmetry closes it. Both concrete grades
+> in this model (`Finset` under `⊆`, `Nat` under `≤`) have antisymmetric
+> orders; `Pomonoid` simply does not require it as a field, so `le` there
+> is really a preorder.
+
+So under the *stronger* reading, idempotence is **not an extra axiom at
+all** — it is a theorem, and with it the length-independence of the
+traversal grade ([traverse-list]'s `foldGrade_cons_ne_nil`) comes free for
+any grade worth the name. The three-layer story in
+[#obligations](#obligations) — pomonoid, then commutativity, then
+idempotence — is a true account of the *weaker* reading only.
+
+**What each answer costs.**
+
+- *Grade = join-semilattice.* Idempotence and length-independence are
+  free; `Nat` under `+` is simply not a grade, and
+  [grade-obligations]'s counter-instance demonstrates that non-lattice
+  pomonoids are not grades rather than that idempotence is optional. The
+  paper's obligation on a grade is short and strong.
+- *Grade = ordered monoid.* Idempotence is a real extra requirement,
+  `Nat`-style counting grades are admissible, and `traverse` is simply
+  not available for them — which is `grade-obligations`'s finding as it
+  stands, and a genuinely more permissive design.
+
+**What is settled either way.** Commutativity is independent of both and
+is needed exactly where [traverse-tuple] and [applicative-from-monad]
+found it. And under the weaker reading `foldG_le` needs idempotence too,
+which is [grade-obligations]'s own unpredicted result — boundedness is
+free for `error_set` only because `Finset` union really is a lattice
+join.
+
+**Who decides.** This is a judgment about what P3200 wants to promise,
+not about the code: [cpp-counterpart](#cpp-counterpart) says only that
+`error_set` should not be the sole possible grade, and does not say how
+far the door opens. Recorded here so the choice is made deliberately
+rather than inherited from a class definition written to keep one
+demonstration alive.
+
+**Log.**
+
+- 2026-09-08 — [grade-obligations] excluded `join_le` from `Pomonoid` to
+  keep the `Nat` instance, and found that `foldG_le` then needs
+  idempotence generically though the concrete `Grade.join_le` proof does
+  not.
+- 2026-09-08 — orchestrator verified in Lean that `join_le` plus
+  antisymmetry proves `join_idem`, so the exclusion is what makes
+  idempotence look like an independent axiom. Question opened.
+
 ## laws-inventory
 
 Filled by [oracle-export](../tmp/plan/step-oracle-export.md).
@@ -1514,6 +1583,10 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 - [#toolchain](#toolchain) — build-time numbers are machine- and
   network-dependent.
 - [#blog-series](#blog-series) — addressee name "Dear colleague".
+- [#obligations](#grade-join-strength) — **OPEN question**
+  `grade-join-strength`: whether a grade's join must be a least upper
+  bound. Under the stronger reading `join_idem` is a theorem, not an
+  axiom, and the three-layer account applies only to the weaker one.
 - [#compose](#graded-traversable-composition) — **OPEN question**
   `graded-traversable-composition`: the classical Traversable composition
   law is refuted for the flattened carrier (and the refutation is not
