@@ -16,7 +16,7 @@ Mark your own step done before writing the next step's handoff.
 - [x] 11. [graded-morphism](step-graded-morphism.md)
 - [x] 12. [canonical-representation](step-canonical-representation.md)
 - [x] 13. [compose-applicative](step-compose-applicative.md) — product-graded composition law (`traverseComp_eq`) holds unconditionally; `flatten_ap` holds only conditionally and explains [compose-flatten]'s counterexample; [graded-traversable-composition](../../docs/design.md#graded-traversable-composition) now CLOSED
-- [ ] 14. [ungraded-baseline](step-ungraded-baseline.md) — added 2026-09-08: the comparison column, what grading adds
+- [x] 14. [ungraded-baseline](step-ungraded-baseline.md) — added 2026-09-08: the comparison column, what grading adds; monad/applicative laws cast-free at a fixed grade, idempotence only; `sumEquiv` transport to Mathlib's `Sum` proved; flattened composition re-confirmed false at a fixed grade
 - [ ] 15. [grade-obligations](step-grade-obligations.md) — added 2026-09-08: what a grade must be, layered, with a non-idempotent counter-instance
 - [ ] 16. [oracle-export](step-oracle-export.md)
 - [ ] 17. [blog-series-edit](step-blog-series-edit.md)
