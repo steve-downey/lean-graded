@@ -735,14 +735,33 @@ just as thoroughly. So this is evidence that flatten-then-traverse is the
 wrong shape for a composition law, graded or not — it is not evidence
 against graded traversables.
 
-**What is not settled.** Whether the law matters enough to P3200 to
-justify building a `Compose`-aware applicative and traversable (an `ap`
-for `Graded g ∘ Graded h` kept genuinely nested rather than pre-flattened
-through `Grade.join`) in order to state a version that is true. That is
-new infrastructure of roughly [monad-laws]'s size, not an extension of
-`flatten`. Deferred deliberately: the load-bearing-ness of the classical
-law for the C++ design is the open part, and it is a judgment about the
-paper rather than about the code.
+**What has not been tested at all.** The classical composition law is
+about `Compose F G` — two functors kept *separate*. For graded functors
+the natural grade of `Graded g (Graded h α)` is the **pair** `(g, h)` in
+the product pomonoid, not the union. [compose-flatten]'s own step file
+says exactly this in its first sentence, and then sets the task as
+settling whether the law holds *through the flattening* — a different
+question, whose answer is no. So the product-graded composite has never
+been built or tested here. Nothing in this model is evidence for or
+against the classical law in its proper form; reading the refutation
+above as a result about graded traversables is the generalization to
+avoid, and it is the one the record briefly invited.
+
+**What this costs P3200 today: nothing.** [cpp-counterpart](#cpp-counterpart)
+claims only that `traverse` is shape-preserving over ranges and over
+tuples. It makes no composition claim, so no current part of the design
+rests on this. The finding is a guardrail for a claim the paper has not
+made: a flattening-shaped composition law would be false, and the
+counterexample is on hand if one is ever proposed.
+
+**What would settle it.** An `ap` for `Graded g ∘ Graded h` kept
+genuinely nested — combining outer layers with the outer `ap` and inner
+layers with the inner `ap` lifted inside, as `Compose`'s own instance
+does — plus a `traverse` parametrised over it, and the law stated against
+*that*. New infrastructure of roughly [monad-laws]'s size. Deferred, not
+declined: whether it is worth building turns on whether P3200 ever wants
+to claim the law, which is a judgment about the paper rather than about
+the code.
 
 **Log.**
 
@@ -752,6 +771,11 @@ paper rather than about the code.
 - 2026-09-08 — orchestrator re-ran the counterexample at a single grade
   and confirmed the failure is independent of grading. Narrows the
   finding: it is about flattening, not about grades.
+- 2026-09-08 — separated "the flattened law is false" (settled) from "the
+  product-graded law" (never tested), after the record was read as
+  refuting graded traversable composition, which it does not. Confirmed
+  [cpp-counterpart](#cpp-counterpart) makes no composition claim, so
+  nothing in the C++ design currently depends on the answer.
 
 ## morphisms
 

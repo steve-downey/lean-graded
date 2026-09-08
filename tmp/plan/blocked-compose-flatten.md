@@ -106,6 +106,23 @@ failure over an inner one across different list positions — it can only
 short-circuit on "some grade `g'` error occurred here," first in list
 order, full stop.
 
+## What was tested, and what was not (orchestrator, after the fact)
+
+Worth stating flatly, because the earlier sections read as a result about
+graded traversables and are not one. This step tested the **flattened**
+statement and refuted it. The **product-graded** statement — the classical
+law's actual shape, over `Graded g ∘ Graded h` with the pair `(g, h)` in
+the product pomonoid as its grade — was never built and never tested.
+
+This step's own `## Why` names the product pomonoid as the natural grade
+for a nested carrier in its first sentence, then sets the task as settling
+whether the law holds *through the flattening*. Those are different
+questions. Answering the second says nothing about the first.
+
+Also: `docs/design.md#cpp-counterpart` makes no composition claim at all —
+it states only that `traverse` is shape-preserving over ranges and tuples.
+So nothing in the C++ design currently rests on this either way.
+
 ## What it would take to settle this properly
 
 A genuine `Compose`-aware applicative/traversable — i.e., an `ap`-like
