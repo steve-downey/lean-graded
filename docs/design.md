@@ -889,7 +889,81 @@ target error while leaving the success case untouched.
 
 ## representation
 
-Filled by [canonical-representation](../tmp/plan/step-canonical-representation.md).
+`Graded/Canonical.lean` builds the representation the C++
+`error_set<Es...>` actually uses and connects it to `Grade`
+(`docs/design.md#grade`), which every other module in this codebase
+builds on. **This is a representation theorem about `Grade`, not a
+second grade.** It replaces `Grade` nowhere: `Canon` has no `pure`,
+`bind`, `join`, or `bot` of its own, and every consumer
+(`Examples/Validation.lean`) stays on `Finset` unchanged. What it adds is
+a proof that a second, order-dependent spelling of the same data
+(`Canon`) is interchangeable with the first (`Grade`), via `canonEquiv`.
+Read this paragraph before reading `Canon` as a fork of `Grade` — it is
+not one.
+
+**`Canon Err := { l : List Err // l.SortedLT }`** (`Graded/Canonical.lean`)
+— a strictly-`<`-increasing list of error kinds, at a `[LinearOrder Err]`.
+`List.SortedLT` (this codebase's pinned Mathlib's name for "strictly
+monotonic"; there is no `List.Sorted` at this commit — see
+`canon_requires_linear_order` below for why lemma names had to be
+re-checked here) already forces every element distinct
+(`List.SortedLT.nodup`), so it is "sorted, no duplicates" in one
+predicate rather than two. Declared `abbrev`, matching `Grade`'s own
+`abbrev`, so instance search sees through to the underlying `Subtype`'s
+`DecidableEq` etc. rather than needing them re-derived by hand.
+
+- `Canon.ofFinset : Finset Err → Canon Err` sorts (`Finset.sort`, whose
+  default relation `≤` is already `SortedLT` at a linear order —
+  `Finset.sortedLT_sort`).
+- `Canon.toFinset : Canon Err → Finset Err` forgets the order
+  (`List.toFinset`). **This direction's proof needs only
+  `[DecidableEq Err]`** — order plays no part in "which elements are
+  present" — even though its *signature* carries `[LinearOrder Err]`,
+  because that is what is needed to state the argument type `Canon Err`
+  at all. This is the one place in this module where a direction of the
+  equivalence needs strictly less than the headline finding.
+- `canonEquiv : Grade Err ≃ Canon Err`, `canonEquiv_union`,
+  `canonEquiv_bot` carry `Grade.join`/`Grade.bot` across to
+  `Canon.union`/`Canon.ofFinset Grade.bot`. `Canon.union` is defined by
+  round-tripping through `Finset` (sort, union, re-sort) rather than by a
+  merge algorithm — **this is not the C++ algorithm**, which merges two
+  already-sorted lists directly without revisiting either one's order;
+  the round-trip is enough to prove `canonEquiv_union`, not a claim about
+  how the C++ carrier is or should be implemented.
+- `Canon.ofList`/`canon_perm`: `ofList` sorts a `List Err` via the
+  union-of-singletons fold `joinAll` (`docs/design.md#traverse`'s Tuple
+  subsection), so that `canon_perm : gs ~ gs' → ofList gs = ofList gs'` —
+  **the direct statement of "`error_set<A,B>` is `error_set<B,A>`"** —
+  can cite `joinAll_perm` rather than reproving order-independence from
+  `List.Perm` directly.
+
+> **`canon_requires_linear_order`.** Not a theorem — there is no false
+> statement to refute, only a hypothesis to record. `Grade Err :=
+> Finset Err` needs only `[DecidableEq Err]`: forming a *set* only ever
+> needs to tell two elements apart. `Canon Err` needs strictly more,
+> `[LinearOrder Err]` — a decidable *total* order — because sorting needs
+> a definite answer for every pair of distinct elements, not just
+> "different." In C++ terms: `Grade`'s `DecidableEq` is nominal typing,
+> which C++ gets for free from the type system; `Canon`'s `LinearOrder`
+> is a total order over *whatever the sorted detail carrier orders error
+> types by* (a `<`-comparison on `std::type_index`, a fixed enumeration —
+> the design never had to name it). Nothing before this step tested the
+> canonicalization mechanism at all: `Finset`, used everywhere else in
+> this model, is a quotient and is order-free by construction, so it
+> never exercised the sorting the C++ alias actually performs. This gap
+> — an abstract grade needing less than its C++ canonicalization
+> mechanism does — is the finding this step exists to record.
+
+**Mathlib names, re-checked at the pinned commit rather than guessed.**
+This codebase's pinned Mathlib has replaced the historical
+`List.Sorted r` (a `List.Pairwise`-based predicate taking an explicit
+relation) with `List.SortedLE`/`SortedLT`/`SortedGE`/`SortedGT` (each
+`StrictMono`/`Monotone` on `l.get`, fixed to `≤`/`<`/`≥`/`>`); the step
+brief's `l.Sorted (· < ·)` does not exist at this commit; `Canon` uses
+`List.SortedLT` instead. `Finset.sort_toFinset` and `List.toFinset` exist
+under the names the step brief expected; `Finset.sort`'s default relation
+argument was confirmed by reading `Mathlib/Data/Finset/Sort.lean` rather
+than assumed.
 
 ## laws-inventory
 
