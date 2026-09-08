@@ -12,3 +12,4 @@ import Graded.ComposeApp
 import Graded.Morphism
 import Graded.Canonical
 import Graded.Ungraded
+import Graded.Obligations
