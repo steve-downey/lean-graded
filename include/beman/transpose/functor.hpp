@@ -39,13 +39,33 @@ struct Functor : protected Impl {
     }
 
     /** Replaces every element of `value` with `replacement`, ignoring the
-     * original element values.
+     * original element values. Prefers a native `Impl::replace` when the
+     * instance supplies one.
      */
     template <class T, class U>
-    auto replace(this auto &&self, T &&value, U &&replacement) {
-        return self.fmap([replacement = std::forward<U>(replacement)](
-                             const auto &) { return replacement; },
-                         std::forward<T>(value));
+    auto replace(this auto &&self, T &&value, U &&replacement)
+        requires requires(const Impl &impl) {
+            impl.replace(std::forward<T>(value), std::forward<U>(replacement));
+        } || requires(const Impl &impl) {
+            impl.fmap([replacement = std::forward<U>(replacement)](
+                          const auto &) { return replacement; },
+                      std::forward<T>(value));
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).replace(std::forward<T>(value),
+                                                std::forward<U>(replacement));
+                      }) {
+            return impl_of(self).replace(std::forward<T>(value),
+                                         std::forward<U>(replacement));
+        } else {
+            // One-way derivation (not a mutually-derivable pair): route
+            // through self, not Impl, so a shadow on a wrapping Map is
+            // still reached.
+            return self.fmap([replacement = std::forward<U>(replacement)](
+                                 const auto &) { return replacement; },
+                             std::forward<T>(value));
+        }
     }
 
   private:
