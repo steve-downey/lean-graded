@@ -81,6 +81,19 @@ struct Functor : protected Impl {
 template <class T>
 inline constexpr auto functor_typeclass = std::false_type{};
 
+/** Restricted `Impl` concept for Functor: satisfied when `IMPL` supplies the
+ * minimal complete basis the `Functor` CRTP base needs -- `fmap` alone,
+ * probed with a representative witness callable. This is the `MINIMAL`
+ * pragma to `functor_object`'s class declaration: an `IMPL` may satisfy
+ * this concept and still fail `functor_object`, which is exactly the
+ * bargain the CRTP base exists to keep. Never demand a derived operation
+ * (`replace`) here; that surface belongs to `functor_object` alone.
+ */
+template <class IMPL, class CONTEXT>
+concept functor_impl = requires(const IMPL &impl, const CONTEXT &context) {
+    impl.fmap(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+};
+
 /** Deep object concept for a Functor object over `CONTEXT`: satisfied when
  * `OBJ` provides the full object surface -- `fmap` (probed with a
  * representative witness callable, not a proof for every callable) and the

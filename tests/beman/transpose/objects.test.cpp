@@ -88,6 +88,31 @@ struct PureOnlyApplicativeObject {
     }
 };
 
+// -- foldable_impl's dual-basis fixture: fold_right + element_type, no
+// -- fold_map at all. A second, local copy of fold.test.cpp's
+// -- FoldRightOnlyImpl -- see the ApOnlyImpl comment above for why this file
+// -- keeps its own copy rather than sharing a header.
+struct FoldRightOnlyImpl {
+    using element_type = int;
+
+    template <class STATE, class FUNCTION>
+    auto fold_right(this auto &&, const std::vector<int> &values,
+                    STATE initial_state, FUNCTION &&function) -> STATE {
+        STATE state = std::move(initial_state);
+        for (auto it = values.rbegin(); it != values.rend(); ++it) {
+            state = std::invoke(function, *it, std::move(state));
+        }
+        return state;
+    }
+};
+
+// -- A struct supplying no basis at all -- neither pure, fmap, invoke, ap,
+// -- bind, fold_map, fold_right, element_type, nor traverse. Plain, not
+// -- CRTP-wrapped, so probing it against any *_impl concept is always a
+// -- safe name-lookup failure rather than the CRTP-base body-instantiation
+// -- hazard docs/decisions.md#typeclass-conformance-depth's rider records.
+struct NoBasisImpl {};
+
 } // namespace
 
 // -- Every shipped object satisfies its concept --
@@ -178,3 +203,89 @@ static_assert(
 // -- The layered instance satisfies it --
 static_assert(bt::functor_object<bt::Functor<bt::OptionalMonadMap<int>>,
                                  std::optional<int>>);
+
+// ============================================================================
+// typeclass-impl-concepts: the restricted Impl concepts, one per class,
+// naming only the minimal complete basis -- the MINIMAL pragma to the deep
+// object concepts above. See docs/decisions.md#typeclass-conformance-depth.
+// ============================================================================
+
+// -- Every shipped Impl satisfies its concept --
+
+static_assert(
+    bt::functor_impl<bt::OptionalFunctorImpl<int>, std::optional<int>>);
+
+static_assert(
+    bt::applicative_impl<bt::OptionalApplicativeImpl<int>, std::optional<int>>);
+static_assert(
+    bt::applicative_impl<bt::ExpectedApplicativeImpl<int, std::string>,
+                         std::expected<int, std::string>>);
+static_assert(bt::applicative_impl<
+              bt::AccumulatingExpectedApplicativeImpl<int, std::string>,
+              std::expected<int, std::string>>);
+static_assert(
+    bt::applicative_impl<bt::ArrayApplicativeImpl<int, 3>, std::array<int, 3>>);
+static_assert(
+    bt::applicative_impl<bt::ZipListApplicativeImpl<int>, bt::zip_list<int>>);
+static_assert(
+    bt::applicative_impl<bt::SenderApplicativeImpl<int>, bt::sender<int>>);
+static_assert(bt::applicative_impl<bt::SimdLanesApplicativeImpl<int, 4>,
+                                   bt::simd_lanes<int, 4>>);
+
+static_assert(bt::monad_impl<bt::OptionalMonadImpl<int>, std::optional<int>>);
+
+static_assert(bt::foldable_impl<bt::VectorFoldableImpl<int>, std::vector<int>>);
+
+static_assert(
+    bt::traversable_impl<bt::VectorTraversableImpl<int>, std::vector<int>>);
+
+// -- Both bases of each dual-basis class are accepted --
+//
+// This is the assertion that keeps the dual basis honest at the Impl-concept
+// level, load-bearing beyond this step: an Impl-directed probe can be a
+// statement about the wrong object
+// (docs/decisions.md#derived-op-native-preference), and applicative_impl and
+// foldable_impl are exactly where a concept written only against one basis
+// would bake that defect back in.
+static_assert(bt::applicative_impl<ApOnlyImpl, std::optional<int>>); // ap-only
+static_assert(bt::applicative_impl<bt::OptionalApplicativeImpl<int>,
+                                   std::optional<int>>); // invoke-only
+static_assert(
+    bt::foldable_impl<FoldRightOnlyImpl, std::vector<int>>); // fold_right-only
+static_assert(bt::foldable_impl<bt::VectorFoldableImpl<int>,
+                                std::vector<int>>); // fold_map-only
+
+// -- The concepts are restricted, not deep --
+//
+// An Impl supplying only its basis satisfies the Impl concept and fails the
+// corresponding object concept. Without this pair, this step would have
+// added five names and no invariant.
+static_assert(
+    bt::functor_impl<bt::OptionalFunctorImpl<int>, std::optional<int>>);
+static_assert(
+    !bt::functor_object<bt::OptionalFunctorImpl<int>, std::optional<int>>);
+
+static_assert(
+    bt::applicative_impl<bt::OptionalApplicativeImpl<int>, std::optional<int>>);
+static_assert(!bt::applicative_object<bt::OptionalApplicativeImpl<int>,
+                                      std::optional<int>>);
+
+static_assert(bt::monad_impl<bt::OptionalMonadImpl<int>, std::optional<int>>);
+static_assert(
+    !bt::monad_object<bt::OptionalMonadImpl<int>, std::optional<int>>);
+
+static_assert(bt::foldable_impl<bt::VectorFoldableImpl<int>, std::vector<int>>);
+static_assert(
+    !bt::foldable_object<bt::VectorFoldableImpl<int>, std::vector<int>>);
+
+static_assert(
+    bt::traversable_impl<bt::VectorTraversableImpl<int>, std::vector<int>>);
+static_assert(
+    !bt::traversable_object<bt::VectorTraversableImpl<int>, std::vector<int>>);
+
+// -- A basis-less Impl fails --
+static_assert(!bt::functor_impl<NoBasisImpl, std::optional<int>>);
+static_assert(!bt::applicative_impl<NoBasisImpl, std::optional<int>>);
+static_assert(!bt::monad_impl<NoBasisImpl, std::optional<int>>);
+static_assert(!bt::foldable_impl<NoBasisImpl, std::vector<int>>);
+static_assert(!bt::traversable_impl<NoBasisImpl, std::vector<int>>);

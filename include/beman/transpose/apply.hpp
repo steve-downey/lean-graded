@@ -105,6 +105,27 @@ inline constexpr detail::discard_second_eval_t discard_second_eval{};
 /// - Dispatch happens through a provided object or
 ///   applicative_typeclass<Concrete>.
 /// - Do not introduce hidden alternate semantics without a distinct map/type.
+//! \remarks This concept is satisfied when `IMPL` supplies the minimal
+//! complete basis the `Applicative` CRTP base needs: `pure`, together with
+//! either `invoke` or `ap`. This is the `MINIMAL` pragma to
+//! `applicative_object`'s class declaration -- an `IMPL` may satisfy this
+//! concept and still fail `applicative_object`, which is exactly the
+//! bargain the CRTP base exists to keep. `map`, `lift`, `zip_with`,
+//! `discard_first`, `discard_second`, `invoke_with` and `subsume` are all
+//! derived and belong to `applicative_object` alone. `pure` is checked for
+//! existence only, matching `applicative_object`'s own treatment.
+template <class IMPL, class CONTEXT>
+concept applicative_impl =
+    requires(const IMPL &impl, const applicative_value_t<CONTEXT> &element) {
+        impl.pure(element);
+    } &&
+    (requires(const IMPL &impl, const CONTEXT &context) {
+        impl.invoke(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+    } || requires(const IMPL &impl, const CONTEXT &context) {
+        impl.ap(impl.pure(probe_witness<applicative_value_t<CONTEXT>>{}),
+                context);
+    });
+
 /// CRTP base for Applicative instances.
 /// `Impl` must provide `pure(value)` and either the n-ary
 /// `invoke(f, args_in_context...)` or the one-step
@@ -365,12 +386,10 @@ auto Applicative<Impl>::invoke(this auto &&self, FUNCTION &&function,
         auto lifted_function = self.pure(
             detail::make_terminating_partial(std::forward<FUNCTION>(function)));
         static_assert(
-            requires {
-                impl_of(self).ap(std::move(lifted_function),
-                                 std::forward<FIRST_ARGUMENT>(first_argument));
-            }, "Applicative Impl must provide pure and at least one basis: "
-               "invoke(f, args_in_context...) or "
-               "ap(f_in_context, arg_in_context).");
+            applicative_impl<Impl, remove_cvref_t<FIRST_ARGUMENT>>,
+            "Applicative Impl must provide pure and at least one basis: "
+            "invoke(f, args_in_context...) or "
+            "ap(f_in_context, arg_in_context).");
         return self.ap_chain(
             self.ap(std::move(lifted_function),
                     std::forward<FIRST_ARGUMENT>(first_argument)),
