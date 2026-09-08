@@ -60,15 +60,24 @@ a trivial `example : True := trivial`. Add `import Tests.Grade` to it
 alongside that line (don't remove the trivial example — nothing requires
 its removal and it costs nothing to keep as a smoke check).
 
-## Minor, non-blocking Makefile note
+## The Makefile was fixed after the previous step ran
 
-`make nosorry`'s grep invocation names bare paths `Graded Tests Examples`.
-Right now `Tests` and `Examples` are root **files** (`Tests.lean`,
-`Examples.lean`), not directories, so `grep -r ... Tests Examples` prints
-`No such file or directory` for those two on stderr; the `!`-negation still
-reports `nosorry=0` correctly (verified: inserting and removing a real
-`sorry` in `Graded/Prelude.lean` behaves correctly today, since `Graded` is
-a real directory and is genuinely scanned). Once your step creates
-`Tests/Grade.lean`, `Tests` becomes a real directory and the stderr noise
-for it disappears on its own. This is cosmetic, not a block — flagging it
-so you don't mistake the stderr line for a real failure.
+`make nosorry` as originally written passed unconditionally. It searched the
+paths `Graded Tests Examples`; `Tests` and `Examples` are root *files*, not
+directories, so `grep` exited 2 — an error, not "no match" — on every run,
+and the shell's `!` negation turned that into success. A file containing
+`sorry` passed the check. It also never scanned `Graded.lean`, `Tests.lean`
+or `Examples.lean` at all, since a recursive grep of `Graded` does not reach
+`Graded.lean`.
+
+The recipe now searches every `.lean` file outside `.lake` and branches on
+grep's exit code explicitly. It is verified against a planted `sorry` in
+each of `Graded/Prelude.lean`, `Graded.lean`, `Tests.lean`, `Examples.lean`,
+and a planted `axiom`. `verify` likewise now honors `lake`'s exit status
+rather than relying only on the string "error" appearing in `build.log`.
+
+What this means for you: `make nosorry` prints `nosorry: clean` on success
+and names the offending lines on failure. There is no expected stderr noise
+any more — if you see grep complaining about a path, something is wrong.
+Treat a `nosorry` failure as real. The Makefile is not in your scope; if you
+believe it needs another change, that is an "ask", not an edit.
