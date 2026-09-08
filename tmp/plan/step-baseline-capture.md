@@ -93,14 +93,36 @@ one trivial `example : True := trivial` each so they build.
 .PHONY: verify nosorry letters all
 all: verify nosorry letters
 verify:
-	lake build 2>&1 | tee build.log | tail -n 20
+	lake build > build.log 2>&1 || { tail -n 20 build.log; exit 1; }
+	@tail -n 20 build.log
 	@grep -q "error" build.log && exit 1 || true
 nosorry:
-	@! grep -rnE "\bsorry\b|\badmit\b|native_decide" Graded Tests Examples --include=*.lean
-	@! grep -rnE "^\s*axiom\b" Graded Tests Examples --include=*.lean
+	@files=$$(find . -name '*.lean' -not -path './.lake/*'); \
+	test -n "$$files" || { echo "nosorry: no .lean files found"; exit 1; }; \
+	for pat in '\bsorry\b|\badmit\b|native_decide' '^[[:space:]]*axiom\b'; do \
+	  grep -nE "$$pat" $$files; rc=$$?; \
+	  case $$rc in \
+	    0) echo "nosorry: FAILED (matches above)"; exit 1 ;; \
+	    1) ;; \
+	    *) echo "nosorry: grep error $$rc"; exit $$rc ;; \
+	  esac; \
+	done; \
+	echo "nosorry: clean"
 letters:
 	@scripts/check-letters.sh
 ```
+
+> **Corrected by the orchestrator after this step ran.** The original text
+> here searched the paths `Graded Tests Examples`. `Tests` and `Examples` are
+> root *files*, not directories, so `grep` exited 2 (error) rather than 1 (no
+> match) on every invocation, and the shell's `!` turned that 2 into success:
+> `make nosorry` passed unconditionally, including on a file containing
+> `sorry`. It also never scanned the root files `Graded.lean`, `Tests.lean`,
+> `Examples.lean`. `verify` additionally discarded `lake`'s exit status
+> through the `tee | tail` pipeline, relying solely on the string "error"
+> appearing in the log. Both are fixed above and the fix is verified: a
+> `sorry` or an `axiom` in any of `Graded/`, `Graded.lean`, `Tests.lean`,
+> `Examples.lean` now fails `make nosorry`.
 Note the recipe lines must be tab-indented. `verify` must exit non-zero on
 any Lean error; confirm by inserting a deliberate `example : False := by
 simp` and watching it fail, then remove it.
