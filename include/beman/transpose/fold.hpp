@@ -177,6 +177,22 @@ struct Monoid<detail::First<VALUE_TYPE>> {
 //   empty, to_vector, find_first) live on the same looked-up object.
 // - Traversal order is instance-defined but must be coherent per instance.
 
+/** Restricted `Impl` concept for Foldable: satisfied when `IMPL` supplies
+ * one of the two minimal complete bases the `Foldable` CRTP base admits --
+ * `fold_map` alone, or `fold_right` together with a declared
+ * `element_type`. This is the `MINIMAL` pragma to `foldable_object`'s class
+ * declaration: `length`, `fold_left`, `combine_all`, `fold`, `any_of`,
+ * `all_of`, `empty`, `to_vector` and `find_first` are all derived and
+ * belong to `foldable_object` alone.
+ */
+template <class IMPL, class STRUCTURE>
+concept foldable_impl = requires(const IMPL &impl, const STRUCTURE &structure) {
+    impl.fold_map(probe_witness<Count>{}, structure);
+} || requires(const IMPL &impl, const STRUCTURE &structure) {
+    typename IMPL::element_type;
+    impl.fold_right(structure, int{}, probe_witness2<int>{});
+};
+
 /** CRTP base for Foldable instances.
  * `Impl` must provide either `fold_map(f, container)` or `fold_right` +
  * `element_type`; all other operations are derived from whichever is the
@@ -242,15 +258,12 @@ struct Foldable : protected Impl {
             // static_assert is provable redundant given the declaration's
             // constraint already selected this branch -- it is the
             // GHC-MINIMAL-style last-resort message, not load-bearing SFINAE
-            // -- so the marker shape is exactly as informative.
+            // -- so the concept-based condition is exactly as informative.
             static_assert(
-                requires {
-                    impl_of(self).fold_right(
-                        std::forward<T>(value), monoid_identity<Result>(),
-                        [](const auto &, Result acc) { return acc; });
-                }, "Foldable Impl must provide at least one basis: "
-                   "fold_map(f, container), or fold_right(container, state, f) "
-                   "plus element_type.");
+                foldable_impl<Impl, remove_cvref_t<T>>,
+                "Foldable Impl must provide at least one basis: "
+                "fold_map(f, container), or fold_right(container, state, f) "
+                "plus element_type.");
             return impl_of(self).fold_right(
                 std::forward<T>(value), monoid_identity<Result>(),
                 [&function](const auto &elem, Result acc) {
@@ -367,18 +380,13 @@ struct Foldable : protected Impl {
             using StateType = remove_cvref_t<STATE>;
             auto step = std::forward<F>(function);
 
-            // Non-capturing marker; see fold_map's static_assert for why.
+            // See fold_map's static_assert for why the concept-based
+            // condition is provably redundant here rather than load-bearing.
             static_assert(
-                requires {
-                    impl_of(self).fold_map(
-                        [](const auto &)
-                            -> detail::RightFoldProgram<StateType> {
-                            return {};
-                        },
-                        std::forward<T>(value));
-                }, "Foldable Impl must provide at least one basis: "
-                   "fold_map(f, container), or fold_right(container, state, f) "
-                   "plus element_type.");
+                foldable_impl<Impl, remove_cvref_t<T>>,
+                "Foldable Impl must provide at least one basis: "
+                "fold_map(f, container), or fold_right(container, state, f) "
+                "plus element_type.");
             const auto program = impl_of(self).fold_map(
                 [&step](const auto &x) {
                     using ValueType = remove_cvref_t<decltype(x)>;

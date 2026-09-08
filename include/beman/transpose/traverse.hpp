@@ -118,6 +118,26 @@ concept applicative_object_for =
         } -> std::same_as<CONTEXT>;
     };
 
+//! \remarks This concept is satisfied when `IMPL` supplies the minimal
+//! complete basis the `Traversable` CRTP base needs: a declared
+//! `element_type` and `traverse`, probed with a representative witness
+//! callable that lifts an element into `std::optional` (always a
+//! registered applicative context, for any element type). This is the
+//! `MINIMAL` pragma to `traversable_object`'s class declaration --
+//! `for_each`, `transpose`, `traverse_with` and `transpose_with` are all
+//! derived and belong to `traversable_object` alone. Traversable admits
+//! exactly one basis, so there is no disjunction here the way there is for
+//! `applicative_impl` and `foldable_impl`.
+template <class IMPL, class STRUCTURE>
+concept traversable_impl = requires(const IMPL &impl,
+                                    const STRUCTURE &structure) {
+    typename IMPL::element_type;
+    impl.traverse(
+        applicative_typeclass<std::optional<applicative_value_t<STRUCTURE>>>,
+        probe_witness<std::optional<applicative_value_t<STRUCTURE>>>{},
+        structure);
+};
+
 //! \remarks This concept is satisfied when `OBJ` provides the full
 //! Traversable object surface over `STRUCTURE`: `traverse`, `for_each` and
 //! `traverse_with`, each probed with a representative witness callable that

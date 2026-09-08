@@ -69,6 +69,21 @@ concept applicative_object_for =
 ::: wording
 
 ```cpp
+template<class IMPL, class STRUCTURE>
+concept traversable_impl = requires(const IMPL& impl, const STRUCTURE& structure) {
+  typename IMPL::element_type;
+  impl.traverse(applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
+                probe_witness<optional<applicative_value_t<STRUCTURE>>>{}, structure);
+};
+```
+
+[x+3]{.pnum} *Remarks*: This concept is satisfied when `IMPL` supplies the minimal complete basis the `Traversable` CRTP base needs: a declared `element_type` and `traverse`, probed with a representative witness callable that lifts an element into `std::optional` (always a registered applicative context, for any element type). This is the `MINIMAL` pragma to `traversable_object`'s class declaration -- `for_each`, `transpose`, `traverse_with` and `transpose_with` are all derived and belong to `traversable_object` alone. Traversable admits exactly one basis, so there is no disjunction here the way there is for `applicative_impl` and `foldable_impl`.
+
+:::
+
+::: wording
+
+```cpp
 template <class OBJ, class STRUCTURE>
 concept traversable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
@@ -92,7 +107,7 @@ concept traversable_object =
     });
 ```
 
-[x+3]{.pnum} *Remarks*: This concept is satisfied when `OBJ` provides the full Traversable object surface over `STRUCTURE`: `traverse`, `for_each` and `traverse_with`, each probed with a representative witness callable that lifts an element into `std::optional` (always a registered applicative context, for any element type). `transpose` and `transpose_with` are required only where `OBJ::element_type` itself names a registered applicative context: both are hard-wired to `applicative_typeclass<element_type>`, which names no applicative object for a structure like `std::vector<int>` whose elements are not themselves an applicative context -- transposing such a structure is not a meaningful operation, not a missing one, so this concept treats `transpose`/`transpose_with` as conditional the same way `applicative_object` treats `ap` and `subsume`. This concept does not require a Foldable object: Traversable needs only an Applicative and the walk, the DELIBERATE CONSTRAINT `Traversable` itself carries.
+[x+4]{.pnum} *Remarks*: This concept is satisfied when `OBJ` provides the full Traversable object surface over `STRUCTURE`: `traverse`, `for_each` and `traverse_with`, each probed with a representative witness callable that lifts an element into `std::optional` (always a registered applicative context, for any element type). `transpose` and `transpose_with` are required only where `OBJ::element_type` itself names a registered applicative context: both are hard-wired to `applicative_typeclass<element_type>`, which names no applicative object for a structure like `std::vector<int>` whose elements are not themselves an applicative context -- transposing such a structure is not a meaningful operation, not a missing one, so this concept treats `transpose`/`transpose_with` as conditional the same way `applicative_object` treats `ap` and `subsume`. This concept does not require a Foldable object: Traversable needs only an Applicative and the walk, the DELIBERATE CONSTRAINT `Traversable` itself carries.
 
 :::
 

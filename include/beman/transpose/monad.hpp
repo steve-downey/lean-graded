@@ -247,6 +247,22 @@ struct Monad : protected Impl {
 template <class T>
 inline constexpr auto monad_typeclass = std::false_type{};
 
+/** Restricted `Impl` concept for Monad: satisfied when `IMPL` supplies the
+ * one minimal complete basis the `Monad` CRTP base admits today -- `pure`
+ * and `bind`. Monad's other complete bases -- `pure` + `fmap` + `join`, and
+ * `pure` + `kleisli` -- are deliberately not admitted here; extending this
+ * concept to accept them is a separate, unscheduled piece of work. This is
+ * the `MINIMAL` pragma to `monad_object`'s class declaration: `fmap`,
+ * `invoke`, `join`, `kleisli`, `ap`, `subsume` and `bind_with` are all
+ * derived and belong to `monad_object` alone.
+ */
+template <class IMPL, class CONTEXT>
+concept monad_impl = requires(const IMPL &impl, const CONTEXT &context,
+                              const applicative_value_t<CONTEXT> &element) {
+    impl.pure(element);
+    impl.bind(context, probe_witness<CONTEXT>{});
+};
+
 /** Deep object concept for a Monad object over `CONTEXT`: satisfied when
  * `OBJ` provides the full object surface -- `pure`, `bind`, `fmap`,
  * `invoke`, `join`, `kleisli` and `bind_with`. `ap` and `subsume` are

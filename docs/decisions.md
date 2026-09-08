@@ -1567,3 +1567,53 @@ mode a single witness cannot see.
   the five pre-existing drifted fragments left untouched. Suite went from
   153 to 154: one new test executable, `objects`, added to
   `tests/beman/transpose/CMakeLists.txt`.
+- 2026-09-07 —
+  [typeclass-impl-concepts](../tmp/plan/step-typeclass-impl-concepts.md)
+  added the other half: `functor_impl`, `applicative_impl`, `monad_impl`,
+  `foldable_impl` and `traversable_impl`, each naming only the minimal
+  complete basis its class's CRTP base needs, beside that class's object
+  concept. `applicative_impl` admits `pure` with either `invoke` or `ap`;
+  `foldable_impl` admits `fold_map` alone or `fold_right` with
+  `element_type`; both disjunctions are now sayable in one place instead of
+  spread across a `static_assert` message and a comment. `monad_impl`
+  admits only `pure` + `bind` — Monad's other complete bases (`pure` +
+  `fmap` + `join`, and `pure` + `kleisli`) are deliberately not admitted, a
+  recorded contingency and not scheduled work. The sentinel for the whole
+  discipline is a paired assertion, present for all five classes in
+  `tests/beman/transpose/objects.test.cpp`: an `Impl` supplying only its
+  basis satisfies the `Impl` concept and fails the object concept
+  (`OptionalFunctorImpl`, `OptionalApplicativeImpl`, `OptionalMonadImpl`,
+  `VectorFoldableImpl` and `VectorTraversableImpl` against their object
+  concepts). The dual-basis assertion from `applicative-ap-only-probing`
+  carries over unchanged in spirit: `ApOnlyImpl` (`pure`+`ap`, no `invoke`)
+  and `OptionalApplicativeImpl` (`pure`+`invoke`, no `ap`) both satisfy
+  `applicative_impl`, and a local `FoldRightOnlyImpl`
+  (`fold_right`+`element_type`, no `fold_map`) alongside the shipped
+  `VectorFoldableImpl` (`fold_map`, no `fold_right`) both satisfy
+  `foldable_impl`. A basis-less struct with no operations at all fails all
+  five.
+  `applicative_impl` and `foldable_impl` had to be declared *before* their
+  CRTP base (`Applicative`, `Foldable`), not merely beside their object
+  concept: each base's `invoke`/`fold_map`/`fold_right` body now names the
+  concept in a `static_assert`, so two-phase lookup needs the concept
+  visible at the class template's definition point. `functor_impl`,
+  `monad_impl` and `traversable_impl` are not referenced from inside their
+  bases — `Functor::fmap` has no derivation branch to assert from, and
+  `Monad`/`Traversable` already enforce their one basis unconditionally via
+  `using`-declarations at the top of the class — so those three stayed
+  beside their object concept, after the base.
+  `Applicative<Impl>::invoke`'s existing basis `static_assert` (message:
+  "Applicative Impl must provide pure and at least one basis…") and
+  `Foldable<Impl>::fold_map`/`fold_right`'s existing basis `static_assert`s
+  (both already documented as provably redundant given the declaration's
+  own constraint, per the comments this step left in place) were replaced
+  with the concept-based condition rather than duplicated, per this step's
+  file. No new diagnostic site was added for `Functor`, `Monad` or
+  `Traversable`, since none of the three has a class-body location where a
+  concrete `CONTEXT`/`STRUCTURE` is both known and a derivation-branch body
+  already exists to hold the assert.
+  `papers/wording/transpose.applicative.syn.md` and
+  `transpose.traversable.syn.md` were regenerated and copied over again
+  (this step's two new concepts), alongside the five pre-existing drifted
+  fragments left untouched. Suite stayed at 154: the additions are
+  `static_assert`s in the existing `objects` translation unit.
