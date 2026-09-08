@@ -147,7 +147,50 @@ composition.
 
 ## subsumption
 
-Filled by [subsumption-widen](../tmp/plan/step-subsumption-widen.md).
+`widen (h : g ⊆ g') : Graded g α → Graded g' α` (in `Graded/Widen.lean`):
+the order half of the pomonoid made computational — an `ok` passes through
+untouched, an `err`'s membership proof is carried along `h`. Models the
+C++ implicit conversion `expected<T, error_set<Es...>> → expected<T,
+error_set<Es'...>>` for `Es ⊆ Es'` ([cpp-counterpart](#cpp-counterpart)).
+
+Four laws, each citing the [grade](#grade) lemma it needs:
+
+- `widen_refl` (`Grade.le_refl'`): widening along the reflexive inclusion
+  is the identity.
+- `widen_widen` (`Grade.le_trans'`): widening twice agrees with widening
+  once along the composite inclusion — the conversion path's endpoints
+  determine the result, not the path.
+- `widen_map`: naturality — mapping before or after widening agrees. No
+  named [grade](#grade) lemma is needed; this is a property of `widen`
+  and `map` alone.
+- `widen_irrel`: proof irrelevance — any two proofs of `g ⊆ g'` widen a
+  given value identically. Provable by `rfl`, because `⊆` on a `Finset`
+  is a `Prop` and Lean's definitional equality already erases proof
+  content; stating it as a theorem is what turns "the conversion path
+  doesn't matter" from a convention C++ relies on into something Lean
+  checks rather than assumes.
+
+`widen_cast (e : g = g') (h : g' ⊆ g'') : widen h (cast e x) = widen (e ▸
+h) x` settles the interaction between the two ways of changing a grade:
+proving `⊆` (`widen`) and proving `=` (`cast`). It followed from `subst e;
+rfl` on the first attempt — no `grind` loop was needed, contrary to this
+step's own prediction that it would be fiddly.
+
+Together these four laws (plus `widen_map`) say: subsumption is a
+*functor* from the poset `(Grade, ⊆)` to endofunctors — the C++
+conversion sequence is required to satisfy this and does, by these
+theorems.
+
+`fromEmpty : α → Graded g α := widen Grade.bot_le ∘ emptyEquiv.symm`
+(citing `Grade.bot_le`) makes the bare-`T` handoff — "you can pass a bare
+`T` where a graded value is expected" — a proved composite: go through
+the ∅-collapse ([carrier](#carrier)'s `emptyEquiv`), then widen along
+`∅ ⊆ g`. `fromEmpty_eq_ok : fromEmpty a = .ok a` is `rfl`.
+
+`Examples/Validation.lean` gains a third stage, `logIt : Nat → Graded
+{E.io} Unit`, and a `#guard` widening `parseNat`'s failure from grade
+`{E.parse}` into `{E.parse, E.range, E.io}` and comparing it, via
+`decide`, to the same failure constructed directly at that grade.
 
 ## monad
 
