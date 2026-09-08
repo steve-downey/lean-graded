@@ -1,10 +1,10 @@
 // tests/beman/transpose/objects.test.cpp                             -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-#include <beman/transpose/functor.hpp>
 #include <beman/transpose/apply.hpp>
-#include <beman/transpose/monad.hpp>
 #include <beman/transpose/fold.hpp>
+#include <beman/transpose/functor.hpp>
+#include <beman/transpose/monad.hpp>
 #include <beman/transpose/traverse.hpp>
 
 #include <beman/transpose/array.hpp>
@@ -45,7 +45,8 @@ namespace {
 // applicative-ap-only-probing as the regression witness for the dual-basis
 // derivation. It is a type in an anonymous namespace of a .test.cpp, so
 // there is no canonical header to pull it from; this is a second, identical
-// copy, local to this translation unit. See handoff-to-typeclass-object-concepts.md.
+// copy, local to this translation unit. See
+// handoff-to-typeclass-object-concepts.md.
 struct ApOnlyImpl {
     template <class VALUE>
     auto pure(this auto &&, VALUE &&value)
@@ -91,20 +92,21 @@ struct PureOnlyApplicativeObject {
 
 // -- Every shipped object satisfies its concept --
 
-static_assert(bt::functor_object<bt::OptionalFunctorMap<int>, std::optional<int>>);
+static_assert(
+    bt::functor_object<bt::OptionalFunctorMap<int>, std::optional<int>>);
 static_assert(bt::functor_object<bt::VectorFunctorMap<int>, std::vector<int>>);
 
-static_assert(
-    bt::applicative_object<bt::OptionalApplicativeMap<int>, std::optional<int>>);
+static_assert(bt::applicative_object<bt::OptionalApplicativeMap<int>,
+                                     std::optional<int>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<decltype(bt::applicative_typeclass<
-                                          bt::zip_list<int>>)>,
+              bt::remove_cvref_t<
+                  decltype(bt::applicative_typeclass<bt::zip_list<int>>)>,
               bt::zip_list<int>>);
 static_assert(bt::applicative_object<bt::ArrayApplicativeMap<int, 3>,
                                      std::array<int, 3>>);
 static_assert(bt::applicative_object<
-              bt::remove_cvref_t<decltype(bt::applicative_typeclass<
-                                          bt::sender<int>>)>,
+              bt::remove_cvref_t<
+                  decltype(bt::applicative_typeclass<bt::sender<int>>)>,
               bt::sender<int>>);
 static_assert(bt::applicative_object<
               bt::remove_cvref_t<decltype(bt::applicative_typeclass<
@@ -116,14 +118,13 @@ static_assert(
                                     std::expected<int, std::string>>)>,
         std::expected<int, std::string>>);
 
-static_assert(
-    bt::monad_object<bt::OptionalMonadMap<int>, std::optional<int>>);
+static_assert(bt::monad_object<bt::OptionalMonadMap<int>, std::optional<int>>);
 
 static_assert(
     bt::foldable_object<bt::VectorFoldableMap<int>, std::vector<int>>);
 
-static_assert(bt::traversable_object<bt::VectorTraversableMap<int>,
-                                     std::vector<int>>);
+static_assert(
+    bt::traversable_object<bt::VectorTraversableMap<int>, std::vector<int>>);
 
 // -- An ap-only object satisfies applicative_object --
 //
@@ -158,10 +159,10 @@ static_assert(bt::applicative_object<bt::SimdLanesApplicativeMap<int, 4>,
 static_assert(requires(const PureOnlyApplicativeObject &obj) {
     { obj.pure(std::declval<int>()) } -> std::same_as<std::optional<int>>;
 });
-static_assert(!bt::applicative_object_for<PureOnlyApplicativeObject,
-                                          std::optional<int>>);
-static_assert(!bt::applicative_object<PureOnlyApplicativeObject,
-                                      std::optional<int>>);
+static_assert(
+    !bt::applicative_object_for<PureOnlyApplicativeObject, std::optional<int>>);
+static_assert(
+    !bt::applicative_object<PureOnlyApplicativeObject, std::optional<int>>);
 
 // -- A bare monad object fails functor_object --
 //
