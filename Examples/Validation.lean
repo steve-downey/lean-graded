@@ -1,4 +1,5 @@
 import Graded.Carrier
+import Graded.Widen
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
@@ -47,5 +48,19 @@ def render : Graded ({E.parse, E.range} : Grade E) Nat → String
 #eval render (validate "42")    -- ok 42
 #eval render (validate "abc")   -- err E.parse : unparsable
 #eval render (validate "9999")  -- err E.range : out of range
+
+/-- A third stage that only ever logs, modelling a call that carries an
+    `E.io` grade but cannot itself fail otherwise. -/
+def logIt (_ : Nat) : Graded ({E.io} : Grade E) Unit := .ok ()
+
+-- Widening `parseNat`'s failure from grade `{E.parse}` into the union
+-- grade `{E.parse, E.range, E.io}` (as if it were composed with
+-- `checkRange` and `logIt`) agrees with constructing the same failure
+-- directly at that wider grade. This is the C++ implicit-conversion
+-- chain made into a checked, computed equality rather than an assumed
+-- one.
+#guard
+  widen (g' := ({E.parse, E.range, E.io} : Grade E)) (by decide) (parseNat "abc") =
+    (.err E.parse (by decide) : Graded ({E.parse, E.range, E.io} : Grade E) Nat)
 
 end Examples.Validation
