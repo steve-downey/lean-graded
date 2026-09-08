@@ -92,7 +92,7 @@ namespace {
 // native for one instantiation, derived for another.
 struct PerInstantiationJoinImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
@@ -119,14 +119,14 @@ struct PerInstantiationJoinMap : bt::Monad<PerInstantiationJoinImpl> {};
 // and returns a sentinel the bind + pure derivation could never produce.
 struct MarkedApImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class A, class F>
-    auto bind(this auto &&, const std::optional<A> &ma, F &&f)
+    [[maybe_unused]] auto bind(this auto &&, const std::optional<A> &ma, F &&f)
         -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
         using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
         if (!ma)
@@ -241,14 +241,14 @@ namespace {
 // on the Map's own `replace`, not Monad's Impl.
 struct NativeReplaceMonadImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class A, class F>
-    auto bind(this auto &&, const std::optional<A> &ma, F &&f)
+    [[maybe_unused]] auto bind(this auto &&, const std::optional<A> &ma, F &&f)
         -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
         using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
         if (!ma)

@@ -70,9 +70,12 @@ struct PerInstantiationToVectorMap
 struct FoldRightOnlyImpl {
     using element_type = int;
 
+    // A plain const member, not an explicit-object one: MSVC's backend
+    // ICEs (C1001, p2) emitting the deducing-this form of exactly this
+    // body; see the twin in objects.test.cpp.
     template <class STATE, class FUNCTION>
-    auto fold_right(this auto &&, const std::vector<int> &values,
-                    STATE initial_state, FUNCTION &&function) -> STATE {
+    auto fold_right(const std::vector<int> &values, STATE initial_state,
+                    FUNCTION &&function) const -> STATE {
         STATE state = std::move(initial_state);
         for (auto it = values.rbegin(); it != values.rend(); ++it) {
             state = std::invoke(function, *it, std::move(state));

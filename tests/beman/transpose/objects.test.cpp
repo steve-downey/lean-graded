@@ -49,15 +49,16 @@ namespace {
 // handoff-to-typeclass-object-concepts.md.
 struct ApOnlyImpl {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
     }
 
     template <class FUNCTION, class ARGUMENT>
-    auto ap(this auto &&, const std::optional<FUNCTION> &function,
-            const std::optional<ARGUMENT> &argument)
+    [[maybe_unused]] auto ap(this auto &&,
+                             const std::optional<FUNCTION> &function,
+                             const std::optional<ARGUMENT> &argument)
         -> std::optional<bt::remove_cvref_t<
             std::invoke_result_t<FUNCTION &, const ARGUMENT &>>> {
         using Result = bt::remove_cvref_t<
@@ -81,7 +82,7 @@ struct ApOnlyMap : bt::Applicative<ApOnlyImpl> {};
 // -- the new, deep applicative_object gate (it has nothing else).
 struct PureOnlyApplicativeObject {
     template <class VALUE>
-    auto pure(this auto &&, VALUE &&value)
+    [[maybe_unused]] auto pure(this auto &&, VALUE &&value)
         -> std::optional<bt::remove_cvref_t<VALUE>> {
         return std::optional<bt::remove_cvref_t<VALUE>>{
             std::forward<VALUE>(value)};
@@ -95,9 +96,14 @@ struct PureOnlyApplicativeObject {
 struct FoldRightOnlyImpl {
     using element_type = int;
 
+    // A plain const member, not an explicit-object one: MSVC's backend
+    // ICEs (C1001, p2) emitting the deducing-this form of exactly this
+    // body in both TUs that carry it; the Impl contract only needs the
+    // call expression to be valid on a const Impl.
     template <class STATE, class FUNCTION>
-    auto fold_right(this auto &&, const std::vector<int> &values,
-                    STATE initial_state, FUNCTION &&function) -> STATE {
+    [[maybe_unused]] auto fold_right(const std::vector<int> &values,
+                                     STATE initial_state,
+                                     FUNCTION &&function) const -> STATE {
         STATE state = std::move(initial_state);
         for (auto it = values.rbegin(); it != values.rend(); ++it) {
             state = std::invoke(function, *it, std::move(state));
