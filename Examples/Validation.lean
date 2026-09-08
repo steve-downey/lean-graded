@@ -6,6 +6,7 @@ import Graded.Accum
 import Graded.Traverse
 import Graded.Tuple
 import Graded.Compose
+import Graded.ComposeApp
 import Graded.Morphism
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
@@ -309,5 +310,98 @@ def renderCoarse : Graded (Grade.rename coarsen ({E.parse, E.range} : Grade E)) 
 #guard renderCoarse (rename coarsen (validate "42")) = "ok 42"
 #guard renderCoarse (rename coarsen (validate "abc")) = "err Examples.Validation.E'.bad"
 #guard renderCoarse (rename coarsen (validate "9999")) = "err Examples.Validation.E'.bad"
+
+-- ---------------------------------------------------------------------
+-- `traverseComp`: the two-stage pipeline run through the composed
+-- applicative *without* flattening — `parseNat` supplies the outer layer,
+-- `checkRange` (lifted via `map`) the inner. This is the structure
+-- [compose-flatten] never built: `Graded {E.parse} (Graded {E.range} Nat)`
+-- per element, kept nested all the way to `Comp {E.parse} {E.range}
+-- (List Nat)`, not collapsed to a single flat grade.
+
+/-- Render a `Comp {E.parse} {E.range} (List Nat)` result for
+    `#eval`/`#guard`. -/
+def renderComposed :
+    Comp ({E.parse} : Grade E) ({E.range} : Grade E) (List Nat) → String
+  | .ok (.ok ns) => s!"ok (ok {ns})"
+  | .ok (.err e _) => s!"ok (err {repr e})"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderComposed
+    (traverseComp (fun s => Graded.map checkRange (parseNat s)) ["1", "2", "3"])
+  -- ok (ok [1, 2, 3]): every element's outer parse and inner range check succeed
+#eval renderComposed
+    (traverseComp (fun s => Graded.map checkRange (parseNat s)) ["1", "9999", "3"])
+  -- ok (err E.range): every element parses; the middle one is out of range
+#eval renderComposed
+    (traverseComp (fun s => Graded.map checkRange (parseNat s)) ["1", "x", "3"])
+  -- err E.parse: the middle element fails to parse; the range check is
+  -- never reached for any element, since the outer layer short-circuits
+
+#guard renderComposed
+    (traverseComp (fun s => Graded.map checkRange (parseNat s)) ["1", "2", "3"]) =
+  "ok (ok [1, 2, 3])"
+#guard renderComposed
+    (traverseComp (fun s => Graded.map checkRange (parseNat s)) ["1", "9999", "3"]) =
+  "ok (err Examples.Validation.E.range)"
+#guard renderComposed
+    (traverseComp (fun s => Graded.map checkRange (parseNat s)) ["1", "x", "3"]) =
+  "err Examples.Validation.E.parse"
+
+-- `traverseComp_eq` on the same inputs: the composed traversal equals
+-- `map (traverse checkRange) (traverse parseNat xs)`, computed the other
+-- way.
+#guard renderComposed
+    (traverseComp (fun s => Graded.map checkRange (parseNat s)) ["1", "9999", "3"]) =
+  renderComposed (Graded.map (traverse checkRange) (traverse parseNat ["1", "9999", "3"]))
+
+-- ---------------------------------------------------------------------
+-- On one screen: the flattened composition and the interleaved
+-- per-element composition disagree, exactly as [compose-flatten] found —
+-- and `traverseComp` is the explanation, not just a witness. `checkRange`
+-- fails *early* (position 0: "9999" parses but is out of range) while
+-- `parseNat` fails *late* (position 1: "x" does not parse at all) — the
+-- shape [compose-flatten]'s own counterexample needed.
+
+def counterXs : List String := ["9999", "x"]
+
+/-- Render a flattened `{E.parse, E.range}`-graded result. -/
+def renderFlat : Graded ({E.parse, E.range} : Grade E) (List Nat) → String
+  | .ok ns => s!"ok {ns}"
+  | .err e _ => s!"err {repr e}"
+
+-- The naive law's left side: `flatten (traverseComp (fun a => map k (f
+-- a)) xs)`, which by `traverseComp_eq` is `flatten (map (traverse
+-- checkRange) (traverse parseNat xs))` — committing to *all* of
+-- `parseNat` before ever consulting `checkRange`. `parseNat` fails at the
+-- *later* position (1, "x"), so that is the error this side reports.
+#eval renderFlat (flatten (traverseComp (fun s => Graded.map checkRange (parseNat s)) counterXs))
+  -- err E.parse: the late `parseNat` failure, from committing to the
+  -- outer layer across the whole list first
+
+/-- The per-element composed-then-flattened function: exactly
+    [compose-flatten]'s `fun a => flatten (map k (f a))`. -/
+def parseThenRange (s : String) : Graded ({E.parse, E.range} : Grade E) Nat :=
+  flatten (Graded.map checkRange (parseNat s))
+
+-- The naive law's right side: `traverse (fun a => flatten (map k (f a)))
+-- xs`, which flattens each element before `traverse`'s own left-to-right
+-- short circuit ever sees it. `checkRange` fails at the *earlier*
+-- position (0, "9999"), so that is the error this side reports —
+-- different from the left side above, though both inputs are identical.
+#eval renderFlat (traverse parseThenRange counterXs)
+  -- err E.range: the early `checkRange` failure, from flattening each
+  -- element before traversing
+
+#guard renderFlat (flatten (traverseComp (fun s => Graded.map checkRange (parseNat s)) counterXs))
+  = "err Examples.Validation.E.parse"
+#guard renderFlat (traverse parseThenRange counterXs) = "err Examples.Validation.E.range"
+
+-- The two sides disagree on the *same* input: flattening early
+-- (per-element) versus flattening late (after the whole composed
+-- traversal) are genuinely different operations, and only the *unflattened*
+-- `traverseComp` — reporting its own outer/inner grades separately, as
+-- `renderComposed` above shows — states unambiguously which layer failed.
+-- `flatten` is what erases that distinction, in either order.
 
 end Examples.Validation

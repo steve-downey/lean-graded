@@ -8,5 +8,6 @@ import Graded.Accum
 import Graded.Traverse
 import Graded.Tuple
 import Graded.Compose
+import Graded.ComposeApp
 import Graded.Morphism
 import Graded.Canonical
