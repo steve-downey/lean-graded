@@ -1,5 +1,5 @@
-.PHONY: verify nosorry letters all
-all: verify nosorry letters
+.PHONY: verify nosorry letters laws all
+all: verify nosorry letters laws
 verify:
 	lake build > build.log 2>&1 || { tail -n 20 build.log; exit 1; }
 	@tail -n 20 build.log
@@ -17,3 +17,7 @@ nosorry:
 	echo "nosorry: clean"
 letters:
 	@scripts/check-letters.sh
+laws:
+	@python3 scripts/laws-inventory.py
+	@git diff --exit-code -- docs/laws.md docs/laws.json || \
+	  { echo "laws: docs/laws.md/docs/laws.json are stale — commit the regenerated output"; exit 1; }
