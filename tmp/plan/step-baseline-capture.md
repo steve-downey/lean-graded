@@ -123,6 +123,16 @@ letters:
 > appearing in the log. Both are fixed above and the fix is verified: a
 > `sorry` or an `axiom` in any of `Graded/`, `Graded.lean`, `Tests.lean`,
 > `Examples.lean` now fails `make nosorry`.
+>
+> The `grep -q "error" build.log` test was removed outright after
+> [grade-pomonoid], where it produced a false failure on a *successful*
+> build: a Mathlib style-lint warning quoted back a docstring reading "a
+> finite set of error kinds". In a project whose subject is `error_set`,
+> the word "error" appears in ordinary docstrings and diagnostics
+> constantly, so the test fails on correct code more readily than on
+> broken code. `lake`'s exit status is the signal; verified by planting
+> `example : False := by simp`, which still fails the build with the grep
+> gone.
 Note the recipe lines must be tab-indented. `verify` must exit non-zero on
 any Lean error; confirm by inserting a deliberate `example : False := by
 simp` and watching it fail, then remove it.
