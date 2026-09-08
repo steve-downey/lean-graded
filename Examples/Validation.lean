@@ -6,6 +6,7 @@ import Graded.Accum
 import Graded.Traverse
 import Graded.Tuple
 import Graded.Compose
+import Graded.Morphism
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
@@ -265,5 +266,48 @@ def renderLookup : Graded ({E.io, E.parse} : Grade E) Nat → String
 #guard renderLookup (flatten (lookup "42")) = "ok 42"
 #guard renderLookup (flatten (lookup "")) = "err Examples.Validation.E.io"
 #guard renderLookup (flatten (lookup "abc")) = "err Examples.Validation.E.parse"
+
+-- ---------------------------------------------------------------------
+-- `rename`: coarsening `error_set<parse, range>` down to a single error
+-- kind, the C++ `transform_error`-style operation this step gives laws
+-- to. `coarsen` sends *both* `E.parse` and `E.range` to the same target
+-- `E'.bad` — a genuinely non-injective renaming, the case
+-- `Grade.rename`/`rename` were built to allow without any extra
+-- hypothesis.
+
+/-- The coarsened error universe: every source kind collapses to this
+    one kind. Models a C++ caller who doesn't care *which* validation
+    step failed, only that one did. -/
+inductive E' | bad
+  deriving DecidableEq, Repr
+
+/-- Send every `E` to the one target kind `E'.bad` — non-injective, since
+    both `E.parse` and `E.range` map to it. -/
+def coarsen (_ : E) : E' := E'.bad
+
+-- The renamed grade collapses `{E.parse, E.range}` to the singleton
+-- `{E'.bad}`, regardless of `coarsen` not being injective — the
+-- homomorphism (`Grade.rename_join`/`Grade.rename_bot`) is what makes
+-- this a `Finset.image` computation rather than a proof obligation.
+#check (Grade.rename coarsen ({E.parse, E.range} : Grade E) : Grade E')
+
+#guard Grade.rename coarsen ({E.parse, E.range} : Grade E) = ({E'.bad} : Grade E')
+
+/-- Render a coarsened `validate` result for `#eval`/`#guard`. -/
+def renderCoarse : Graded (Grade.rename coarsen ({E.parse, E.range} : Grade E)) Nat → String
+  | .ok n => s!"ok {n}"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderCoarse (rename coarsen (validate "42"))    -- ok 42: no error to rename
+#eval renderCoarse (rename coarsen (validate "abc"))   -- err E'.bad: was E.parse
+#eval renderCoarse (rename coarsen (validate "9999"))  -- err E'.bad: was E.range
+
+-- Two source errors, one target kind: `coarsen` really does lose the
+-- distinction between "which validation step failed" that `validate`'s
+-- own grade `{E.parse, E.range}` still carries — this is the C++ reader's
+-- payoff, not a limitation of the model.
+#guard renderCoarse (rename coarsen (validate "42")) = "ok 42"
+#guard renderCoarse (rename coarsen (validate "abc")) = "err Examples.Validation.E'.bad"
+#guard renderCoarse (rename coarsen (validate "9999")) = "err Examples.Validation.E'.bad"
 
 end Examples.Validation

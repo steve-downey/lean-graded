@@ -788,7 +788,104 @@ the code.
 
 ## morphisms
 
-Filled by [graded-morphism](../tmp/plan/step-graded-morphism.md).
+`Graded/Morphism.lean` answers the question `traverse`'s naturality law
+needs answered: what does a morphism between graded structures *do to the
+grade*? The C++ instance is `transform_error`-style renaming/coarsening —
+`error_set<A, B> → error_set<C>` by sending both `A` and `B` to `C` — and
+this section is the law set behind it.
+
+**`Grade.rename := Finset.image φ` is a join-semilattice homomorphism,
+unconditionally.** `Grade.rename_join` (`Finset.image_union`) and
+`Grade.rename_bot` (`Finset.image_empty`) hold for *any* `φ : Err → Err'`
+— no injectivity, no surjectivity, nothing beyond `φ` being a plain
+function. Tagged `/-- PROPERTY: homomorphism -/` per
+[oracle-export](../tmp/plan/step-oracle-export.md)'s grep. `Finset.image`
+does **not** preserve meet or complement — this design never asked it to;
+"homomorphism of join-semilattices" is the precise claim, not "lattice
+homomorphism." `Grade.rename_mono` (order preserved, from
+`Finset.image_subset_image`) is the corresponding order-level fact, also
+unconditional.
+
+**A restated Mathlib lemma was load-bearing, for an elaboration reason
+worth recording.** `Finset.mem_image_of_mem φ he : φ e ∈ Finset.image φ g`
+has its type *fully determined by its own arguments* — no expected-type
+propagation reaches it — so embedding it directly inside a `Graded.err`
+constructor produces a term indexed by `Finset.image φ g`, not by
+`Grade.rename φ g`, even though the two are definitionally equal. Later
+`rw`/`simp` calls against lemmas stated in terms of `Grade.rename` then
+fail to match it (syntactic, up to reducible transparency, not full
+defeq). The fix, `Grade.mem_rename`, is the same fact re-stated as a
+named `theorem` whose own signature pins the conclusion's type to
+`Grade.rename φ g`; every downstream `Graded.err` term is built from that
+theorem instead of the raw Mathlib lemma. This is a general pattern for
+this codebase, not specific to renaming: naming a borrowed fact under
+your own vocabulary is not cosmetic once dependent indices are involved.
+
+**Carrier-level `rename`** lifts `φ` to `Graded g α → Graded (Grade.rename
+φ g) α`: `ok` untouched, `err` pushed through `φ` and `Grade.mem_rename`.
+It is natural in the payload (`rename_map`, no cast — the grade is fixed
+on both sides) and commutes with `widen` (`rename_widen`, along
+`Grade.rename_mono`) and `cast` (`rename_cast`, along the image of the
+grade equality). It is a monad morphism: `rename_bind` and `rename_pure`
+commute with `bind`/`pure` up to `Grade.rename_join`/`Grade.rename_bot`
+transporting the joined/unit grade — the same "cast on the undistributed
+side" convention every `bind`/`ap` law in this codebase uses. `rename_ap`
+and `rename_map2` give the same fact for the applicative operations,
+proved directly from `ap`'s reduction lemmas rather than by unfolding
+through `bind`.
+
+**`GradedHom`: the general definition.** A graded monad morphism is a
+join-semilattice homomorphism on grades (`gmap_join`, `gmap_bot`)
+together with a carrier-level family, natural at every grade and payload
+type, that commutes with `bind`/`pure` up to that homomorphism
+(`hom_bind`, `hom_pure`). `renameHom` packages `Grade.rename`/`rename` as
+the one instance the C++ design actually uses.
+
+> **Provisional.** `GradedHom` asks nothing of `gmap`/`hom` beyond the
+> above — no injectivity, no surjectivity. Every law in this file,
+> including the `traverse` naturality law below, went through for an
+> arbitrary `φ`, including the deliberately many-to-one coarsening
+> exercised in `Examples/Validation.lean` (`{E.parse, E.range} → {E'.bad}`
+> via a constant function). Revisit only if a later consumer needs to
+> *recover* the source grade from the target one (needs injectivity) or
+> needs every target grade hit (needs surjectivity) — neither arises here.
+
+**Naturality of `traverse` against `rename`, unconditionally.**
+`traverse_rename : rename φ (traverse f xs) = traverse (rename φ ∘ f) xs`
+needs **no top-level cast** — unlike `rename_bind`/`rename_ap`, `traverse`
+fixes its result at the exact grade `g` (via `widen`, not `bind`'s
+`join`), so both sides live at `Grade.rename φ g` outright. The proof, by
+induction using `traverse_cons`, does need `rename_cast` and
+`rename_map2` internally to push `rename` through the `Grade.join_idem`
+cast `traverse_cons` carries, and those internal casts cancel by proof
+irrelevance (any two proofs of the same grade equality give the same
+`cast`, the same fact `Widen.widen_irrel` states for `widen`) rather than
+by an extra rewrite — `widen_irrel` itself is not cited, but the
+reasoning it names is exactly what closes the induction step.
+
+**No "at most one side is an error" hypothesis anywhere in this file —
+correctly.** `ap_flip` ([applicative](#applicative)) and `Accum`'s laws
+needed that hedge because they compare two *independent* graded values
+that can each independently fail. `rename` never compares two things; it
+transports one value through a fixed map, so there is only ever one side.
+This is the same distinction [compose-flatten](#compose) drew for
+`flatten_comm`: the hedge is for genuine independence, not a pattern to
+reach for on sight.
+
+**`rename_toGraded` was kept, not dropped.** The step file allowed
+dropping it if it grew past a few lines; `Accum.rename` (map `φ` over the
+error list, `List.mem_map`/`List.map_eq_nil_iff` for the two side
+conditions) and `Accum.rename_toGraded` (both sides reduce by `rfl` once
+`es` is split into `nil`/`cons`, since `(e :: es).map φ = φ e :: es.map φ`
+definitionally) together came to about a dozen lines, so both are in
+`Graded/Morphism.lean`.
+
+**Consumer.** `Examples/Validation.lean` coarsens `validate`'s
+`{E.parse, E.range}` down to a single `E'.bad` via `coarsen : E → E'`
+(a constant function, deliberately non-injective); `Grade.rename coarsen
+{E.parse, E.range} = {E'.bad}` computes via `#guard`, and renaming
+`validate`'s three outcomes collapses both failure kinds to the one
+target error while leaving the success case untouched.
 
 ## representation
 
@@ -830,3 +927,6 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
   rather than `bind` at any sufficient grade.
 - [#applicative](#applicative) — `Accum`'s error field is a `List Err`
   with a non-emptiness proof, not a `Multiset`.
+- [#morphisms](#morphisms) — `GradedHom` requires neither injectivity nor
+  surjectivity of the grade map; revisit only if a consumer needs to
+  recover the source grade or needs every target grade hit.
