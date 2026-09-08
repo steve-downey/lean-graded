@@ -28,4 +28,4 @@ measured verdict; the remainder is the open question
 [cast-burden-migration-scope](../../docs/design.md#cast-burden-migration-scope).
 
 - [x] 19. [sufficient-grade-bind](step-sufficient-grade-bind.md) — `bindK` beside `bind`, cast-free laws, `bind_eq_bindK` bridge closes by `rfl`, `bindK_irrel` free by `rfl`; verdict: worth extending to the applicative layer
-- [ ] 20. [sufficient-grade-applicative](step-sufficient-grade-applicative.md) — **gated on 19's verdict**; where the burden is worst
+- [x] 20. [sufficient-grade-applicative](step-sufficient-grade-applicative.md) — `apK`/`map2K`/`Comp.apK` cast-free, `Comp.ap_interchange`'s six-cast analogue now zero; `apK_flip` needs no `Grade.join_comm` — commutativity was a cost of computing the grade exactly, not the applicative; see [cast-burden-migration-scope](../../docs/design.md#cast-burden-migration-scope)
