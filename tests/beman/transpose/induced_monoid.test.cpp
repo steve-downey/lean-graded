@@ -19,8 +19,13 @@ namespace {
 // Sentinel: the raw carriers these monoids are induced over do not
 // themselves gain a Monoid. "Named and unregistered" means operationally
 // that this concept stays false for them.
+// Probed on the specialization itself, never through monoid_v: naming
+// monoid_v<T> declares a variable of the undefined type Monoid<T>, and that
+// failure is outside the requires-expression's immediate context -- a hard
+// error, not `false` (same shape as the sentinel in monoid.test.cpp).
 template <class T>
-concept has_monoid = requires { bt::monoid_v<T>.identity(); };
+concept has_monoid = requires { sizeof(bt::Monoid<T>); } &&
+                     requires(const bt::Monoid<T> &m) { m.identity(); };
 
 static_assert(!has_monoid<std::optional<int>>);
 static_assert(!has_monoid<std::optional<bt::Sum<int>>>);
