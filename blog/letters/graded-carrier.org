@@ -1,0 +1,106 @@
+#+TITLE: Letter 2: The empty grade is not bare T, but it might as well be
+#+DATE: 2026-09-07
+#+CATEGORY: lean-transpose
+#+STEP: graded-carrier
+
+Dear colleague,
+
+* What I set out to do
+
+Last time I built the grade — the model of =error_set=. This letter builds
+the thing the grade decorates: the carrier itself, the model of
+=expected<T, error_set<Es...>>=. In Lean it's a two-constructor type: =ok=
+holds a value of your result type, =err= holds one error value together
+with a proof that its kind is a member of the grade =g=. That "together
+with a proof" is the whole model of "one error whose type is in the set" —
+membership in a =Finset= standing in for what C++ gets from its type
+system directly.
+
+The reason this letter exists on its own, rather than being folded into
+the grade letter, is a decision your design already made and I wanted to
+test honestly rather than assume: at grade ∅, =expected<T, error_set<>>=
+is deliberately *not* the type you get — you get bare =T= instead, for API
+ergonomics. That's two different C++ types standing in for "no possible
+error," related by an implicit conversion you trust without being asked to
+prove anything. Lean doesn't let me get away with trusting. =Graded ∅ α=
+and =α= are, inescapably, two different inductive types — one of them has
+an =err= constructor sitting right there in its definition, unreachable or
+not. So the honest question is: what is the relationship? Not "are they
+the same" — they aren't — but "how strongly can I say they behave the
+same." Lean's answer for that is an =Equiv=, a proven bijection with both
+directions checked, and further, a proof that the bijection commutes with
+=map= (mapping before or after the ∅-collapse gives the same answer). I
+also added =cast= for reinterpreting a carrier across a grade *equality*
+(later steps state laws through it), and a =DecidableEq= instance, and I
+introduced this step's actual consumer: a two-stage string-parse-then-
+range-check validator, composed by hand, so the carrier's shape gets
+exercised by real code immediately instead of sitting untested until the
+monad laws arrive.
+
+* What the checker refused
+
+The =Equiv= proof itself was exactly as short as the step file predicted —
+one line for the forward direction (=absurd= on the impossible membership
+proof), one line back, done. That part wasn't a fight; it was the reward
+for having phrased the question as "isomorphic," which only asks the
+=err= case to be uninhabited, not for the types to unify.
+
+The actual friction was more mundane and, in hindsight, obvious. I wrote
+=map=, its two laws, =emptyEquiv=, and =cast= all referring to grade and
+type variables — =g=, =α=, =β=, =γ= — that I had never told Lean existed
+as free variables of the section. Lean's answer wasn't "undefined variable,"
+it was "typeclass instance problem is stuck on a metavariable," because
+without a =variable= declaration it tried to silently auto-bind them and
+then couldn't figure out what type they were at. The fix was one line — a
+=variable {g g' g'' : Grade Err} {α β γ : Type v}= — but the error message
+pointed at =DecidableEq= resolution, three definitions downstream of the
+real problem, which cost more time than it should have.
+
+The second refusal was in =cast= itself. I first wrote it as
+=h ▸ ·= — substitute along the equality, applied to "whatever comes in" —
+and composing two casts together produced "application type mismatch,"
+Lean unable to see through the point-free =·= to know what it was
+substituting into. Writing it with an explicit argument, =h ▸ x=, fixed it
+outright; the term-mode rewrite notation wants to see the term it's
+rewriting, not a promise of one.
+
+The third was self-inflicted redundancy: I gave the =DecidableEq= instance
+its own =[DecidableEq Err]= parameter on top of the one already in scope
+from the section variables, and got "synthesized instance not
+definitionally equal" — two different instances of the same fact, neither
+one winning at reduction time. Deleting the redundant parameter, so there
+was only one =DecidableEq Err= to find, was the whole fix.
+
+* What changed
+
+=Graded/Carrier.lean= adds the =Graded= type, =map= with =map_id= and
+=map_comp=, =emptyEquiv= with its naturality lemma =map_emptyEquiv=,
+=cast= with =cast_rfl= and =cast_cast=, and the =DecidableEq= instance.
+=Examples/Validation.lean= adds the consumer: =parseNat= and =checkRange=,
+each producing a single-error grade, and =validate=, which composes them
+by hand with a =match= into the union grade =\{parse, range\}= — marked
+=REPLACED-BY: bind= at the definition, since that hand-assembly of
+membership proofs is exactly the boilerplate a real =bind= exists to
+absorb. Three =#eval=s confirm it on a good, a bad, and an out-of-range
+string. =Tests/Carrier.lean= instantiates the laws and =#guard=s the
+validator's three outcomes.
+
+* Back in C++
+
+The =DecidableEq= instance turned out to carry its own small lesson: the
+membership proof inside =err= is a =Prop=, and Lean treats all proofs of
+the same proposition as equal to each other automatically ("proof
+irrelevance"), so two =err= values compare equal exactly when their error
+values do, full stop — the instance doesn't even need to look at *how*
+each one proved membership. That is precisely how C++ variant equality
+already behaves, just for a reason that looks different from this side:
+=error_set= membership is a compile-time fact erased before your program
+runs, so there is no "which membership witness" left at runtime to
+disagree about. Lean has to say this out loud as a principle about proofs;
+C++ gets the same answer by having already thrown the evidence away. And
+the bigger point of the letter: being able to say "isomorphic" here, and
+mean it — mean that every operation, not just the raw storage, lines up
+under the round trip — is a *stronger* claim than "the same type," even
+though it sounds weaker on first hearing. C++'s implicit conversion at
+grade ∅ asserts the same thing this letter proves, just without ever being
+asked to.

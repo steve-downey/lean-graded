@@ -91,7 +91,47 @@ depend on which property.
 
 ## carrier
 
-Filled by [graded-carrier](../tmp/plan/step-graded-carrier.md).
+`Graded.Graded (g : Grade Err) (α : Type v)` (in `Graded/Carrier.lean`): an
+`ok` holding a value of `α`, or an `err` holding one error value together
+with a proof of its membership in `g`. Models `expected<T,
+error_set<Es...>>` ([cpp-counterpart](#cpp-counterpart)); the membership
+proof is what stands in for "one error whose *type* is in the set."
+
+`map : (α → β) → Graded g α → Graded g β`, with laws `map_id`, `map_comp`.
+The grade does not appear in `map`'s type — functors are oblivious to
+grading, true by construction, not by proof.
+
+`emptyEquiv : Graded (Grade.bot : Grade Err) α ≃ α` settles the ∅-grade
+question honestly: `Graded ∅ α` is a different *type* from `α` (its `err`
+constructor exists, merely uninhabited — `Finset.notMem_empty` closes that
+case), but is *isomorphic* to it, and the isomorphism is natural in `map`
+(`map_emptyEquiv`). That naturality is what "bare `T` is safe at grade ∅"
+means: every operation on the two representations agrees, not just their
+storage. C++'s implicit conversion at grade ∅ asserts the same
+identification without proof.
+
+`cast (h : g = g') : Graded g α → Graded g' α`, with `cast_rfl`,
+`cast_cast`, lets later steps state laws "modulo grade equalities."
+
+`DecidableEq (Graded g α)` (given `DecidableEq α`, `DecidableEq Err`): the
+membership proof is a `Prop`, hence proof-irrelevant, so two `err` values
+compare equal exactly when their error values do — mirroring how C++
+variant equality never has to look at "how" the alternative's admissibility
+was established, because that fact is compile-time and already erased.
+
+> **Provisional.** Laws are stated with exact union grades and `cast`,
+> mirroring C++ where `bind` computes the union type. The alternative —
+> `bind` at any sufficient grade `k` with `g ∪ h ⊆ k`, absorbing
+> subsumption — would remove every `cast`. Revisit if [monad-laws] or
+> [traverse-list] finds the casts dominate the proofs.
+
+The first consumer, `Examples/Validation.lean`: `parseNat : String →
+Graded {E.parse} Nat` and `checkRange : Nat → Graded {E.range} Nat`,
+composed by hand (`match`, no `bind` yet) into `validate : String →
+Graded {E.parse, E.range} Nat` — the union grade and each `err`'s
+membership proof assembled explicitly at the call site. Marked
+`REPLACED-BY: bind` at its definition; [monad-laws] replaces this
+composition.
 
 ## subsumption
 
@@ -150,3 +190,5 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 - [#toolchain](#toolchain) — build-time numbers are machine- and
   network-dependent.
 - [#blog-series](#blog-series) — addressee name "Dear colleague".
+- [#carrier](#carrier) — laws stated with exact union grades and `cast`,
+  rather than `bind` at any sufficient grade.
