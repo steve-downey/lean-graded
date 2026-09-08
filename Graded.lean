@@ -9,3 +9,4 @@ import Graded.Traverse
 import Graded.Tuple
 import Graded.Compose
 import Graded.Morphism
+import Graded.Canonical
