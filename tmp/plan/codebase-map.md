@@ -30,6 +30,8 @@ Graded/Compose.lean      compose-flatten: flatten and its laws
 Graded/Morphism.lean     graded-morphism: rename, GradedHom, traverse naturality
 Graded/Canonical.lean    canonical-representation: Canon, canonEquiv
 Graded/ComposeApp.lean   compose-applicative: Comp, Comp.ap, traverseComp, flatten_ap
+Graded/Ungraded.lean     ungraded-baseline: Fixed, pureF, bindF, apF, the Mathlib correspondence
+Graded/Obligations.lean  grade-obligations: Pomonoid/IsCommPomonoid/IsIdemPomonoid, Finset and Nat instances
 Tests.lean, Tests/*.lean one per module; examples at inductive E | parse | range | io
 Examples.lean, Examples/Validation.lean   the single running consumer, grown by every step
 Makefile                 verify | nosorry | letters | laws (laws added by oracle-export)
@@ -86,6 +88,15 @@ proof cites its lemmas by name — this is by design and is what
 - `Accum` is planned, documented, and not a fork. Don't flag it.
 - Letters are part of GREEN (`make letters`), so a step that is green on
   code but missing its letter is not done.
+- The plan grew three steps after it started, all before oracle-export:
+  [compose-applicative] (13), [ungraded-baseline] (14) and
+  [grade-obligations] (15). The last two were added at the repository
+  owner's request and are expected to carry two of the project's headline
+  results — what grading costs over the ungraded laws, and what a grade
+  must be for a design that does not want `error_set` to be its only
+  possible grade. Neither refactors anything: the baseline fixes a grade
+  inside the existing machinery, and the obligations step abstracts the
+  grade algebra only, which is separable from the carrier.
 - The plan grew one step after it started. [compose-applicative] was
   inserted at 13 (before oracle-export) on 2026-09-08, because
   [compose-flatten] tested a *flattened* composition law, refuted it, and

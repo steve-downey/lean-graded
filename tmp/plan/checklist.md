@@ -16,6 +16,8 @@ Mark your own step done before writing the next step's handoff.
 - [x] 11. [graded-morphism](step-graded-morphism.md)
 - [x] 12. [canonical-representation](step-canonical-representation.md)
 - [ ] 13. [compose-applicative](step-compose-applicative.md) — added 2026-09-08 to answer [graded-traversable-composition](../../docs/design.md#graded-traversable-composition)
-- [ ] 14. [oracle-export](step-oracle-export.md)
-- [ ] 15. [blog-series-edit](step-blog-series-edit.md)
-- [ ] 16. [integration-review](INTEGRATION-REVIEW.md) — scoped `model: opus` consult, not a Sonnet worker
+- [ ] 14. [ungraded-baseline](step-ungraded-baseline.md) — added 2026-09-08: the comparison column, what grading adds
+- [ ] 15. [grade-obligations](step-grade-obligations.md) — added 2026-09-08: what a grade must be, layered, with a non-idempotent counter-instance
+- [ ] 16. [oracle-export](step-oracle-export.md)
+- [ ] 17. [blog-series-edit](step-blog-series-edit.md)
+- [ ] 18. [integration-review](INTEGRATION-REVIEW.md) — scoped `model: opus` consult, not a Sonnet worker

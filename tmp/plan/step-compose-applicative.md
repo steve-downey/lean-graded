@@ -51,10 +51,13 @@ the four laws), `#grade`, `#carrier`.
 Create `Graded/ComposeApp.lean`.
 
 The composite carrier, with the product grade kept as two separate
-indices — **not** joined:
+indices — **not** joined. Note `abbrev`, not `def`: Lean's instance
+search does not see through a plain `def`, which cost
+[canonical-representation] a rebuild, and `Grade` itself is an `abbrev`
+for the same reason.
 
 ```lean
-def Comp (g h : Grade Err) (α : Type u) : Type u := Graded g (Graded h α)
+abbrev Comp (g h : Grade Err) (α : Type u) : Type u := Graded g (Graded h α)
 
 def Comp.pure (a : α) : Comp (Grade.bot : Grade Err) Grade.bot α :=
   Graded.ok (Graded.ok a)
@@ -255,5 +258,7 @@ git branch -d step/compose-applicative
 ## Handoff
 
 Mark `compose-applicative` done in `tmp/plan/checklist.md`. Read
-`tmp/plan/step-oracle-export.md`. Write `tmp/plan/handoff-oracle-export.md` fresh, per
-the contract in `AGENT-PROMPT.md`.
+`tmp/plan/step-ungraded-baseline.md`. Write `tmp/plan/handoff-ungraded-baseline.md` fresh, per
+the contract in `AGENT-PROMPT.md`. It restates these laws at a single
+fixed grade, so it needs your law names and whatever you learned about
+which casts were forced and which were incidental.

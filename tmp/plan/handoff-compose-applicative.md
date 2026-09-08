@@ -76,3 +76,19 @@ pass across the pre-[graded-morphism] letters under `blog/letters/`
 repository's owner and deliberately left uncommitted. Stage your own
 files by name in the main checkout; `git add -A` is fine inside your own
 worktree only.
+
+## Your step file specifies `Comp` as a `def` — make it an `abbrev`
+
+`Graded/Canonical.lean` had to change `Canon` from `def` to `abbrev`
+because Lean's instance search does not see through a plain `def`:
+anything needing a `DecidableEq`/`LinearOrder` instance on the underlying
+type fails to resolve it. `Grade` itself is an `abbrev` for the same
+reason. `step-compose-applicative.md` writes
+
+```lean
+def Comp (g h : Grade Err) (α : Type u) : Type u := Graded g (Graded h α)
+```
+
+which will hit this the moment anything needs an instance through it.
+Write it as an `abbrev`. This is a correction to your step file, not a
+deviation from it — record it in your metrics note.
