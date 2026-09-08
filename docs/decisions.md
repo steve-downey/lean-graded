@@ -1123,6 +1123,30 @@ down instead.
   `Sum<int>`. The sentinel is a `has_monoid` concept with
   `static_assert(!has_monoid<int>)` (and `long`, `std::size_t`), so a future
   re-registration fails a test instead of silently restoring the old default.
+- 2026-09-07 —
+  [monad-induced-monoids](../tmp/plan/step-monad-induced-monoids.md) added
+  two more induced, named, unregistered carriers, in their own header
+  (`induced_monoid.hpp`, not `monoid.hpp`, which knows about no typeclass
+  instances): `KleisliEndo<MONAD_OBJECT, A>`, the Kleisli endomorphism
+  monoid on `A -> M<A>` arrows (identity `pure`, combine `>=>`), and
+  `LiftedMonoid<APPLICATIVE_OBJECT, CONTEXT>`, `F<A>` lifted from a
+  `Monoid<A>` through an applicative object (identity `pure(identity_A)`,
+  combine `invoke(combine_A, ·, ·)`). Both are registered only on their own
+  carrier type; `std::optional<int>` and `std::optional<Sum<int>>` gain no
+  `Monoid`. Worth not rediscovering: the categorical statement "a monad is a
+  monoid in the category of endofunctors" is inexpressible at `Monoid<T>` —
+  its tensor is composition, not product, and its carrier is a type
+  constructor, not a type — and `KleisliEndo` is the value-level statement
+  that survives that gap, not the categorical statement itself. The Kleisli
+  carrier erases its arrow through `std::function`, following
+  `detail::LeftFoldProgram` (`fold.hpp`): a monoid's `combine` must return
+  what it takes, and a bare lambda type does not close under composition.
+  `Monad<Impl>::kleisli`'s derived branch returns a closure that captures
+  `self` by reference, so `combine` cannot store the result of
+  `MONAD_OBJECT{}.kleisli(...)` directly; it instead stores a lambda that
+  constructs its own `MONAD_OBJECT{}` and calls `kleisli` on it in the same
+  full expression that invokes the result, keeping the temporary alive for
+  exactly as long as it is used.
 
 ## impl-access-through-bases
 
