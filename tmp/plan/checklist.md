@@ -4,7 +4,7 @@ Ordinal is reading order; slug is identity. Cross-reference by slug only.
 Mark your own step done before writing the next step's handoff.
 
 - [x] 1. [baseline-capture](step-baseline-capture.md)
-- [ ] 2. [grade-pomonoid](step-grade-pomonoid.md)
+- [x] 2. [grade-pomonoid](step-grade-pomonoid.md)
 - [ ] 3. [graded-carrier](step-graded-carrier.md)
 - [ ] 4. [subsumption-widen](step-subsumption-widen.md)
 - [ ] 5. [monad-laws](step-monad-laws.md)
