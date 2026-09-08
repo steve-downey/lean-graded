@@ -6,7 +6,7 @@ Mark your own step done before writing the next step's handoff.
 - [x] 1. [baseline-capture](step-baseline-capture.md)
 - [x] 2. [grade-pomonoid](step-grade-pomonoid.md)
 - [x] 3. [graded-carrier](step-graded-carrier.md)
-- [ ] 4. [subsumption-widen](step-subsumption-widen.md)
+- [x] 4. [subsumption-widen](step-subsumption-widen.md)
 - [ ] 5. [monad-laws](step-monad-laws.md)
 - [ ] 6. [applicative-from-monad](step-applicative-from-monad.md)
 - [ ] 7. [applicative-accumulation](step-applicative-accumulation.md)
