@@ -8,7 +8,7 @@ Mark your own step done before writing the next step's handoff.
 - [x] 3. [graded-carrier](step-graded-carrier.md)
 - [x] 4. [subsumption-widen](step-subsumption-widen.md)
 - [x] 5. [monad-laws](step-monad-laws.md)
-- [ ] 6. [applicative-from-monad](step-applicative-from-monad.md)
+- [x] 6. [applicative-from-monad](step-applicative-from-monad.md)
 - [ ] 7. [applicative-accumulation](step-applicative-accumulation.md)
 - [ ] 8. [traverse-list](step-traverse-list.md)
 - [ ] 9. [traverse-tuple](step-traverse-tuple.md)
