@@ -87,6 +87,47 @@ struct First {
     std::optional<VALUE_TYPE> d_value;
 };
 
+// Named witnesses for the fold family's availability probes, completing
+// probe_witness/probe_witness2 with the argument-dependent return shapes
+// the derived operations need. A lambda inside a requires-clause mints a
+// distinct closure type at every constraint check; MSVC's backend ICEs
+// (fatal error C1001, p2) in exactly the translation units that evaluate
+// the fold family's clauses, and hoisting the probes into named callables
+// is both the workaround and consistent with the concepts, which already
+// probe with named witnesses.
+
+/** Identity-shaped probe: returns its argument by value, so the probed
+ * `fold_map` sees a callable whose result type is the element type itself
+ * -- the shape `combine_all` folds with.
+ */
+struct identity_probe_witness {
+    template <class ARGUMENT>
+    constexpr auto operator()(const ARGUMENT &argument) const -> ARGUMENT {
+        return argument;
+    }
+};
+
+/** Collecting probe: returns a one-element vector of its argument -- the
+ * shape `to_vector` folds with.
+ */
+struct vector_probe_witness {
+    template <class ARGUMENT>
+    constexpr auto operator()(const ARGUMENT &argument) const
+        -> std::vector<ARGUMENT> {
+        return std::vector<ARGUMENT>{argument};
+    }
+};
+
+/** First-shaped probe: returns an empty `First` of its argument's type --
+ * the shape `find_first` folds with.
+ */
+struct first_probe_witness {
+    template <class ARGUMENT>
+    constexpr auto operator()(const ARGUMENT &) const -> First<ARGUMENT> {
+        return First<ARGUMENT>{};
+    }
+};
+
 } // namespace beman::transpose::detail
 
 namespace beman::transpose {
@@ -231,13 +272,12 @@ struct Foldable : protected Impl {
             impl.fold_map(std::forward<F>(function), std::forward<T>(value));
         } || requires(const Impl &impl) {
             typename Impl::element_type;
-            impl.fold_right(std::forward<T>(value),
-                            monoid_identity<remove_cvref_t<std::invoke_result_t<
-                                F, const typename Impl::element_type &>>>(),
-                            [](const auto &,
-                               remove_cvref_t<std::invoke_result_t<
-                                   F, const typename Impl::element_type &>>
-                                   acc) { return acc; });
+            impl.fold_right(
+                std::forward<T>(value),
+                monoid_identity<remove_cvref_t<std::invoke_result_t<
+                    F, const typename Impl::element_type &>>>(),
+                detail::probe_witness2<remove_cvref_t<std::invoke_result_t<
+                    F, const typename Impl::element_type &>>>{});
         }
     {
         if constexpr (requires {
@@ -249,12 +289,11 @@ struct Foldable : protected Impl {
         } else {
             using Result = remove_cvref_t<
                 std::invoke_result_t<F, const typename Impl::element_type &>>;
-            // Non-capturing marker, matching the declaration's second
-            // alternative: a lambda inside a requires-expression that
-            // captures a local (here, `function`) is accepted by GCC but
-            // rejected by the Clang front end the wording generator uses
-            // ("variable cannot be implicitly captured" / "reference to
-            // local variable declared in enclosing function"). This
+            // The declaration's second alternative probes with a named
+            // witness, never a lambda: a capturing lambda in a
+            // requires-clause is rejected by Clang's front end, and the
+            // closure types lambdas mint per constraint check are what ICE
+            // MSVC's backend (see the witnesses' note in detail). This
             // static_assert is provable redundant given the declaration's
             // constraint already selected this branch -- it is the
             // GHC-MINIMAL-style last-resort message, not load-bearing SFINAE
@@ -284,7 +323,7 @@ struct Foldable : protected Impl {
             // through self is what correctly admits a fold_right +
             // element_type Impl. Checking impl.fold_map directly would
             // reject that Impl, since it has no fold_map member at all.
-            self.fold_map([](const auto &) { return Count{1}; },
+            self.fold_map(detail::probe_witness<Count>{},
                           std::forward<T>(value));
         }
     {
@@ -309,19 +348,13 @@ struct Foldable : protected Impl {
             impl.fold_left(std::forward<T>(value), initial_state,
                            std::forward<F>(function));
         } || requires {
-            // self, not impl -- see length's second alternative. Also a
-            // non-capturing marker: fold_map is generic in its callable, so
-            // only the return-type shape (LeftFoldProgram<StateType>)
-            // matters for the probe. A capturing lambda naming `function`
-            // here would reference a function parameter from inside a
-            // trailing requires-clause's lambda, which GCC rejects
-            // (-Wtemplate-body, "use of parameter outside function body").
-            self.fold_map(
-                [](const auto &)
-                    -> detail::LeftFoldProgram<remove_cvref_t<STATE>> {
-                    return {};
-                },
-                std::forward<T>(value));
+            // self, not impl -- see length's second alternative. A named
+            // witness, not a lambda: fold_map is generic in its callable,
+            // so only the return-type shape (LeftFoldProgram<StateType>)
+            // matters for the probe.
+            self.fold_map(detail::probe_witness<
+                              detail::LeftFoldProgram<remove_cvref_t<STATE>>>{},
+                          std::forward<T>(value));
         }
     {
         if constexpr (requires {
@@ -361,10 +394,8 @@ struct Foldable : protected Impl {
                             std::forward<F>(function));
         } || requires(const Impl &impl) {
             impl.fold_map(
-                [](const auto &)
-                    -> detail::RightFoldProgram<remove_cvref_t<STATE>> {
-                    return {};
-                },
+                detail::probe_witness<
+                    detail::RightFoldProgram<remove_cvref_t<STATE>>>{},
                 std::forward<T>(value));
         }
     {
@@ -410,7 +441,7 @@ struct Foldable : protected Impl {
             impl.combine_all(std::forward<T>(value));
         } || requires {
             // self, not impl -- see length's second alternative.
-            self.fold_map([](const auto & x) { return x; },
+            self.fold_map(detail::identity_probe_witness{},
                           std::forward<T>(value));
         }
     {
@@ -451,13 +482,10 @@ struct Foldable : protected Impl {
             impl.any_of(std::forward<T>(value),
                         std::forward<PREDICATE>(predicate));
         } || requires {
-            // self, not impl -- see length's second alternative. Also a
-            // non-capturing marker: only the Any-shaped return matters for
-            // the probe, and capturing `predicate` here would reference a
-            // function parameter from inside a trailing requires-clause's
-            // lambda, which GCC rejects.
-            self.fold_map([](const auto &) { return Any{true}; },
-                          std::forward<T>(value));
+            // self, not impl -- see length's second alternative. A named
+            // witness, not a lambda: only the Any-shaped return matters
+            // for the probe.
+            self.fold_map(detail::probe_witness<Any>{}, std::forward<T>(value));
         }
     {
         if constexpr (requires {
@@ -486,8 +514,7 @@ struct Foldable : protected Impl {
                         std::forward<PREDICATE>(predicate));
         } || requires {
             // self, not impl; see any_of's second alternative.
-            self.fold_map([](const auto &) { return All{true}; },
-                          std::forward<T>(value));
+            self.fold_map(detail::probe_witness<All>{}, std::forward<T>(value));
         }
     {
         if constexpr (requires {
@@ -518,8 +545,7 @@ struct Foldable : protected Impl {
         requires requires(const Impl &impl) {
             impl.empty(std::forward<T>(value));
         } || requires {
-            self.any_of(std::forward<T>(value),
-                        [](const auto &) { return true; });
+            self.any_of(std::forward<T>(value), detail::probe_witness<bool>{});
         }
     {
         if constexpr (requires {
@@ -539,12 +565,8 @@ struct Foldable : protected Impl {
             impl.to_vector(std::forward<T>(value));
         } || requires {
             // self, not impl -- see length's second alternative.
-            self.fold_map(
-                [](const auto & x) {
-                    using ValueType = remove_cvref_t<decltype(x)>;
-                    return std::vector<ValueType>{x};
-                },
-                std::forward<T>(value));
+            self.fold_map(detail::vector_probe_witness{},
+                          std::forward<T>(value));
         }
     {
         if constexpr (requires {
@@ -570,12 +592,8 @@ struct Foldable : protected Impl {
                             std::forward<PREDICATE>(predicate));
         } || requires {
             // self, not impl; see any_of's second alternative.
-            self.fold_map(
-                [](const auto &
-                   x) -> detail::First<remove_cvref_t<decltype(x)>> {
-                    return {};
-                },
-                std::forward<T>(value));
+            self.fold_map(detail::first_probe_witness{},
+                          std::forward<T>(value));
         }
     {
         if constexpr (requires {
