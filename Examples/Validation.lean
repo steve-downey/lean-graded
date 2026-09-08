@@ -1,6 +1,7 @@
 import Graded.Carrier
 import Graded.Widen
 import Graded.Monad
+import Graded.Applicative
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
@@ -74,5 +75,39 @@ def renderLog : Graded ({E.parse, E.range, E.io} : Grade E) Unit → String
 #guard
   widen (g' := ({E.parse, E.range, E.io} : Grade E)) (by decide) (parseNat "abc") =
     (.err E.parse (by decide) : Graded ({E.parse, E.range, E.io} : Grade E) Nat)
+
+/-- Two *independent* validations, combined with `map2` rather than
+    `bind`: `sumTwo` never lets `s2`'s parse depend on `s1`'s result, the
+    way `validate` above threads its `Nat` payload from stage to stage.
+    Models summing two independently-parsed inputs — the shape a C++
+    caller reaches for `liftA2`/`map2` instead of `and_then` for. Both
+    stages share the grade `{E.parse}`, so the result grade is `{E.parse}`
+    too (`Grade.join_idem`, unlike `validate`'s `{E.parse, E.range}`). -/
+def sumTwo (s1 s2 : String) : Graded ({E.parse} : Grade E) Nat :=
+  map2 (· + ·) (parseNat s1) (parseNat s2)
+
+/-- Render a `sumTwo` result for `#eval`. -/
+def renderSum : Graded ({E.parse} : Grade E) Nat → String
+  | .ok n => s!"ok {n}"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderSum (sumTwo "3" "4")      -- ok 7
+#eval renderSum (sumTwo "abc" "4")    -- err E.parse : s1 failed
+#eval renderSum (sumTwo "3" "xyz")    -- err E.parse : s2 failed
+#eval renderSum (sumTwo "abc" "xyz")  -- err E.parse : both failed
+
+#guard renderSum (sumTwo "3" "4") = "ok 7"
+
+-- Both stages parse with the same error kind, so this `#guard` cannot
+-- distinguish *which* argument failed from the value alone — that
+-- distinction needs two different error kinds, which is exactly what
+-- `Tests/Applicative.lean`'s both-errors counterexample uses `parseNat`
+-- and a range check for. What this does show is that `map2`, like `ap`,
+-- short-circuits: whenever either argument fails, the combination fails
+-- with `E.parse`, and only when both succeed does it add the two
+-- payloads.
+#guard renderSum (sumTwo "abc" "4") = "err Examples.Validation.E.parse"
+#guard renderSum (sumTwo "3" "xyz") = "err Examples.Validation.E.parse"
+#guard renderSum (sumTwo "abc" "xyz") = "err Examples.Validation.E.parse"
 
 end Examples.Validation
