@@ -82,7 +82,25 @@ struct Monad : protected Impl {
     // repository.
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&self, FUNCTION &&function, FIRST &&first,
-                REST &&...rest) {
+                REST &&...rest)
+        requires requires(const Impl &impl) {
+            impl.invoke(std::forward<FUNCTION>(function),
+                        std::forward<FIRST>(first),
+                        std::forward<REST>(rest)...);
+        } || requires(const Impl &impl) {
+            // The derivation's own requirement on the basis: Impl must have
+            // a bind that accepts FIRST with a single-argument callback
+            // (pure is already guaranteed unconditionally by the class
+            // invariant above, so it is not separately probed). FUNCTION's
+            // own arity does not enter here -- the derivation applies it
+            // only after unwinding through nested bind calls, never
+            // directly to FIRST's element.
+            impl.bind(std::forward<FIRST>(first),
+                      [](auto &&value) -> decltype(auto) {
+                          return std::forward<decltype(value)>(value);
+                      });
+        }
+    {
         if constexpr (requires {
                           impl_of(self).invoke(std::forward<FUNCTION>(function),
                                                std::forward<FIRST>(first),
@@ -111,19 +129,51 @@ struct Monad : protected Impl {
 
     // join: flatten nested monad.
     // join mma = mma >>= id
+    // Prefers a native Impl::join. join/bind is a mutually-derivable pair
+    // (join = bind(., id); bind is recoverable from join + fmap), so the
+    // fallback addresses Impl directly, matching fmap's bind-basis branch --
+    // the one member in this step where the derivation, not just the probe,
+    // addresses Impl rather than self.
     template <class MMA>
-    auto join(this auto &&self, MMA &&mma) {
-        return self.bind(std::forward<MMA>(mma),
-                         [](auto &&inner) { return inner; });
+    auto join(this auto &&self, MMA &&mma)
+        requires requires(const Impl &impl) {
+            impl.join(std::forward<MMA>(mma));
+        } || requires(const Impl &impl) {
+            impl.bind(std::forward<MMA>(mma),
+                      [](auto &&inner) { return inner; });
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).join(std::forward<MMA>(mma));
+                      }) {
+            return impl_of(self).join(std::forward<MMA>(mma));
+        } else {
+            return impl_of(self).bind(std::forward<MMA>(mma),
+                                      [](auto &&inner) { return inner; });
+        }
     }
 
     // kleisli: forward Kleisli composition (>=>).
     // (f >=> g) a = f a >>= g
+    // Prefers a native Impl::kleisli. Unlike the other members in this step,
+    // kleisli's own basis requirement cannot be spelled as a disjunctive
+    // second alternative: the derivation's use of bind is inside the
+    // returned closure, over an argument type ("a") that is not known until
+    // the closure is called, so there is no concrete expression to probe at
+    // kleisli's own instantiation. bind's presence is already guaranteed
+    // unconditionally by this class's invariant (the static_assert above),
+    // so the second alternative is trivially true rather than absent.
     template <class F, class G>
-    auto kleisli(this auto &&self, F f, G g) {
-        return [&self, f = std::move(f), g = std::move(g)](auto &&a) {
-            return self.bind(f(std::forward<decltype(a)>(a)), g);
-        };
+    auto kleisli(this auto &&self, F f, G g)
+        requires requires(const Impl &impl) { impl.kleisli(f, g); } || true
+    {
+        if constexpr (requires { impl_of(self).kleisli(f, g); }) {
+            return impl_of(self).kleisli(f, g);
+        } else {
+            return [&self, f = std::move(f), g = std::move(g)](auto &&a) {
+                return self.bind(f(std::forward<decltype(a)>(a)), g);
+            };
+        }
     }
 
     /** ap: one-step contextual application, derived from bind + pure.
@@ -139,19 +189,29 @@ struct Monad : protected Impl {
      */
     template <class MF, class MA>
     auto ap(this auto &&self, MF &&mf, MA &&ma)
-        requires requires {
+        requires requires(const Impl &impl) {
+            impl.ap(std::forward<MF>(mf), std::forward<MA>(ma));
+        } || requires {
             typename applicative_value_t<MF>;
             typename applicative_value_t<MA>;
             requires std::invocable<const applicative_value_t<MF> &,
                                     const applicative_value_t<MA> &>;
         }
     {
-        return self.bind(std::forward<MF>(mf), [&self, &ma](auto &&function) {
-            return self.bind(ma, [&self, &function](auto &&argument) {
-                return self.pure(std::invoke(
-                    function, std::forward<decltype(argument)>(argument)));
+        if constexpr (requires {
+                          impl_of(self).ap(std::forward<MF>(mf),
+                                           std::forward<MA>(ma));
+                      }) {
+            return impl_of(self).ap(std::forward<MF>(mf), std::forward<MA>(ma));
+        } else {
+            return self.bind(std::forward<MF>(mf), [&self,
+                                                    &ma](auto &&function) {
+                return self.bind(ma, [&self, &function](auto &&argument) {
+                    return self.pure(std::invoke(
+                        function, std::forward<decltype(argument)>(argument)));
+                });
             });
-        });
+        }
     }
 
     /** Uses a value at a wider grade, defaulted from the grade algebra.

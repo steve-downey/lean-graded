@@ -80,3 +80,94 @@ TEST_CASE("monad: fmap is not callable with a mismatched function") {
     static_assert(!has_fmap<decltype(bt::monad_typeclass<std::optional<int>>),
                             not_applicable_t, std::optional<int>>);
 }
+
+namespace {
+// An Impl with pure + bind, and a native `join` constrained to
+// std::optional<std::optional<int>> only -- a marker the bind derivation
+// could never produce, and unreachable for any other element type. This is
+// the per-instantiation property `using` could never express: one Impl,
+// native for one instantiation, derived for another.
+struct PerInstantiationJoinImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class A, class F>
+    auto bind(this auto &&, const std::optional<A> &ma, F &&f)
+        -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
+        using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
+        if (!ma)
+            return Result{};
+        return Result{std::invoke(std::forward<F>(f), *ma)};
+    }
+
+    auto join(this auto &&, const std::optional<std::optional<int>> &)
+        -> std::optional<int> {
+        return std::optional<int>{-1};
+    }
+};
+
+struct PerInstantiationJoinMap : bt::Monad<PerInstantiationJoinImpl> {};
+
+// An Impl with pure + bind, and a native `ap` that ignores both arguments
+// and returns a sentinel the bind + pure derivation could never produce.
+struct MarkedApImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class A, class F>
+    auto bind(this auto &&, const std::optional<A> &ma, F &&f)
+        -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
+        using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
+        if (!ma)
+            return Result{};
+        return Result{std::invoke(std::forward<F>(f), *ma)};
+    }
+
+    template <class MF, class MA>
+    auto ap(this auto &&, MF &&, MA &&) -> std::optional<int> {
+        return std::optional<int>{-1};
+    }
+};
+
+struct MarkedApMap : bt::Monad<MarkedApImpl> {};
+} // namespace
+
+TEST_CASE("monad: join native preference is per instantiation") {
+    PerInstantiationJoinMap m{};
+
+    // std::optional<std::optional<int>>: the native join fires.
+    REQUIRE(m.join(std::optional<std::optional<int>>{std::optional<int>{5}}) ==
+            std::optional<int>{-1});
+
+    // std::optional<std::optional<std::string>>: no native join exists for
+    // this element type, so the same member falls back to the bind
+    // derivation -- a property a Map-level `using` could never express,
+    // since `using` selects a name for every instantiation at once.
+    REQUIRE(m.join(std::optional<std::optional<std::string>>{
+                std::optional<std::string>{"x"}}) ==
+            std::optional<std::string>{"x"});
+}
+
+TEST_CASE("monad: ap prefers a native Impl::ap") {
+    MarkedApMap m{};
+    auto increment = [](int x) { return x + 1; };
+
+    REQUIRE(m.ap(std::optional<decltype(increment)>{increment},
+                 std::optional<int>{5}) == std::optional<int>{-1});
+}
+
+TEST_CASE("monad: ap falls back to the bind + pure derivation") {
+    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    auto increment = [](int x) { return x + 1; };
+
+    REQUIRE(m.ap(std::optional<decltype(increment)>{increment},
+                 std::optional<int>{5}) == std::optional<int>{6});
+}

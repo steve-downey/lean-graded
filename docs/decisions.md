@@ -1283,3 +1283,66 @@ is out of scope for this decision.
   std::invoke_result_t<F, const A &>>`), the probe fails cleanly, matching
   the invariant `apply.hpp` already states for `Applicative` impls. Suite
   went from 124 to 131.
+
+## derived-op-native-preference
+
+**Question:** How does a derived operation on a typeclass base find a
+better native implementation, and what may it address?
+**Status:** DECIDED 2026-09-07
+**Decided by:** the design, applied by
+[functor-monad-derived-probing](../tmp/plan/step-functor-monad-derived-probing.md).
+**Decision:** Two parts.
+1. Every derived member probes `Impl` for a native version and forwards to
+   it when present, deriving otherwise, and carries a disjunctive
+   `requires`-clause: native present, or the derivation's own requirement on
+   the basis holds.
+2. **Impl-directed addressing is confined to the mutually-derivable pairs**
+   — `invoke`/`ap`, `fold_map`/`fold_right`, `bind`/`join`+`fmap`. Every
+   other internal call stays `self.`-routed.
+
+`Functor::replace`, `Monad::join`, `Monad::kleisli` and `Monad::ap` all
+adopted the shape. `join`/`bind` is one of the mutually-derivable pairs, so
+its derivation addresses `impl_of(self).bind(...)` directly, matching
+`fmap`'s bind-basis branch; `replace`, `kleisli` and `ap`'s bind + pure
+derivation are one-way and keep routing through `self`. `subsume` and
+`bind_with` were deliberately left unprobed: `subsume` is grade machinery
+defaulted from the algebra, not a derivation over `Impl`, and `bind_with` is
+explicit delegation to an object the caller passed — neither has an `Impl`
+operation to prefer.
+
+**Not every member has an expressible second alternative.** `kleisli`
+returns a closure whose body calls `bind` on an argument type ("a") that is
+not known until the closure is invoked, so there is no concrete expression
+to probe at `kleisli`'s own instantiation. `bind`'s existence is already
+guaranteed unconditionally by `Monad<Impl>`'s class invariant (the
+`static_assert` plus `using Impl::bind;` at the top of the class fail the
+whole class before `kleisli`'s clause is ever reached if `Impl` lacks
+`bind`), so `kleisli`'s second alternative is spelled `true` rather than a
+tautological re-check. `invoke`'s second alternative could not name
+`FUNCTION` directly either — its arity does not match `bind`'s
+single-argument callback shape, since the derivation applies it only after
+unwinding nested `bind` calls — so it probes `impl.bind(first, <a
+single-argument passthrough lambda>)` instead, checking that `FIRST` is
+bind-compatible without asserting anything about `FUNCTION`.
+
+**Why:** The constraint keeps the deep object concept a later step
+introduces from being satisfied vacuously by substitution alone, and
+restores "missing basis" as a clean constraint failure. The pairs-only rule
+keeps `Map`-level shadows at exactly their current reach — broad
+Impl-direction would let external calls hit a shadow while internal
+derivations skipped it. Hand-rolled objects never touch the bases and are
+unaffected.
+
+**Record as provisional:** which pairs are mutually derivable is a fact
+about the current basis sets, and admitting an alternate Monad basis would
+add one.
+**Log:**
+- 2026-09-07 —
+  [functor-monad-derived-probing](../tmp/plan/step-functor-monad-derived-probing.md)
+  converted `Functor::replace` and `Monad::join`/`kleisli`/`ap`/`invoke` to
+  the probe-then-derive shape and added preference tests, including one
+  per-instantiation test (`Monad::join` native for
+  `std::optional<std::optional<int>>` only, falling back for
+  `std::optional<std::optional<std::string>>` on the same Map) exercising
+  the property a Map-level `using`-declaration could never express. No
+  `Map`'s `using`-declarations were removed. Suite went from 131 to 135.
