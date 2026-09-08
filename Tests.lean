@@ -5,6 +5,7 @@ import Tests.Monad
 import Tests.Applicative
 import Tests.Accum
 import Tests.Traverse
+import Tests.Tuple
 
 -- populated by later steps
 example : True := trivial

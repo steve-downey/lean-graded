@@ -11,7 +11,7 @@ Mark your own step done before writing the next step's handoff.
 - [x] 6. [applicative-from-monad](step-applicative-from-monad.md)
 - [x] 7. [applicative-accumulation](step-applicative-accumulation.md)
 - [x] 8. [traverse-list](step-traverse-list.md)
-- [ ] 9. [traverse-tuple](step-traverse-tuple.md)
+- [x] 9. [traverse-tuple](step-traverse-tuple.md)
 - [ ] 10. [compose-flatten](step-compose-flatten.md)
 - [ ] 11. [graded-morphism](step-graded-morphism.md)
 - [ ] 12. [canonical-representation](step-canonical-representation.md)

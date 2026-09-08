@@ -504,8 +504,114 @@ signature would even look like (in C++ terms, it would have to mention
 the container's length, which generic code over `error_set` cannot do).
 
 Filled by [traverse-list](../tmp/plan/step-traverse-list.md) (`List`) and
-[traverse-tuple](../tmp/plan/step-traverse-tuple.md) (fixed-size, to
-follow).
+[traverse-tuple](../tmp/plan/step-traverse-tuple.md) (fixed-size, below).
+
+### Tuple: the grade is computed once, at the type level
+
+`Graded/Tuple.lean` models the C++ `transpose(tuple<expected<A,
+error_set<X>>, expected<B, error_set<Y>>>)` → `expected<tuple<A,B>,
+error_set<X,Y>>` case. Unlike `List`'s `traverse`, a tuple's elements carry
+*different* grades and *different* payload types, so there is no single
+uniform `g` to fold a fixed number of times — the joined grade is a static
+fold over the *list of element grades*, computed once from the tuple's
+shape, not a runtime-length-dependent fold of one repeated grade.
+
+**Representation.** `GList gs αs` holds one `Graded g α` per tuple slot, `g`
+drawn from `gs` and `α` from `αs` in lockstep — the fully heterogeneous
+representation the step called for, not the simpler uniform-payload
+fallback (elements genuinely differ in both grade *and* type; see the
+consumer below). It is defined as a plain recursive `def` over the two
+index lists together (`PUnit` at `[],[]`, `Graded g α × GList gs αs` at
+each matched `cons`, the uninhabited `PEmpty` at a length mismatch), not as
+a genuine `inductive` family.
+
+> **Finding, not in the step brief.** The literal sketch (`inductive GList
+> : (gs) → (αs) → Type _ | nil | cons : Graded g α → GList gs αs → GList
+> (g :: gs) (α :: αs)`) does not typecheck as an `inductive`: Lean's
+> large-inductive-family check requires the resultant sort to dominate not
+> just `Graded g α`'s own level `v`, but the level of `α`'s *type*
+> (`Type v`'s type is `Type (v+1)`), since `α` is quantified fresh per
+> constructor rather than fixed once as a global parameter (contrast
+> `Sigma {α : Type u} (β : α → Type v) : Type (max u v)`, where `α` is a
+> parameter and pays no such tax). Declaring `GList` as an `inductive`
+> would force `Type (max (u+1) (v+2))` or worse. The `def`-as-nested-Prod
+> route sidesteps this entirely — a plain recursive `Type`-valued function
+> carries no large-elimination obligation — and is the same trick `HList`
+> below already uses. This cost nothing observable to the consumer:
+> `GList.nil`/`GList.cons` are ordinary `def`s standing in for
+> constructors, and `sequence`'s equations below are still `rfl`.
+
+`HList αs` (`Graded/Prelude.lean`) is the plain heterogeneous product
+`sequence` lands its payload in: `HList [] = PUnit`, `HList (α :: αs) = α ×
+HList αs`. Checked against Mathlib at the pinned version first:
+`List.TProd` (`Mathlib.Data.Prod.TProd`) builds the same shape of iterated
+product, but over an arbitrary index type `ι` and family `π : ι → Type*` —
+instantiating `ι := Type v`, `π := id` buys nothing over a direct
+three-line `def` and loses the `HList.nil`/`HList.cons` names `sequence`'s
+equations are stated with. Written fresh, as a shared definition in
+`Graded/Prelude.lean` (every later module imports it), for the same
+universe reason `GList` above is a `def` and not an `inductive`.
+
+**`joinAll`** (`List (Grade Err) → Grade Err := List.foldr Grade.join
+Grade.bot`) is a *different* function from `Graded.Traverse.foldGrade`,
+not a fork of it: `foldGrade g xs` folds one fixed grade `g` once per list
+element; `joinAll gs` folds a list of *distinct* grades, one per tuple
+slot, and takes no `g` argument at all. The two are conceptual siblings
+("fold `Grade.join` over a list, `Grade.bot` at the base") with no shared
+code and no intent to unify them.
+
+**Property table** — the tuple's fold splits along exactly the axis the
+step predicted:
+
+| law | property | note |
+|---|---|---|
+| `joinAll_perm` | commutative + associative | order-independence — typeability |
+| `joinAll_dedup` | idempotent (via `join_mem_eq`) | dedup — tidiness, not typeability |
+
+`joinAll_perm : gs ~ gs' → joinAll gs = joinAll gs'` needs only
+`Grade.join_comm`/`Grade.join_assoc`, proved by induction on the
+permutation witness (`nil`/`cons`/`swap`/`trans`, the same case shape as
+Mathlib's `List.Perm.foldr_eq`) rather than through a
+`Std.Commutative`/`Std.Associative` instance (`List.Perm.foldr_op_eq`
+would need one) — citing the named `Grade` lemmas keeps `join_comm`'s use
+greppable, the same reason [#grade](#grade) never registers `Grade` as a
+Mathlib lattice instance. **This is the theorem that licenses the C++
+claim `error_set<X,Y>` ≡ `error_set<Y,X>`.** The C++ canonical sorting of
+`error_set`'s type arguments is an *implementation* of `joinAll_perm`, not
+the theorem itself — sorting is one way to make the union order-
+independent at the representation level; commutativity plus associativity
+is *why* any such implementation is licensed to exist at all. As with
+[applicative](#applicative)'s four laws, no idempotence is needed here:
+confirms the step's own prediction.
+
+`joinAll_dedup : joinAll gs.dedup = joinAll gs` needs `Grade.join_idem`,
+spent in one place: `join_mem_eq (g ∈ gs) : Grade.join g (joinAll gs) =
+joinAll gs`, where finding `g` already present collapses `Grade.join g g`
+to `g`. This is tidiness, not typeability — dropping a duplicate grade
+from the list changes nothing observable about the joined grade, but
+*proving* that costs the property the `List` case's `foldGrade_cons_ne_nil`
+also needed. Confirms the step's prediction, mirroring
+[traverse-list](../tmp/plan/step-traverse-list.md)'s split precisely:
+order-independence is free of idempotence, tidiness is not.
+
+**Shape preservation is by construction, not a theorem.** `sequence :
+GList gs αs → Graded (joinAll gs) (HList αs)` is indexed by `αs`
+throughout — the payload shape never changes because there is no
+per-length recursion to preserve anything *across*, unlike `List`'s
+`traverse_length`. Stating a "shape preservation" theorem for the tuple
+case would be proving that `αs = αs`, which is not a finding.
+
+The consumer, `Examples/Validation.lean`: `validateTuple s n` sequences
+`parseNat s : Graded {E.parse} Nat`, `checkRange n : Graded {E.range}
+Nat`, and `logIt n : Graded {E.io} Unit` — three elements with three
+different grades and two different payload types (`Nat`, `Nat`, `Unit`) —
+into one `Graded {E.parse, E.range, E.io} (HList [Nat, Nat, Unit])`,
+accepted definitionally against the literal-union ascription the same way
+`validate`'s `bind`-computed grade is. `#check` displays exactly that
+union grade. A failure in the *middle* element (`checkRange 9999`, with
+`parseNat` succeeding) surfaces as `E.range` — `sequence`'s
+`map2`/`ap`-derived short-circuiting reaches the second element's error
+before ever forcing the third.
 
 ## compose
 
