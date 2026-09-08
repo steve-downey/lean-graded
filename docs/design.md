@@ -136,6 +136,11 @@ was established, because that fact is compile-time and already erased.
 > `bind` at any sufficient grade `k` with `g ∪ h ⊆ k`, absorbing
 > subsumption — would remove every `cast`. Revisit if [monad-laws] or
 > [traverse-list] finds the casts dominate the proofs.
+>
+> **[monad-laws] verdict:** tolerable, not dominating. Three generic
+> transport lemmas (`cast_ok`, `cast_err`, `cast_widen`), each proved by
+> `subst e; rfl`, absorbed every `cast` the five monad laws produced; see
+> [#monad](#monad) for the detail. Standing, not revisited.
 
 The first consumer, `Examples/Validation.lean`: `parseNat : String →
 Graded {E.parse} Nat` and `checkRange : Nat → Graded {E.range} Nat`,
@@ -194,7 +199,55 @@ the ∅-collapse ([carrier](#carrier)'s `emptyEquiv`), then widen along
 
 ## monad
 
-Filled by [monad-laws](../tmp/plan/step-monad-laws.md).
+`Graded.pure (a : α) : Graded (Grade.bot : Grade Err) α := .ok a` and
+`Graded.bind (x : Graded g α) (f : α → Graded h β) : Graded (Grade.join g
+h) β` (in `Graded/Monad.lean`) model C++ `and_then`: the result grade is
+the *union* of the input's grade and the continuation's. `bind` needs only
+the order half of the pomonoid — `Grade.le_join_right` to widen the
+continuation's result up to the union on the success path,
+`Grade.le_join_left` to inject the input's own error on the failure path
+— neither branch needs `join_comm`; the two sides of the union are kept
+apart by which one-sided inclusion lemma reaches them, not by commuting
+anything.
+
+Five theorems, each citing the [grade](#grade) property it needs:
+
+- `bind_pure_left` (unit, `bot_join`): `pure` on the left of `bind` is the
+  continuation, up to `∅ ∪ h = h`.
+- `bind_pure_right` (unit, `join_bot`): `pure` on the right is the
+  original value, up to `g ∪ ∅ = g`.
+- `bind_assoc` (associative, `join_assoc`): `bind` re-associates up to
+  `(g ∪ h) ∪ j = g ∪ (h ∪ j)`.
+- `bind_map` (unit, `join_bot`): `bind x (pure ∘ f) = map f x` up to
+  `g ∪ ∅ = g` — the functor is the monad's functor.
+- `bind_widen` (order, `join_mono` + `le_refl'`): subsumption commutes
+  with `bind`; no `cast` at all, since widening produces an *inclusion*,
+  not an equation, between the two sides' grades.
+
+**Cast direction.** Every law with a `cast` states it as `cast
+(Grade.<lemma> …) (<the compound bind/join expression>) = <the simpler
+expression>`, always applying the pomonoid lemma in the direction it is
+already stated in `Graded/Grade.lean` — never `.symm`. Concretely: `cast`
+is applied to whichever side's grade is literally the `join`-expression
+the named lemma's left-hand side matches (`Grade.join Grade.bot h`,
+`Grade.join g Grade.bot`, `Grade.join (Grade.join g h) j`), transporting
+it down to the grade the lemma's right-hand side names. This was a
+free choice — the reverse direction (cast the simpler side up, with
+`.symm`) typechecks equally well — but this one reads as "the messier
+expression collapses to the tidy one," which matched every proof's
+natural shape and meant no `.symm` was ever needed, at the law
+statements or at their use sites in the tests.
+
+**Verdict on the `cast` decision ([carrier](#carrier)):** tolerable, not
+dominating. Three small generic transport lemmas — `cast_ok`, `cast_err`,
+`cast_widen` (the mirror of `Widen.widen_cast`), each one `subst e; rfl`
+— handled every occurrence of `cast` meeting a constructor or a `widen`
+across all five theorems; no proof needed more than that plus `cases` on
+the scrutinee(s) and one closing `rw`. Rough count: of the ~45 lines of
+proof text, perhaps a third is `cast`/`widen`-shuffling (the `change`
+statements that spell out the fully-reduced goal) and the rest is
+ordinary case analysis. Nothing here suggests revisiting the provisional
+decision.
 
 ## applicative
 
