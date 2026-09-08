@@ -3,6 +3,7 @@ import Graded.Widen
 import Graded.Monad
 import Graded.Applicative
 import Graded.Accum
+import Graded.Traverse
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
@@ -164,5 +165,28 @@ def renderPair :
 -- one error `Graded.ap`'s carrier has room for).
 #guard renderPair (validateTwoFields "abc" "") =
   "errs [Examples.Validation.E.parse, Examples.Validation.E.range]"
+
+-- ---------------------------------------------------------------------
+-- `traverse`: parsing a whole `List String` with the uniform `parseNat`,
+-- at the *uniform* grade `{E.parse}` regardless of the list's length —
+-- the C++ `traverse` signature this step's theorems make typeable.
+
+/-- Render a `traverse parseNat` result for `#eval`/`#guard`. -/
+def renderNats : Graded ({E.parse} : Grade E) (List Nat) → String
+  | .ok ns => s!"ok {ns}"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderNats (traverse parseNat ["1", "2", "3"])   -- ok [1, 2, 3]
+#eval renderNats (traverse parseNat ["1", "2", "x"])   -- err E.parse
+#eval renderNats (traverse parseNat ([] : List String)) -- ok []
+
+#guard renderNats (traverse parseNat ["1", "2", "3"]) = "ok [1, 2, 3]"
+#guard renderNats (traverse parseNat ["1", "2", "x"]) = "err Examples.Validation.E.parse"
+
+-- The empty list traverses to `fromEmpty []` (`traverse_nil`): compared
+-- through `renderNats`, per the `#guard`-on-`Graded` detour every
+-- consumer in this codebase has needed since [monad-laws].
+#guard renderNats (traverse parseNat ([] : List String)) =
+  renderNats (fromEmpty [] : Graded ({E.parse} : Grade E) (List Nat))
 
 end Examples.Validation

@@ -1,0 +1,103 @@
+#+TITLE: Letter 8: Why the error set doesn't grow with the vector
+#+DATE: 2026-09-08
+#+CATEGORY: lean-transpose
+#+STEP: traverse-list
+
+Dear colleague,
+
+* What I set out to do
+
+You write =traverse= all the time without thinking about it: you have a
+=std::vector<std::string>=, a function =parse : std::string ->
+expected<int, error_set<parse>>=, and you want one call that parses every
+element and gives you back either a =vector<int>= or the first error.
+The signature you'd write for that, in C++, is =expected<vector<int>,
+error_set<parse>> traverse(F, vector<std::string>)=. Notice what's
+*not* in that signature: the length of the vector. It doesn't say
+=error_set<parse, parse, parse>= for a three-element vector and
+something longer for a four-element one. The error set is =parse=,
+full stop, no matter how many elements you feed it.
+
+That seemed obvious enough that I almost didn't think it needed a
+theorem. Then I tried to build the Lean model and the compiler made me
+say, out loud, why it's true.
+
+* What the checker refused
+
+I started the way the earlier steps trained me to: define the grade of
+the whole traversal as a fold — start at the bottom grade, and at each
+element, join in that element's grade. For a uniform =f= whose grade is
+always =g=, that's =g ⊔ g ⊔ g ⊔ ... ⊔ ⊥=, once per element. The checker
+had no objection to *that* definition. What it refused was my first
+attempt to prove the fold equals =g= for any nonempty list, in one shot,
+by ordinary induction on the list.
+
+The problem was that ordinary induction gives you an inductive
+hypothesis about the *tail*, and the tail might be empty. My base case
+needed "join with the bottom grade does nothing" (=g ⊔ ⊥ = g=, a unit
+law), but my step case needed something else entirely: the tail's own
+fold is already =g= (by the hypothesis), so joining =g= with it is
+joining =g= with =g= — and that only equals =g= because a union of a set
+with itself is itself. That's idempotence, and until this step, nothing
+in the whole project had needed it. Six earlier steps' worth of laws —
+about sequencing, about combining independent checks — ran entirely on
+unit and associativity. This is the first place the plan actually spends
+the fact that your error sets don't grow by being combined with
+themselves.
+
+Once I saw the two-case shape (empty tail needs the unit law, nonempty
+tail needs idempotence), the proof itself was routine — the usual
+"reduce, then induct" pattern every earlier step had settled into.
+
+The second surprise was about the *empty* list. The bound-not-equal
+distinction matters most right there: the fold over =[]= is =⊥=, not
+=g=, so if I'd tried to define =traverse= by transporting along "the
+fold equals =g=," I'd have had nothing to transport for the one case
+that has no elements to be idempotent over. I sidestepped that by proving
+a *weaker*, unconditional fact first — the fold is never bigger than
+=g=, for any list including the empty one, and that needs only the order
+half of the grade, no idempotence at all — and defining =traverse= by
+widening along *that*. The empty list falls out for free. The stronger,
+exact fact — the fold really does equal =g=, not something smaller —
+only gets invoked afterward, at the one place a caller might notice: the
+theorem saying the traversal's grade isn't padded, and the one saying
+that combining one element's result with the rest agrees with combining
+them via the ordinary pairwise combinator you already have.
+
+* What changed
+
+The design that came out the other end keeps those two facts separate on
+purpose, because they cost different things. "The traversal's grade
+never exceeds =g=" is free — every grade, idempotent or not, has that
+property, so it's what lets =traverse= be *defined* without a case split
+on the empty list. "The traversal's grade is exactly =g=, no smaller" is
+the one that costs idempotence, and it only shows up where precision
+actually matters: showing the grade isn't an overestimate, and showing
+that peeling off one element and combining it with the rest agrees with
+what you'd get by the ordinary way of combining two independently-graded
+things. I also got a shape-preservation theorem out of it almost for
+free — whenever the traversal succeeds, the result has exactly as many
+elements as the input — by leaning on the same "figure out which of the
+two possible outcomes you're in" case analysis the combining theorems
+already needed.
+
+* Back in C++
+
+The takeaway for =error_set= specifically: your =traverse= signature is
+writable, without the vector's length leaking into the type, because
+=std::set<Es...>= unioned with itself is itself. That is not a property
+every possible "collect what went wrong" type has — if your error
+tracking instead *counted* occurrences of each error kind (so that
+seeing the same parse failure three times looked different from seeing
+it once), that count would grow with every element, and there would be
+no fixed type you could write down for =traverse= over an arbitrary-length
+container at all; you'd need one type per length, which C++ generic code
+cannot express. =error_set= gets to have a nice =traverse= specifically
+because it forgets how many times each error showed up and only remembers
+which ones did. I didn't model that counting alternative here — it's a
+different question from the one this step answers — but knowing exactly
+which property you're leaning on is the point: now there's a theorem you
+can point to instead of an intuition.
+
+Yours,
+Steve
