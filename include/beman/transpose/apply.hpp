@@ -292,7 +292,7 @@ inline constexpr auto accumulating_applicative_typeclass = std::false_type{};
 //! `pure`, the same mechanism the library's own ap-from-invoke derivation
 //! uses), `subsume` where `CONTEXT` participates in grading. Operations
 //! templated over an arbitrary callable are probed with one representative
-//! witness (`probe_witness`/`probe_witness2`): this checks that the
+//! witness ($probe-witness$/$probe-witness2$): this checks that the
 //! operation exists, not that it holds for every callable. Conformance here
 //! is structural, so a hand-implemented object that never derives from
 //! `Applicative<Impl>` can satisfy this concept.
