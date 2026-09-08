@@ -1,10 +1,11 @@
 import Graded.Carrier
 import Graded.Widen
+import Graded.Monad
 
 /-! The first consumer of `Graded`: a two-stage validation modelling
     `expected<int, error_set<parse, range>> validate(std::string)`. The two
-    stages are composed by hand with a `match`, since no `bind` exists yet
-    ([monad-laws] introduces it and replaces this composition). -/
+    stages are composed with `bind` ([monad-laws]); a third stage,
+    `validateAndLog`, composes them with nested `bind`. -/
 
 namespace Examples.Validation
 
@@ -24,21 +25,11 @@ def parseNat (s : String) : Graded ({E.parse} : Grade E) Nat :=
 def checkRange (n : Nat) : Graded ({E.range} : Grade E) Nat :=
   if n ≤ 100 then .ok n else .err E.range (Finset.mem_singleton_self E.range)
 
-/-- Parse then range-check. Composed by hand: with no `bind` yet, the
-    result's union grade `{E.parse, E.range}` and each `err`'s membership
-    proof are assembled explicitly at the call site. -/
--- REPLACED-BY: bind
+/-- Parse then range-check, composed by `bind`: the result's union grade
+    and each `err`'s membership proof are assembled by `bind` itself
+    rather than at this call site. -/
 def validate (s : String) : Graded ({E.parse, E.range} : Grade E) Nat :=
-  match parseNat s with
-  | .err e he =>
-      .err e (by
-        have h : e = E.parse := Finset.mem_singleton.mp he
-        subst h
-        exact Finset.mem_insert_self _ _)
-  | .ok n =>
-    match checkRange n with
-    | .err e he => .err e (Finset.mem_insert_of_mem he)
-    | .ok m => .ok m
+  bind (parseNat s) checkRange
 
 /-- Render a validation result for `#eval`. -/
 def render : Graded ({E.parse, E.range} : Grade E) Nat → String
@@ -52,6 +43,27 @@ def render : Graded ({E.parse, E.range} : Grade E) Nat → String
 /-- A third stage that only ever logs, modelling a call that carries an
     `E.io` grade but cannot itself fail otherwise. -/
 def logIt (_ : Nat) : Graded ({E.io} : Grade E) Unit := .ok ()
+
+/-- All three stages, composed by nested `bind`: parse, then range-check,
+    then log. Models `parse(s).and_then(check_range).and_then(log_it)`. -/
+def validateAndLog (s : String) : Graded ({E.parse, E.range, E.io} : Grade E) Unit :=
+  bind (bind (parseNat s) checkRange) logIt
+
+/-- Render a log-and-validate result for `#eval`. -/
+def renderLog : Graded ({E.parse, E.range, E.io} : Grade E) Unit → String
+  | .ok () => "ok ()"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderLog (validateAndLog "42")    -- ok ()
+#eval renderLog (validateAndLog "abc")   -- err E.parse
+#eval renderLog (validateAndLog "9999")  -- err E.range
+
+-- The nested-`bind` three-stage composition produces the same outcome as
+-- the two-stage `validate`, up to `logIt` never failing: success and each
+-- failure kind agree.
+#guard renderLog (validateAndLog "42") = "ok ()"
+#guard renderLog (validateAndLog "abc") = "err Examples.Validation.E.parse"
+#guard renderLog (validateAndLog "9999") = "err Examples.Validation.E.range"
 
 -- Widening `parseNat`'s failure from grade `{E.parse}` into the union
 -- grade `{E.parse, E.range, E.io}` (as if it were composed with
