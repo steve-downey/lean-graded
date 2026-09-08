@@ -1123,3 +1123,96 @@ down instead.
   `Sum<int>`. The sentinel is a `has_monoid` concept with
   `static_assert(!has_monoid<int>)` (and `long`, `std::size_t`), so a future
   re-registration fails a test instead of silently restoring the old default.
+
+## impl-access-through-bases
+
+**Question:** How does a derived member of a typeclass base (`Functor`,
+`Applicative`, `Monad`, `Foldable`, `Traversable`) address its `Impl`, given
+that `self` is a deducing-this parameter typed as the most-derived class —
+which may be a `Map`, a user class, or another typeclass object wrapping this
+one?
+**Status:** DECIDED 2026-09-07
+**Decided by:** Steve, for the half that keeps `protected`: the published
+wording is not changed as a side effect of an implementation convenience.
+`struct Applicative : protected Impl` and `struct Traversable : protected
+Impl` are published wording, appearing verbatim in
+`papers/wording/transpose.applicative.syn.md` and
+`transpose.traversable.syn.md`, generated from these headers, so the
+inheritance keyword itself is out of scope for any refactor. The mechanism
+that reaches `Impl` under that constraint is decided by this step, from
+compile evidence gathered in the amendment consult's throwaway worktree.
+**Decision:** Three parts, all needed by later steps:
+- The five bases keep `protected Impl`. Not renegotiable by a later step:
+  `Applicative` and `Traversable`'s class heads are published, and changing
+  the inheritance changes what D3200R0 proposes.
+- Addressing goes through **`impl_of(self)`, a private member of each
+  base**, with the const rule shared as `impl_ref_t` in
+  `include/beman/transpose/detail/typeclass_base.hpp`. A namespace-scope
+  helper cannot perform the conversion, because it is a member or friend of
+  nothing, and under protected inheritance only a member of the base that
+  owns the `Impl` sub-object may cast to it.
+- **A base exposes an operation as its own member, never as a `using
+  Impl::op;` re-export, wherever that base may itself be wrapped.** This is
+  the half that keeps a two-deep composition (`Functor<SomeMonadMap>`, where
+  `SomeMonadMap` is itself built from `Monad<Impl>`) reachable: an external
+  call enters the outer base's own member, which hands the inner base's
+  member a `self` typed as the `Map` — one level deep, where addressing
+  already works. If a later step turns a probing member back into a
+  re-export, the deep chain re-forms and the inner base's `impl_of` sees a
+  `self` typed as the *outer* wrapper instead of the `Map`, and the cast
+  fails: `'X' is an inaccessible base of 'Functor<SomeMap>'`, raised from
+  inside the inner base's member.
+**Why:** Measured, with the inheritance untouched:
+- A namespace-scope helper performing `static_cast<Impl &>(self)` fails
+  access control even one level deep — it is a member or friend of nothing,
+  and protected base-class accessibility has no clause that walks upward
+  into it.
+- A member of an *inner* base cannot touch an *outer* object's inherited
+  surface at all: `Monad<Impl>` is a base of `Functor<Map>`, not a friend or
+  member of it, and base-class accessibility does not walk upward.
+- A `using Impl::op;` re-export at the wrapping base fails the two-deep case
+  specifically, with `'Probe' is an inaccessible base of 'Outer<InnerMap>'`
+  (reproduced directly in
+  `tests/beman/transpose/detail/typeclass_base.test.cpp`'s two-deep
+  `TEST_CASE`s, which use the own-member shape and pass; the re-export
+  failure itself is documented here rather than compiled, since it is a hard
+  error rather than a SFINAE-friendly one).
+- The full suite is green and unchanged after converting
+  `Applicative<Impl>::invoke`, `Applicative<Impl>::ap`, and
+  `Monad<Impl>::invoke` from the open-coded `SELF`/`IMPL_BASE` cast to
+  `impl_of(self)` — same probes, same derivations, same passing count
+  (119, then 124 with this step's five added `TEST_CASE`s exercising the
+  mechanism directly).
+- The generated wording is byte-identical: `scripts/gen-wording.sh` produced
+  a diff against only the four fragments already known to drift for
+  unrelated reasons (`transpose.errset.recover.md`,
+  `transpose.errset.syn.md`, `transpose.expected.syn.md`,
+  `transpose.grade.syn.md`); neither `transpose.applicative.syn.md` nor
+  `transpose.traversable.syn.md` appears. `impl_of` is `//! \omit`-marked and
+  in a trailing private section in `apply.hpp` and `traverse.hpp`, which
+  renders as nothing.
+
+A trailing *requires-clause* is not a complete-class context, so `impl_of`
+cannot be named there: `Applicative<Impl>::ap`'s declaration-level
+disjunctive `requires`-clause keeps its existing `requires(const Impl &impl)
+{ impl.op(...); }` form rather than being rewritten to name `impl_of`.
+Member *bodies* are complete-class contexts and use `impl_of(self)` freely;
+this split — declaration clauses one way, bodies another — is the shape
+every later probing member copies.
+
+**Provisional:** the cast is repeated in five classes rather than shared.
+What would justify sharing it is a language change that lets a non-member
+perform the conversion, or a base gaining genuinely private state, which no
+typeclass object has today — every one of them is stateless and empty. What
+is not repeated is the const propagation, which lives once in `impl_ref_t`.
+**Log:**
+- 2026-09-07 — [impl-probe-helper](../tmp/plan/step-impl-probe-helper.md)
+  added `impl_ref_t` to `detail/typeclass_base.hpp` and a private `impl_of`
+  to each of `Functor`, `Applicative`, `Monad`, `Foldable`, `Traversable`,
+  then converted the three existing native-`Impl` probes
+  (`Applicative<Impl>::invoke`, `Applicative<Impl>::ap`,
+  `Monad<Impl>::invoke`) to call through it. Pure refactor: no other member
+  gained a probe, no `: protected Impl` changed, no `using Impl::op;`
+  re-export changed. The own-member rule (this decision's third part) is
+  applied to a real member for the first time by
+  [monad-fmap-basis](../tmp/plan/step-monad-fmap-basis.md), the next step.

@@ -337,6 +337,13 @@ struct Foldable : protected Impl {
 
         return result.d_value;
     }
+
+  private:
+    //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
+    }
 };
 
 /** Typeclass lookup variable for Foldable; specialize for each container type.

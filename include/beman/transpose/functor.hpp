@@ -38,6 +38,13 @@ struct Functor : protected Impl {
                              const auto &) { return replacement; },
                          std::forward<T>(value));
     }
+
+  private:
+    //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
+    }
 };
 
 /** Typeclass lookup variable for Functor; specialize for each container type.

@@ -50,17 +50,14 @@ struct Monad : protected Impl {
     template <class FUNCTION, class FIRST, class... REST>
     auto invoke(this auto &&self, FUNCTION &&function, FIRST &&first,
                 REST &&...rest) {
-        using SELF = std::remove_reference_t<decltype(self)>;
-        using IMPL_BASE =
-            std::conditional_t<std::is_const_v<SELF>, const Impl, Impl>;
-        if constexpr (requires(IMPL_BASE &impl) {
-                          impl.invoke(std::forward<FUNCTION>(function),
-                                      std::forward<FIRST>(first),
-                                      std::forward<REST>(rest)...);
+        if constexpr (requires {
+                          impl_of(self).invoke(std::forward<FUNCTION>(function),
+                                               std::forward<FIRST>(first),
+                                               std::forward<REST>(rest)...);
                       }) {
-            return static_cast<IMPL_BASE &>(self).invoke(
-                std::forward<FUNCTION>(function), std::forward<FIRST>(first),
-                std::forward<REST>(rest)...);
+            return impl_of(self).invoke(std::forward<FUNCTION>(function),
+                                        std::forward<FIRST>(first),
+                                        std::forward<REST>(rest)...);
         } else {
             return self.bind(std::forward<FIRST>(first), [&](auto &&head) {
                 if constexpr (sizeof...(REST) == 0) {
@@ -143,6 +140,13 @@ struct Monad : protected Impl {
     template <class MONAD_MAP, class MA, class F>
     auto bind_with(this auto &&, const MONAD_MAP &monad_map, MA &&ma, F &&f) {
         return monad_map.bind(std::forward<MA>(ma), std::forward<F>(f));
+    }
+
+  private:
+    //! \omit
+    template <class SELF>
+    static constexpr decltype(auto) impl_of(SELF &&self) {
+        return static_cast<impl_ref_t<Impl, SELF>>(self);
     }
 };
 
