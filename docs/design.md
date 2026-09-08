@@ -1290,6 +1290,203 @@ report.
   already predicted from the general-grade re-run, now checked
   executably rather than merely inferred.
 
+## obligations
+
+**The question this section answers.** `#cpp-counterpart` ends: "Only
+`error_set` is intended as a grade for now; the design should not make it
+the *only possible* grade." Fourteen prior sections each recorded which
+pomonoid property a law consumed, but `Graded.Grade Err` is a concrete
+`abbrev` for `Finset Err`, so nothing ever forced a proof to live inside
+its recorded budget, and no second grade was ever tried. `Graded/
+Obligations.lean` turns the observation into an obligation: three Lean
+classes, a proof that `Finset Err` satisfies all three (citing
+`Graded/Grade.lean`'s named lemmas, never reproving them), and a
+commutative-but-not-idempotent counter-instance (`Nat`, under `+`/`0`/`≤`)
+that fails exactly the theorems idempotence buys.
+
+### The three layers
+
+```
+class Pomonoid (G : Type u) where
+  join : G → G → G
+  bot  : G
+  le   : G → G → Prop
+  join_assoc, bot_join, join_bot, le_refl', le_trans', bot_le, join_mono
+
+class IsCommPomonoid (G : Type u) extends Pomonoid G where
+  join_comm : ∀ a b, join a b = join b a
+
+class IsIdemPomonoid (G : Type u) extends IsCommPomonoid G where
+  join_idem : ∀ a, join a a = a
+```
+
+Field names match `Graded/Grade.lean`'s existing theorem names exactly
+(`join_assoc`, `bot_join`, `join_bot`, `le_refl'`, `le_trans'`, `bot_le`,
+`join_mono`, `join_comm`, `join_idem`), so
+[oracle-export](../tmp/plan/step-oracle-export.md)'s grep sees one
+vocabulary rather than two.
+
+> **Provisional, judgement call 1: nesting, not sitting beside.**
+> `IsIdemPomonoid extends IsCommPomonoid` rather than `IsIdemPomonoid`
+> sitting beside `IsCommPomonoid` as a second sibling of `Pomonoid`.
+> `error_set`'s own commutativity and idempotence are independent axioms
+> of `Finset` union — nothing forces one to imply the other — and neither
+> `foldG_le` nor `foldG_cons_ne_nil` below ever *cites* `join_comm` in its
+> proof, so the nesting costs nothing observable to either headline
+> theorem. It is chosen anyway, for one class fewer and because every
+> concrete grade this project has produced so far (`Finset` union) happens
+> to have both. A grade that is idempotent without being commutative is
+> not ruled out by the mathematics, only by this hierarchy's shape.
+> Revisit if a later step needs one.
+
+### What was deliberately not copied from `Graded/Grade.lean`
+
+`Graded.Grade.join_le` (`g ⊆ k → h ⊆ k → g ∪ h ⊆ k`, proved directly by
+`Finset.union_subset`) and its two one-sided cousins `le_join_left`/
+`le_join_right` are **not** primitive `Pomonoid` fields here, and this is
+itself a finding, not a simplification of convenience.
+
+`join_le` is a least-upper-bound fact: it holds for `Finset` union because
+union genuinely *is* a semilattice join relative to `⊆`. It is **not**
+implied by "associative, unital, ordered, monotone" — the `Nat`
+counter-instance below satisfies every other field (`join_assoc`,
+`bot_join`/`join_bot`, `le_refl'`/`le_trans'`, `bot_le`, `join_mono`,
+`join_comm`) and still refutes it: `1 ≤ 1` twice over, but `1 + 1 ≰ 1`.
+Making `join_le` a required `Pomonoid` field would make `Nat` unable to
+instantiate even the base layer, foreclosing the demonstration this
+section exists to run. `le_join_left`/`le_join_right`, by contrast, *are*
+derivable from the fields kept (`join_mono`, `join_bot`/`bot_join`,
+`bot_le` — the same style as `join_mono (le_refl' a) (bot_le b)` rewritten
+along `join_bot`) and are restated in `Graded/Obligations.lean` as
+theorems, not fields, so the vocabulary still lines up with
+`Graded/Grade.lean`.
+
+### The layer-to-law table, and where the brief was wrong
+
+| generic theorem | class needed | matches the brief? |
+|---|---|---|
+| `foldG_le` | `IsIdemPomonoid` | **no — brief predicted `Pomonoid` alone** |
+| `foldG_cons_ne_nil` | `IsIdemPomonoid` | yes |
+| `joinAllG_perm` | `IsCommPomonoid` | yes |
+
+**The headline finding.** `foldG_le` (`foldG g xs ≤ g`, "the fold never
+exceeds `g`") was predicted to need only `Pomonoid` — the design's own
+per-instance proof for `Grade` (`Graded.Traverse.foldGrade_le`, citing
+`Grade.join_le`/`Grade.bot_le`) never touches `Grade.join_idem`, and the
+prediction generalized that. It does not generalize: without a primitive
+`join_le`, the only way to recover "`join a b ≤ c` whenever `a, b ≤ c`" is
+`join_mono ha hb : join a b ≤ join c c` followed by `join_idem c : join c
+c = c` — which needs `IsIdemPomonoid`, the *same* layer
+`foldG_cons_ne_nil` needs. `Graded/Obligations.lean`'s `join_le` theorem
+states exactly this generic recovery, and its type makes the dependency
+explicit: `[IsIdemPomonoid G] → le a c → le b c → le (join a b) c`.
+
+The `Nat` instance is the witness, not merely an illustration: `foldG (1 :
+Nat) [(), (), ()] = 3`, and `3 ≤ 1` is false, so `foldG_le` genuinely
+fails at a *commutative* pomonoid that has every field `Pomonoid` asks
+for except idempotence. The per-instance `Grade` proof and the generic
+proof reach the same fact by different roads — `Finset.union_subset`
+needs no idempotence at all, because `Finset` union already *is* a
+lattice join; the generic route has no such shortcut, and idempotence is
+the only way back.
+
+**Consequence for the paper's claim.** "The obligations are layered" is
+still the right shape, but the split is not "bounded is free, exact costs
+idempotence" (the per-`Grade` framing in [traverse](#traverse)) — that
+framing is true only because `Grade`'s join is a genuine semilattice join.
+Generically, over an abstract pomonoid with no assumed lattice structure,
+**both** the bound and the exactness cost idempotence; only
+order-independence (`joinAllG_perm`) is free of it.
+
+### Mathlib classes considered, and why none were inherited from
+
+Checked against the pinned Mathlib before writing `Pomonoid` fresh:
+
+- **`SemilatticeSup`** (`Mathlib.Order.Lattice`) — a `PartialOrder` plus a
+  `sup` that *is* the least upper bound (`SemilatticeSup`'s own `le_sup_left`/
+  `le_sup_right`/`sup_le` are exactly `Grade`'s `le_join_left`/
+  `le_join_right`/`join_le`). This is the closest match to what `Grade`
+  actually is — and precisely the reason it does not fit `Nat`: `Nat`
+  under `+` is not a `SemilatticeSup` (`sup_le` fails, per the finding
+  above), so inheriting from it would have made the `Nat` counter-instance
+  impossible to state at all.
+- **`IsOrderedAddMonoid`/`IsOrderedCancelAddMonoid`**
+  (`Mathlib.Algebra.Order.Monoid.Defs`) — mixin classes layered on top of
+  `AddCommMonoid`/`Preorder`, requiring only monotonicity
+  (`add_le_add_left`), not a least-upper-bound property. This is the
+  actual shape `Pomonoid` ended up with — but inheriting it would still
+  pull in Mathlib's `AddCommMonoid`/`Preorder` hierarchy and its `simp`
+  set, which is exactly what [grade](#grade)'s own provisional note
+  already declined for `Grade`, for the same reason: an inherited instance
+  lets later `simp` calls reach for these properties invisibly, defeating
+  the point of a name-by-name grep. `Pomonoid` is written multiplicatively
+  and fresh instead, so `join_mono` (this project's name) stays the
+  citation, not `add_le_add_left` (Mathlib's).
+- **`CovariantClass`** (`Mathlib.Algebra.Order.Monoid.Unbundled.Defs`) — the
+  mixin `IsOrderedAddMonoid` itself is stated in terms of; same reasoning
+  applies one level down.
+
+The project's existing decision at [grade](#grade) — keep `Grade` off
+Mathlib's lattice classes so lemma use stays greppable — extends cleanly
+to this abstract layer: it was checked, not assumed, and the same
+conclusion holds for the same reason, plus the sharper reason above (the
+closest fit, `SemilatticeSup`, is actually *too strong* to admit the `Nat`
+counter-instance at all).
+
+### The `Nat` demonstration
+
+`instance : Pomonoid Nat` (`join := (· + ·)`, `bot := 0`, `le := (· ≤
+·)`, citing `Nat.add_assoc`/`Nat.zero_add`/`Nat.add_zero`/`Nat.le_refl`/
+`Nat.le_trans`/`Nat.zero_le`/`Nat.add_le_add`) and `instance :
+IsCommPomonoid Nat` (`Nat.add_comm`) — no `IsIdemPomonoid Nat` instance
+exists, and `nat_not_idem : ¬ ∀ a : Nat, a + a = a` proves why
+(`1 + 1 = 2 ≠ 1`).
+
+Executable, adjacent, `Grade` then `Nat`:
+
+```
+#guard foldG ({E.parse} : Grade E) [(), (), ()] = {E.parse}   -- idempotent: stays put
+#guard foldG (1 : Nat) [(), (), ()] = 3                        -- not idempotent: grows
+```
+
+Two disproofs at `Nat`, both from the same witness (`g := 1`, `xs := [(),
+(), ()]`):
+
+- `foldG_cons_ne_nil` fails: `¬ ∀ g xs, xs ≠ [] → foldG g xs = g` (the
+  length-independence claim — the theorem [traverse](#traverse)'s
+  `foldGrade_cons_ne_nil` needed idempotence for, now shown false without
+  it).
+- `foldG_le` fails too: `¬ ∀ g xs, foldG g xs ≤ g` (the boundedness claim
+  — see "the headline finding" above for why this one was not predicted).
+
+And order-independence survives regardless: `joinAllG_perm` holds at
+`Nat` (`joinAllG [1,2,3] = joinAllG [3,1,2] = 6`, by `IsCommPomonoid`
+alone) exactly as it does at `Grade`. Put side by side, the `Nat` instance
+shows the two axioms buying genuinely different things: commutativity
+survives on its own; idempotence's absence breaks both of `foldG`'s
+claims about a non-empty list.
+
+### Judgement call 2, restated
+
+Whether idempotence should extend `IsCommPomonoid` or sit beside it as a
+sibling of `Pomonoid`: extending was chosen (see the provisional note
+above), on the evidence that neither headline theorem needing idempotence
+ever cites `join_comm`.
+
+### Scope note: the optional non-commutative instance
+
+Not included. A quick check of the free monoid (`List X` under `++`,
+`[]`, ordered by `<+:` prefix) shows `join_mono` itself fails there in
+general — `[1] <+: [1, 9]` and `[2] <+: [2]`, but `[1] ++ [2] = [1, 2]` is
+not a prefix of `[1, 9] ++ [2] = [1, 9, 2]` — so it does not even reach
+`Pomonoid`, let alone serve as a non-commutative counter-instance to
+`joinAllG_perm`. Building a genuine non-commutative `Pomonoid` instance
+would need a different carrier than the one this step's brief suggested,
+which is more than "lands quickly" allows. The commutative layer's
+necessity (`joinAllG_perm`'s dependence on `IsCommPomonoid`) is therefore
+argued — via the layer-to-law table and the `Grade`/`Nat` agreement above
+— but not demonstrated by a instance where it actually fails.
+
 ## laws-inventory
 
 Filled by [oracle-export](../tmp/plan/step-oracle-export.md).

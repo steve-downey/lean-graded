@@ -11,6 +11,7 @@ import Tests.ComposeApp
 import Tests.Morphism
 import Tests.Canonical
 import Tests.Ungraded
+import Tests.Obligations
 
 -- populated by later steps
 example : True := trivial
