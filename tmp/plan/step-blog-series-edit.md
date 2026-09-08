@@ -88,10 +88,10 @@ git diff --stat integration/lean-model -- Graded Tests Examples   # empty
 ## Setup
 
 ```
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git worktree add ../wt-blog-series-edit -b step/blog-series-edit integration/lean-model
 cd ../wt-blog-series-edit
-ln -s __MAIN_CHECKOUT__/.lake .lake 2>/dev/null || true   # reuse the Mathlib cache; if Lake objects, run 'lake exe cache get' here instead
+ln -s /home/sdowney/src/lean-graded/.lake .lake 2>/dev/null || true   # reuse the Mathlib cache; if Lake objects, run 'lake exe cache get' here instead
 START=$(date +%s)
 ```
 
@@ -126,7 +126,7 @@ read every letter, once. Contradictions between letters are annotated,
 not resolved, because the letters are the record of what was learned
 in what order.
 MSG
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git checkout integration/lean-model
 git merge --no-ff step/blog-series-edit -m "merge step/blog-series-edit [blog-series-edit]"
 ```
@@ -138,7 +138,7 @@ Before cleanup, from the worktree (so `build.log` and the diff still exist):
 ```
 END=$(date +%s)
 cd ../wt-blog-series-edit
-printf '%s\n' '{"step":"blog-series-edit","lane":null,"outcome":"green","wall_seconds":'"$((END-START))"',"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":'"$((V1-V0))"',"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat integration/lean-model~1...step/blog-series-edit | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> __MAIN_CHECKOUT__/tmp/plan/metrics.jsonl
+printf '%s\n' '{"step":"blog-series-edit","lane":null,"outcome":"green","wall_seconds":'"$((END-START))"',"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":'"$((V1-V0))"',"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat integration/lean-model~1...step/blog-series-edit | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> /home/sdowney/src/lean-graded/tmp/plan/metrics.jsonl
 ```
 Fill `attempts` honestly (a blocked attempt is also a row, with
 `"outcome":"blocked"`, appended before cleanup). List any out-of-scope file.
@@ -146,7 +146,7 @@ Fill `attempts` honestly (a blocked attempt is also a row, with
 ## Cleanup
 
 ```
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git worktree remove --force ../wt-blog-series-edit
 git branch -d step/blog-series-edit
 ```

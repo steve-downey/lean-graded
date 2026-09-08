@@ -115,10 +115,10 @@ grep -n "instance" Graded/Grade.lean       # nothing
 ## Setup
 
 ```
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git worktree add ../wt-grade-pomonoid -b step/grade-pomonoid integration/lean-model
 cd ../wt-grade-pomonoid
-ln -s __MAIN_CHECKOUT__/.lake .lake 2>/dev/null || true   # reuse the Mathlib cache; if Lake objects, run 'lake exe cache get' here instead
+ln -s /home/sdowney/src/lean-graded/.lake .lake 2>/dev/null || true   # reuse the Mathlib cache; if Lake objects, run 'lake exe cache get' here instead
 START=$(date +%s)
 ```
 
@@ -152,7 +152,7 @@ property each law depends on. Deliberately not a Mathlib lattice instance:
 an instance would let simp use the properties invisibly, which defeats
 the purpose of the model.
 MSG
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git checkout integration/lean-model
 git merge --no-ff step/grade-pomonoid -m "merge step/grade-pomonoid [grade-pomonoid]"
 ```
@@ -164,7 +164,7 @@ Before cleanup, from the worktree (so `build.log` and the diff still exist):
 ```
 END=$(date +%s)
 cd ../wt-grade-pomonoid
-printf '%s\n' '{"step":"grade-pomonoid","lane":null,"outcome":"green","wall_seconds":'"$((END-START))"',"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":'"$((V1-V0))"',"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat integration/lean-model~1...step/grade-pomonoid | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> __MAIN_CHECKOUT__/tmp/plan/metrics.jsonl
+printf '%s\n' '{"step":"grade-pomonoid","lane":null,"outcome":"green","wall_seconds":'"$((END-START))"',"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":'"$((V1-V0))"',"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat integration/lean-model~1...step/grade-pomonoid | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> /home/sdowney/src/lean-graded/tmp/plan/metrics.jsonl
 ```
 Fill `attempts` honestly (a blocked attempt is also a row, with
 `"outcome":"blocked"`, appended before cleanup). List any out-of-scope file.
@@ -172,7 +172,7 @@ Fill `attempts` honestly (a blocked attempt is also a row, with
 ## Cleanup
 
 ```
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git worktree remove --force ../wt-grade-pomonoid
 git branch -d step/grade-pomonoid
 ```

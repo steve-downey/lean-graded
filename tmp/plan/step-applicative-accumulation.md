@@ -110,10 +110,10 @@ grep -rn "Accum" Graded/Monad.lean Graded/Widen.lean    # nothing — Accum touc
 ## Setup
 
 ```
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git worktree add ../wt-applicative-accumulation -b step/applicative-accumulation integration/lean-model
 cd ../wt-applicative-accumulation
-ln -s __MAIN_CHECKOUT__/.lake .lake 2>/dev/null || true   # reuse the Mathlib cache; if Lake objects, run 'lake exe cache get' here instead
+ln -s /home/sdowney/src/lean-graded/.lake .lake 2>/dev/null || true   # reuse the Mathlib cache; if Lake objects, run 'lake exe cache get' here instead
 START=$(date +%s)
 ```
 
@@ -148,7 +148,7 @@ grade, and the condition under which the two applicatives agree is the
 same condition found for ap_flip. This is design evidence for P3200,
 not a fork: Accum replaces Graded nowhere.
 MSG
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git checkout integration/lean-model
 git merge --no-ff step/applicative-accumulation -m "merge step/applicative-accumulation [applicative-accumulation]"
 ```
@@ -160,7 +160,7 @@ Before cleanup, from the worktree (so `build.log` and the diff still exist):
 ```
 END=$(date +%s)
 cd ../wt-applicative-accumulation
-printf '%s\n' '{"step":"applicative-accumulation","lane":null,"outcome":"green","wall_seconds":'"$((END-START))"',"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":'"$((V1-V0))"',"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat integration/lean-model~1...step/applicative-accumulation | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> __MAIN_CHECKOUT__/tmp/plan/metrics.jsonl
+printf '%s\n' '{"step":"applicative-accumulation","lane":null,"outcome":"green","wall_seconds":'"$((END-START))"',"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":'"$((V1-V0))"',"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat integration/lean-model~1...step/applicative-accumulation | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> /home/sdowney/src/lean-graded/tmp/plan/metrics.jsonl
 ```
 Fill `attempts` honestly (a blocked attempt is also a row, with
 `"outcome":"blocked"`, appended before cleanup). List any out-of-scope file.
@@ -168,7 +168,7 @@ Fill `attempts` honestly (a blocked attempt is also a row, with
 ## Cleanup
 
 ```
-cd __MAIN_CHECKOUT__
+cd /home/sdowney/src/lean-graded
 git worktree remove --force ../wt-applicative-accumulation
 git branch -d step/applicative-accumulation
 ```

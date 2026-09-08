@@ -27,12 +27,12 @@ git checkout -b integration/lean-model
 
 ### Fix the metrics path first
 
-Every step file carries the literal placeholder `__MAIN_CHECKOUT__` for the
+Every step file carries the literal placeholder `/home/sdowney/src/lean-graded` for the
 absolute path of this checkout. Replace it now, once, in every plan file:
 
 ```
 ROOT="$(pwd)"
-sed -i "s#__MAIN_CHECKOUT__#${ROOT}#g" tmp/plan/*.md
+sed -i "s#/home/sdowney/src/lean-graded#${ROOT}#g" tmp/plan/*.md
 grep -L "${ROOT}" tmp/plan/step-*.md     # must print nothing
 ```
 
@@ -269,11 +269,11 @@ No merge: this step runs on the integration branch directly. Tag the base:
 ## Record measurements
 
 Append **two** rows (row zero = the measured verify floor; row one = this
-step) to `__MAIN_CHECKOUT__/tmp/plan/metrics.jsonl`:
+step) to `/home/sdowney/src/lean-graded/tmp/plan/metrics.jsonl`:
 
 ```
-printf '%s\n' '{"step":"verify-floor","lane":null,"outcome":"green","wall_seconds":<cold+warm>,"attempts":1,"verify":{"command":"make verify","exit_code":0,"wall_seconds":<warm>,"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":{"files_changed":0,"insertions":0,"deletions":0},"out_of_scope":[],"note":"cold=<s>s warm=<s>s after lake exe cache get"}' >> __MAIN_CHECKOUT__/tmp/plan/metrics.jsonl
-printf '%s\n' '{"step":"baseline-capture","lane":null,"outcome":"green","wall_seconds":<n>,"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":<n>,"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat plan-base~1 | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> __MAIN_CHECKOUT__/tmp/plan/metrics.jsonl
+printf '%s\n' '{"step":"verify-floor","lane":null,"outcome":"green","wall_seconds":<cold+warm>,"attempts":1,"verify":{"command":"make verify","exit_code":0,"wall_seconds":<warm>,"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":{"files_changed":0,"insertions":0,"deletions":0},"out_of_scope":[],"note":"cold=<s>s warm=<s>s after lake exe cache get"}' >> /home/sdowney/src/lean-graded/tmp/plan/metrics.jsonl
+printf '%s\n' '{"step":"baseline-capture","lane":null,"outcome":"green","wall_seconds":<n>,"attempts":<n>,"verify":{"command":"make verify","exit_code":0,"wall_seconds":<n>,"log_bytes":'"$(wc -c < build.log)"',"summary_lines_read":20},"diff":'"$(git diff --shortstat plan-base~1 | awk '{printf "{\"files_changed\":%d,\"insertions\":%d,\"deletions\":%d}",$1,$4,$6}')"',"out_of_scope":[],"note":""}' >> /home/sdowney/src/lean-graded/tmp/plan/metrics.jsonl
 ```
 (Substitute real numbers; if `git diff --shortstat` against an empty repo
 misbehaves, use `git show --shortstat HEAD` instead.)
