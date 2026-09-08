@@ -205,6 +205,33 @@ ALLOWLIST = {
     "traverse_fromEmpty_map": "delegates to traverse_map and traverse_fromEmpty "
         "(both already tabulated); costs nothing beyond citing both, per its own docstring",
     "sumEquiv_bindF": "delegates to bindF_ok/bindF_err (structural)",
+    # --- sufficient-grade applicative (this step) ------------------------
+    "apK_ok_ok": "structural: ok/ok case, function applied, no error, no "
+        "join — the sufficient-grade mirror of ap_ok_ok, same reasoning",
+    "apK_err_left": "structural: err-on-the-function-side reduction; bindK's "
+        "own err branch ignores the second hypothesis and the continuation "
+        "entirely, same footing as bindK_err",
+    "apK_ok_err": "structural: err-on-the-argument-side reduction, same "
+        "footing as apK_err_left",
+    "apFlippedK_ok_ok": "structural: ok/ok case, no join — the sufficient-"
+        "grade mirror of apFlipped_ok_ok",
+    "apFlippedK_err_right": "structural: err-on-the-argument-side reduction "
+        "(apFlippedK binds its argument first), mirrors apFlipped_err_right",
+    "apFlippedK_ok_err": "structural: err-on-the-function-side reduction, "
+        "mirrors apFlipped_ok_err",
+    "apK_flip": "structural, and this is the finding, not an oversight: the "
+        "union-graded ap_flip cites Grade.join_comm by construction, "
+        "comparing join g h against join h g; at a common sufficient grade "
+        "both apK and apFlippedK already land in the same Graded k β, so "
+        "there is nothing to compare and no property is consumed — see "
+        "the letter for what this implies about where commutativity was "
+        "really needed",
+    "Comp.apK_ok_ok": "structural: ok/ok case, two-coordinate mirror of "
+        "apK_ok_ok, no join",
+    "Comp.apK_err_left": "structural: two-coordinate mirror of apK_err_left, "
+        "no join",
+    "Comp.apK_ok_err": "structural: two-coordinate mirror of apK_ok_err, "
+        "no join",
 }
 
 PROPERTY_TAG_RE = re.compile(

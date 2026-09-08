@@ -349,6 +349,19 @@ computed. `bindK hg hh x f` threads two `⊆` proofs. At a concrete grade
 abstract grade they are ordinary hypotheses, the same shape `bindK_assoc`
 itself already carries for `hg`/`hh`/`hj`.
 
+**The same measurement, extended to the applicative and composite layers
+by [sufficient-grade-applicative]** (proof-line counts by
+`scripts/laws-inventory.py`'s own chunker, statement text only for casts):
+
+| law | casts in statement (before → after) | proof lines (before → after) |
+|---|---|---|
+| `ap_pure_id` → `apK_pure_id` | 1 → 0 | 5 → 5 (case split, no cast to discharge) |
+| `ap_pure_pure` → `apK_pure_pure` | 1 → 0 | 6 → 4 (`rfl`) |
+| `ap_interchange` → `apK_interchange` | 2 → 0 | 10 → 6 |
+| `ap_comp` → `apK_comp` | 1 → 0 | 23 → 16 |
+| `ap_flip` → `apK_flip` | 1 (`Grade.join_comm`) → 0 | — (new law, no union-graded proof-line baseline to compare against) |
+| `Comp.ap_interchange` → `Comp.apK_interchange` | 6 → 0 | 19 → 10 |
+
 **Verdict: worth extending to the applicative layer
 ([sufficient-grade-applicative]).** On every axis this step measured, the
 sufficient-grade layer was strictly cheaper for `bind`: no casts, shorter
@@ -366,6 +379,26 @@ still needs commutativity, or whether working at a common `k` makes the
 comparison vanish along with the cast, is a genuinely open question this
 step's evidence cannot answer — that is exactly the finding
 [sufficient-grade-applicative] has to make on its own.
+
+**[sufficient-grade-applicative]'s answer: no, `apK_flip` needs no
+`Grade.join_comm`, and the "third obligation" question resolved even
+more sharply than predicted.** `apK`/`map2K` are built through `bindK`
+exactly as `bind_eq_bindK`'s story predicted, with `pureK` (already
+established to be `pure` widened to any grade directly, not pinned to
+`Grade.bot`) used in place of `pure` — so `apK`'s intermediate step lands
+at `k` immediately, via `Grade.le_refl' k`, and never introduces a `∅` to
+collapse. The step's own predicted "third obligation" (one hypothesis per
+input, plus one for `pure`'s own grade) does not merely come out free by
+`bindK_irrel`-style proof irrelevance the way the two threaded `⊆` proofs
+do — it never appears in `apK`'s signature at all: `apK` takes exactly
+two hypotheses (`hg : g ⊆ k`, `hh : h ⊆ k`), the same count `bindK` has,
+because `pureK` needs no inclusion proof of its own to be a value at `k`.
+All four applicative laws (`apK_pure_id`, `apK_pure_pure`,
+`apK_interchange`, `apK_comp`) state and prove cast-free, and every one
+mentions only `Grade.le_refl'` — never a unit or associativity lemma, the
+same "order replaces unit/associative" pattern [sufficient-grade-bind]
+found for `bindK`'s three laws, now confirmed at the applicative layer
+too.
 
 ## applicative
 
@@ -437,6 +470,113 @@ share the error kind `E.parse`, `sumTwo`'s own `#guard`s can show
 short-circuiting (either failure fails the whole) but not *which* side
 failed — that distinction needs two different error kinds, which is what
 `Tests/Applicative.lean`'s cross-grade counterexample is for.
+
+### The sufficient-grade layer
+
+`Graded/Sufficient.lean` extends [sufficient-grade-bind]'s `bindK` layer
+to the applicative: `apK (hg : g ⊆ k) (hh : h ⊆ k) (f : Graded g (α → β))
+(x : Graded h α) : Graded k β`, built through `bindK` exactly as `ap` is
+built through `bind`, with `pureK` (`= fromEmpty`, already `pure` widened
+to any grade) standing in for `pure`. Because `pureK`'s target grade is
+`k` directly, `apK`'s two `bindK` calls both land at `k` via
+`Grade.le_refl' k`, and there is no `∅` anywhere in the definition for the
+`Grade.join_bot` cast `ap` pays to collapse. `map2K` is `apK` after `map`,
+exactly as `map2` is `ap` after `map`. `apFlippedK` is the other
+sequencing order, at the *same* `k` rather than a second, differently-
+joined grade — the shape `ap_flip`'s finding below needed.
+
+**The "third obligation" resolved more sharply than predicted.** The step
+that authorized this one predicted `apK` would need three threaded
+hypotheses where `bindK` needs two (one per input, plus one for `pure`'s
+own grade), free at worst by the same proof-irrelevance argument
+`bindK_irrel` established. It does not merely come out free: it is
+**absent from the signature**. `apK` takes exactly `hg : g ⊆ k` and
+`hh : h ⊆ k` — two hypotheses, the same count as `bindK` — because
+`pureK` needs no inclusion proof of its own to be a value at `k`.
+
+**The four applicative laws, cast-free**, every one citing only
+`Grade.le_refl'`:
+
+| law | property | note |
+|---|---|---|
+| `apK_pure_id` | order (`le_refl'`) | identity |
+| `apK_pure_pure` | order (`le_refl'`) | homomorphism, `rfl` |
+| `apK_interchange` | order (`le_refl'`) | interchange |
+| `apK_comp` | order (`le_refl'`) | composition |
+
+Where the union-graded laws needed *unit* (`bot_join`/`join_bot`) and, for
+`ap_comp`, *associativity* (`join_assoc`) as well, the sufficient-grade
+versions need nothing beyond the order hypotheses already threaded
+through `apK`'s own signature — the same "order replaces unit/associative"
+shift [sufficient-grade-bind] found for `bindK`'s three laws, confirmed
+here too. Every one of the four proofs closes by `cases` down to `rfl`;
+none cites a named `Grade` lemma inside its tactic block.
+
+**`apK_flip`: the finding this step exists to make.** `ap_flip` needs
+`Grade.join_comm` *by construction*: it compares `ap`'s grade `Grade.join
+g h` against `apFlipped`'s `Grade.join h g` — two different expressions
+for the same grade, and relating them at all is what commutativity says.
+At a common sufficient grade `k`, `apK` and `apFlippedK` both already
+land in `Graded k β`: there is no second expression for the same grade to
+compare, so `apK_flip (hg : g ⊆ k) (hh : h ⊆ k) (f) (x) (honeok : (∃ f',
+f = .ok f') ∨ (∃ a, x = .ok a)) : apK hg hh f x = apFlippedK hg hh f x`
+states and proves with **no `Grade.join_comm`, and no property at all** —
+the same one-sided condition `ap_flip` needs on the *value* survives
+unchanged (both sides still disagree, at the *same* grade now, when both
+inputs fail — `apK` keeps the function's error, `apFlippedK` keeps the
+argument's), but the grade-level question `join_comm` answers for `ap`
+never arises for `apK` in the first place.
+
+**What this revises in [grade-obligations](#obligations).** That step's
+three-layer account attributes commutativity's necessity to the
+applicative's order-independence: `ap` and `apFlipped` combine the same
+two values in the other order, and matching grades needs `join_comm`.
+`apK_flip` shows this is not quite right. The applicative structure
+itself — sequence a function and an argument through `bindK`, either
+order — needs no commutativity at all, at any sufficient grade, including
+the exact union (`ap_eq_apK`, below, recovers `ap` at `k = Grade.join g
+h`). Commutativity was a cost of *computing the grade exactly as the
+union `Grade.join g h`* and then insisting that the flipped
+computation, `Grade.join h g`, be recognized as the same grade — a cost
+of canonicalization, not of order-independence as a requirement on the
+applicative. A design that tracked "a grade sufficient to cover both
+inputs" rather than "the exact union" would never have needed
+`join_comm` for this, at any layer.
+
+`ap_eq_apK` (tagged `BRIDGE`) instantiates `apK` at the exact union
+`Grade.join g h`, along the same two inclusions `ap` itself uses
+(`Grade.le_join_left`/`Grade.le_join_right`), and recovers `ap` — the
+applicative mirror of `bind_eq_bindK`, proved the same way (case split on
+`f`/`x`, citing each side's own `ok`/`err` reduction lemma).
+
+**The composite: `Comp.apK`, at a sufficient grade *pair*.** `Comp g h α`
+([#compose](#compose)) already generalises over any two grades, so no
+second nested carrier was needed — "sufficient" here is supplying `Comp`'s
+own two indices as caller-chosen bounds `(k1, k2)` rather than the
+componentwise joins `Comp.ap` computes. `Comp.apK` is built through
+`map2K`/`apK` exactly as `Comp.ap` is built through
+`Graded.map2`/`Graded.ap`: outer combine at `k1`, with the *inner* `apK`
+(at `k2`) threaded through as the combining function. **The headline
+measurement**: `Comp.ap_interchange` carries six casts in its statement
+(two `Comp.castGH` calls, each bundling two `Graded.cast`s, driven by
+`Grade.join_bot`/`Grade.bot_join` in each of the two components
+separately); `Comp.apK_interchange`, at a common sufficient grade pair,
+has **zero** — both sides already land in `Comp k1 k2 β`, so there is
+nothing to `Comp.castGH`. Unlike `Comp.ap_interchange` (which cites
+`Graded.ap_interchange` explicitly in its `ok` branch), the fully
+case-split proof of `Comp.apK_interchange` closes by `rfl` alone: there is
+no property left to cite, at either layer.
+
+The consumer, `Examples/Validation.lean`: `sumTwoK`, `sumTwo`'s two
+independent validations spelled through `map2K` at the literal grade
+`{E.parse}` (which happens to equal the computed join, `Grade.join_idem`)
+instead of `map2`'s computed union — `#guard`ed to render identically to
+`sumTwo` on every input, the applicative mirror of `validateK`.
+`Tests/Sufficient.lean` exercises `apK` at a `k` strictly larger than the
+join (mirroring `bindK`'s own `renderK` case) and `Comp.apK` at a
+sufficient grade *pair* each strictly larger than its own component's
+join, including both the outer-argument-fails and the inner-fails cases —
+the two-coordinate case the step asked to exercise explicitly.
 
 ### Accum: an accumulating applicative needs its own carrier
 

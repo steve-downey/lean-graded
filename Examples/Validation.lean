@@ -134,6 +134,25 @@ def renderSum : Graded ({E.parse} : Grade E) Nat → String
 #guard renderSum (sumTwo "abc" "xyz") = "err Examples.Validation.E.parse"
 
 -- ---------------------------------------------------------------------
+-- `sumTwoK`: the same independent-validation shape, spelled through
+-- `map2K` at the literal grade `{E.parse}` instead of `map2`'s computed
+-- `Grade.join {E.parse} {E.parse}` — here the two coincide
+-- (`Grade.join_idem`), so both spellings exist and agree, exactly as
+-- `validateK` agrees with `validate` above. `sumTwo` is left untouched.
+
+/-- The same two independent validations, spelled through `map2K` at the
+    literal grade `{E.parse}` instead of `map2`'s computed union. -/
+def sumTwoK (s1 s2 : String) : Graded ({E.parse} : Grade E) Nat :=
+  map2K (by decide) (by decide) (· + ·) (parseNat s1) (parseNat s2)
+
+-- `sumTwo` and `sumTwoK` render identically on every input, the
+-- applicative mirror of `validate`/`validateK` agreeing above.
+#guard renderSum (sumTwoK "3" "4") = renderSum (sumTwo "3" "4")
+#guard renderSum (sumTwoK "abc" "4") = renderSum (sumTwo "abc" "4")
+#guard renderSum (sumTwoK "3" "xyz") = renderSum (sumTwo "3" "xyz")
+#guard renderSum (sumTwoK "abc" "xyz") = renderSum (sumTwo "abc" "xyz")
+
+-- ---------------------------------------------------------------------
 -- `Accum` versions: the same two fields, but validated so that *both*
 -- failures survive instead of stopping at the first — the shape a form
 -- with two independent fields wants (report every bad field at once),

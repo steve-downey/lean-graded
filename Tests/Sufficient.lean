@@ -103,4 +103,137 @@ def renderK : Graded ({E.parse, E.range, E.io} : Grade E) Nat → String
       (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide)
       (parseNat "abc") checkRange) = "err Examples.Validation.E.parse"
 
+-- ---------------------------------------------------------------------
+-- `apK`/`map2K` and their laws.
+
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (f' : Nat → Nat) (a : Nat) :
+    apK hg hh (Graded.ok f' : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.ok a : Graded ({E.range} : Grade E) Nat) = Graded.ok (f' a) :=
+  apK_ok_ok hg hh f' a
+
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (x : Graded ({E.range} : Grade E) Nat) :
+    apK hg hh (Graded.err E.parse (by decide) : Graded ({E.parse} : Grade E) (Nat → Nat)) x =
+      Graded.err E.parse (by decide) :=
+  apK_err_left hg hh E.parse (by decide) x
+
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (f' : Nat → Nat) :
+    apK hg hh (Graded.ok f' : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.err E.range (by decide) : Graded ({E.range} : Grade E) Nat) =
+      Graded.err E.range (by decide) :=
+  apK_ok_err hg hh f' E.range (by decide)
+
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (f' : Nat → Nat) (a : Nat) :
+    apFlippedK hg hh (Graded.ok f' : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.ok a : Graded ({E.range} : Grade E) Nat) = Graded.ok (f' a) :=
+  apFlippedK_ok_ok hg hh f' a
+
+example
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (x : Graded ({E.range} : Grade E) Nat) :
+    apK (Grade.le_refl' ({E.parse, E.range} : Grade E)) hh
+        (pureK (@id Nat) : Graded ({E.parse, E.range} : Grade E) (Nat → Nat)) x = widen hh x :=
+  apK_pure_id hh x
+
+example (f' : Nat → Nat) (a : Nat) :
+    apK (Grade.le_refl' ({E.parse} : Grade E)) (Grade.le_refl' ({E.parse} : Grade E))
+        (pureK f' : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (pureK a : Graded ({E.parse} : Grade E) Nat) =
+      (pureK (f' a) : Graded ({E.parse} : Grade E) Nat) :=
+  apK_pure_pure f' a
+
+-- `apK_interchange`: no `Grade.join_bot`/`Grade.bot_join` needed, unlike
+-- `ap_interchange`.
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (u : Graded ({E.parse} : Grade E) (Nat → Nat)) (a : Nat) :
+    apK hg (Grade.le_refl' ({E.parse, E.range} : Grade E)) u
+        (pureK a : Graded ({E.parse, E.range} : Grade E) Nat) =
+      apK (Grade.le_refl' ({E.parse, E.range} : Grade E)) hg
+        (pureK (fun f => f a) : Graded ({E.parse, E.range} : Grade E) ((Nat → Nat) → Nat)) u :=
+  apK_interchange hg u a
+
+-- `apK_flip`: the finding this step exists to make — no `Grade.join_comm`
+-- anywhere, at a common sufficient grade.
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (f' : Nat → Nat) (x : Graded ({E.range} : Grade E) Nat) :
+    apK hg hh (Graded.ok f' : Graded ({E.parse} : Grade E) (Nat → Nat)) x =
+      apFlippedK hg hh (Graded.ok f') x :=
+  apK_flip hg hh (Graded.ok f') x (Or.inl ⟨f', rfl⟩)
+
+-- `ap_eq_apK`: instantiating `apK` at the exact union recovers `ap`.
+example (f : Graded ({E.parse} : Grade E) (Nat → Nat)) (x : Graded ({E.range} : Grade E) Nat) :
+    ap f x = apK (Grade.le_join_left _ _) (Grade.le_join_right _ _) f x :=
+  ap_eq_apK f x
+
+-- The substantive case `ap` cannot express: `apK` at a `k` strictly
+-- larger than `Grade.join {E.parse} {E.range}` — no cast, same shape as
+-- `renderK` above for `bindK`.
+#guard renderK
+    (apK (g := ({E.parse} : Grade E)) (h := ({E.range} : Grade E))
+      (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide)
+      (Graded.ok (· + 1) : Graded ({E.parse} : Grade E) (Nat → Nat))
+      (Graded.ok 5 : Graded ({E.range} : Grade E) Nat)) = "ok 6"
+
+#guard renderK
+    (apK (g := ({E.parse} : Grade E)) (h := ({E.range} : Grade E))
+      (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide)
+      (Graded.ok (· + 1) : Graded ({E.parse} : Grade E) (Nat → Nat))
+      (Graded.err E.range (by decide) : Graded ({E.range} : Grade E) Nat)) =
+    "err Examples.Validation.E.range"
+
+-- ---------------------------------------------------------------------
+-- `Comp.apK`: the two-coordinate composite at a sufficient grade *pair*,
+-- each strictly larger than its own component's join —
+-- `{E.parse, E.range}` widened to `{E.parse, E.range, E.io}` in the
+-- outer coordinate, `{E.range, E.io}` widened the same way in the inner
+-- — the two-coordinate mirror of `renderK` above, and the case the step
+-- asked to exercise explicitly.
+
+def renderCompK :
+    Comp ({E.parse, E.range, E.io} : Grade E) ({E.parse, E.range, E.io} : Grade E) Nat → String
+  | .ok (.ok n) => s!"ok (ok {n})"
+  | .ok (.err e _) => s!"ok (err {repr e})"
+  | .err e _ => s!"err {repr e}"
+
+-- All four succeed: outer `{E.parse}`/`{E.range}` and inner
+-- `{E.range}`/`{E.io}`, both widened to `{E.parse, E.range, E.io}`.
+#guard renderCompK
+    (Comp.apK (g := ({E.parse} : Grade E)) (g' := ({E.range} : Grade E))
+      (h := ({E.range} : Grade E)) (h' := ({E.io} : Grade E))
+      (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (by decide) (by decide) (by decide)
+      (Graded.ok (Graded.ok (· + 1)) : Comp _ _ (Nat → Nat))
+      (Graded.ok (Graded.ok 5) : Comp _ _ Nat)) = "ok (ok 6)"
+
+-- The outer layer fails on the argument's side (`xx`'s outer grade
+-- `{E.range}`, widened into `k1`): `Comp.apK_ok_err`.
+#guard renderCompK
+    (Comp.apK (g := ({E.parse} : Grade E)) (g' := ({E.range} : Grade E))
+      (h := ({E.range} : Grade E)) (h' := ({E.io} : Grade E))
+      (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (by decide) (by decide) (by decide)
+      (Graded.ok (Graded.ok (· + 1)) : Comp _ _ (Nat → Nat))
+      (Graded.err E.range (by decide) : Comp _ _ Nat)) = "err Examples.Validation.E.range"
+
+-- The *inner* layer fails (`ff`'s inner grade `{E.range}`), surfacing
+-- only once both outer layers are known to succeed.
+#guard renderCompK
+    (Comp.apK (g := ({E.parse} : Grade E)) (g' := ({E.range} : Grade E))
+      (h := ({E.range} : Grade E)) (h' := ({E.io} : Grade E))
+      (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (by decide) (by decide) (by decide)
+      (Graded.ok (Graded.err E.range (by decide)) : Comp _ _ (Nat → Nat))
+      (Graded.ok (Graded.ok 5) : Comp _ _ Nat)) = "ok (err Examples.Validation.E.range)"
+
 end Tests

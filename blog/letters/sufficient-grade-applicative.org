@@ -1,0 +1,123 @@
+#+TITLE: Letter 18: Commutativity was the price of computing the grade, not of the applicative
+#+DATE: 2026-09-08
+#+CATEGORY: lean-transpose
+#+STEP: sufficient-grade-applicative
+#+SERIES_PREV: sufficient-grade-bind
+
+Steve,
+
+* What I set out to do
+
+Letter 17 built =bindK=: a second, cast-free view of =and_then= that
+takes a grade =k= merely big enough to hold both inputs, instead of
+computing the union. It worked cleanly for =bind=, and it ended on an
+open question I couldn't answer from that evidence alone: one
+applicative law, =ap_flip=, needs its two grades to commute, comparing
+=g ∪ h= against =h ∪ g=, because it compares two different orders of
+combining the same two values. =bindK= never faces that question; it
+never computes a join at all, so there is nothing for it to compare.
+Would the same be true of an applicative built the same way, or would
+commutativity turn out to be something the applicative itself needed,
+not just an artifact of how =bind= happens to compute its grade?
+
+This letter extends the cast-free layer to =ap=, and to the harder,
+two-layer case: =Comp.ap_interchange=, the law for a nested
+=expected<expected<T, Es2>, Es1>=, which carried six casts in one
+statement, more than anything else in the model.
+
+* What the checker refused
+
+Not a proof, this time. A definition. I built =Comp.apK= the same way
+=Comp.ap= is built, by calling the single-value =apK= as the combining
+function one layer in. I wrote it, and Lean rejected the call:
+
+#+begin_src lean
+error: Application type mismatch: The argument
+  hh
+has type
+  h ⊆ k2
+but is expected to have type
+  g ⊆ k1
+in the application
+  apK hh
+#+end_src
+
+That error makes no sense if =apK= means what I defined it to mean.
+It only makes sense if the bare name =apK=, written inside a
+declaration named =Comp.apK=, resolved to =Comp.apK= itself, recursively,
+rather than to the single-value function I meant. It did. Lean's
+dotted-name sugar treats an unqualified name inside =def Foo.bar= as a
+possible reference to =bar= in the *current* namespace being extended,
+so a bare =apK= inside =Comp.apK='s own body reached for =Comp.apK=
+first. The very file I was extending had already hit this once, with
+=map=, and left a comment about it. I read the comment, and still
+walked into the same hole with a different name, because the comment
+didn't stop me from writing the bare name in the first place, only
+explained it after the error told me to go looking. The fix is to
+write out =Graded.apK= and =Graded.map2K= in full wherever =Comp.apK=
+calls them, exactly as the file already does for =Graded.map=,
+=Graded.ap=, and =Graded.cast=.
+
+* What changed
+
+=apK= sequences a graded function and a graded argument through
+=bindK=, the way =ap= sequences them through =bind=:
+
+#+begin_src lean
+def apK (hg : g ⊆ k) (hh : h ⊆ k)
+    (f : Graded g (α → β)) (x : Graded h α) : Graded k β :=
+  bindK hg (Grade.le_refl' k) f
+    (fun f' => bindK hh (Grade.le_refl' k) x (fun a => pureK (f' a)))
+#+end_src
+
+=pureK= (from Letter 17: =pure= widened to any grade directly, not
+pinned to the empty grade) is what makes this cheap: both calls to
+=bindK= already land at =k=, using the trivial fact that =k= contains
+itself, so nothing ever needs collapsing back down from a wider join.
+I had expected, going in, that combining *two* independently-graded
+values would cost one more threaded proof than =bindK='s two, the way
+combining two things naturally needs more bookkeeping than combining
+one. It doesn't: =apK= takes exactly the same two hypotheses =bindK=
+does. The third one I was braced for never shows up, because =pureK=
+needs no proof to be a value at =k=; it isn't merely free the way the
+two real hypotheses are, it's simply absent.
+
+All four applicative laws restate with no casts, and every one closes
+by case-splitting down to =rfl=. Then the question from Letter 17:
+
+#+begin_src lean
+theorem apK_flip (hg : g ⊆ k) (hh : h ⊆ k) (f) (x)
+    (honeok : (∃ f', f = .ok f') ∨ (∃ a, x = .ok a)) :
+    apK hg hh f x = apFlippedK hg hh f x
+#+end_src
+
+=apFlippedK= is =apK= sequenced the other way, argument before
+function, landing at the *same* =k=. The one-sided condition on the
+right is unchanged from =ap_flip=: when both sides fail, =apK= keeps
+the function's error and =apFlippedK= keeps the argument's, and they
+still disagree. But the grade never needs =Grade.join_comm=, because
+both sides were already typed at the same =k= before the proof even
+starts. There is no second expression for the grade to compare against
+the first. The composite case confirms it at scale: =Comp.apK_interchange=,
+the sufficient-grade analogue of the six-cast law, states with zero
+casts and proves by =rfl= after a plain case split, no property cited
+at all.
+
+* Back in C++
+
+The honest reading is that I had been blaming the wrong thing.
+=error_set='s union needs to be commutative because P3200 canonicalizes
+it: =error_set<parse, range>= and =error_set<range, parse>= are made
+into the identical type, so that two independently-written call sites
+computing "the same" error set actually get types the compiler agrees
+are the same. That canonicalization is what =Grade.join_comm= is
+proving, and it is a real requirement, just not one the applicative
+itself imposes. If a caller instead wrote =apply<Es>(f, x)= naming an
+error set known up front, big enough for both =f= and =x=, the two
+argument orders would never need reconciling, because there would only
+ever be one type in play, chosen once. Nothing about applying a graded
+function to a graded argument needs the two grades to commute; needing
+them to is a cost of one particular way of writing the return type,
+not a law of the operation.
+
+--SMD
