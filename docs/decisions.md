@@ -1296,9 +1296,13 @@ better native implementation, and what may it address?
    it when present, deriving otherwise, and carries a disjunctive
    `requires`-clause: native present, or the derivation's own requirement on
    the basis holds.
-2. **Impl-directed addressing is confined to the mutually-derivable pairs**
-   — `invoke`/`ap`, `fold_map`/`fold_right`, `bind`/`join`+`fmap`. Every
-   other internal call stays `self.`-routed.
+2. **A derived member's second alternative must name the same expression
+   its body's derivation branch evaluates — same receiver, same spelling.**
+   An alternative may address `Impl` only if the operation it names is one
+   `Impl` is required to supply directly: a hard requirement, or the other
+   half of a mutually-derivable pair — `invoke`/`ap`, `fold_map`/
+   `fold_right`, `bind`/`join`+`fmap`. Anything the base can *synthesize* is
+   addressed through `self`.
 
 `Functor::replace`, `Monad::join`, `Monad::kleisli` and `Monad::ap` all
 adopted the shape. `join`/`bind` is one of the mutually-derivable pairs, so
@@ -1426,3 +1430,54 @@ add one.
   `using`-declaration at all, the `has_fold_map` non-existence test, plus one
   more assertion added to the existing `sequence.hpp` `length` test for
   empty/one-element vectors).
+- 2026-09-07 —
+  [applicative-ap-only-probing](../tmp/plan/step-applicative-ap-only-probing.md)
+  found bullet 2 above stated too broadly for a dual-basis class: `map`,
+  `zip_with`, `discard_first` and `discard_second`'s second alternative,
+  written by
+  [applicative-derived-probing](../tmp/plan/step-applicative-derived-probing.md),
+  probed `impl.invoke(...)` while their bodies derive through
+  `self.invoke(...)`. For an ap-only `Impl` (`pure` + `ap`, no native
+  `invoke`) the body still compiles, through the base's own synthesized
+  `invoke`, but the Impl-directed clause is false, so the member silently
+  vanished from overload resolution — a regression against the commit
+  before that step, invisible because no in-tree `Impl` is ap-only. `lift`
+  was unaffected: its second alternative names `pure`, a hard `Impl`
+  requirement, so `impl.pure` and `self.pure` cannot disagree. The four
+  members' second alternatives were readdressed to `self.invoke(...)`;
+  `lift` converted to `self.pure(...)` too, not because it was broken, but
+  so clause and body agree everywhere rather than carrying one documented
+  exception. `ap` itself is untouched — `invoke`/`ap` is the
+  mutually-derivable pair, and both of its alternatives correctly address
+  `Impl` directly, which is what closes the derivation cycle.
+  `Monad::fmap`'s Impl-directed derivation is a licensed exception distinct
+  from both patterns: it is reached only through a wrapping
+  `Functor<SomeMonadMap>`, where `self` is the outer `Functor` and the
+  inner base's own surface is `protected` and unreachable, so
+  `self`-routing is not an option there, and `bind`/`pure` are hard
+  requirements, so nothing can vanish. The rider that matters downstream: a
+  self-routed probe is only as strong as the constraint on the member it
+  names — `self.fold_map(...)` is strong because `Foldable::fold_map` is
+  itself constrained, while `self.invoke(...)` is weak, because
+  `Applicative<Impl>::invoke` carries no `requires`-clause at all and
+  reports a missing basis only through its own body's `static_assert`, by
+  design, the GHC-`MINIMAL` message. The four converted members' second
+  alternatives are therefore vacuously satisfied for a `Map` with no
+  `using Impl::invoke;` re-export — correct, since the class invariant
+  already guarantees a complete basis, but no later step may treat those
+  clauses as proof that `Impl` itself has one; the strong check belongs on
+  `applicative_impl`, over `Impl` directly. Left open: constraining
+  `Applicative::invoke` itself would make the probe strong, and was
+  deliberately not done here — its ap-derivation runs through
+  `detail::terminating_partial` currying and has no spellable
+  single-expression probe, which is a design change to a published basis
+  member, not a defect fix. `papers/wording/transpose.applicative.derived.md`
+  and `transpose.applicative.syn.md` were regenerated and copied over,
+  alongside the five pre-existing drifted fragments
+  (`transpose.errset.obs.md`, `transpose.errset.recover.md`,
+  `transpose.errset.syn.md`, `transpose.expected.syn.md`,
+  `transpose.grade.syn.md`), left untouched. Suite went from 151 to 153 (2
+  added: an ap-only `Impl`/`Map` exercising the whole derived surface, and
+  a `has_map`/`has_zip_with` concept pair proving an inapplicable callable
+  still makes `map`/`zip_with` disappear rather than hard-error against the
+  shipped invoke-basis object).

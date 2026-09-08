@@ -166,6 +166,55 @@ struct AllNativeImpl {
 
 struct AllNativeMap : bt::Applicative<AllNativeImpl> {};
 
+// An Impl with pure + ap and no invoke at all -- the mirror of AllNativeImpl,
+// leaning entirely on the base's synthesis rather than supplying any
+// operation natively. This is the regression witness for
+// derived-op-native-preference: before this step, map, zip_with,
+// discard_first and discard_second each vanished from overload resolution
+// for this Impl, because their second alternative probed Impl for an
+// invoke it can never have -- invoke here only ever exists as something the
+// base synthesizes from ap.
+struct ApOnlyImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class FUNCTION, class ARGUMENT>
+    auto ap(this auto &&, const std::optional<FUNCTION> &function,
+            const std::optional<ARGUMENT> &argument)
+        -> std::optional<bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const ARGUMENT &>>> {
+        using Result = bt::remove_cvref_t<
+            std::invoke_result_t<FUNCTION &, const ARGUMENT &>>;
+        if (function.has_value() && argument.has_value()) {
+            return std::optional<Result>{std::invoke(*function, *argument)};
+        }
+        return std::optional<Result>{};
+    }
+};
+
+struct ApOnlyMap : bt::Applicative<ApOnlyImpl> {};
+
+template <class MAP, class F, class A>
+concept has_map =
+    requires(const MAP &m, const F &f, const A &a) { m.map(f, a); };
+
+template <class MAP, class F, class A, class B>
+concept has_zip_with = requires(const MAP &m, const F &f, const A &a,
+                                const B &b) { m.zip_with(f, a, b); };
+
+// Applicable to std::string but not to int -- witnesses that the derived
+// probe on the shipped invoke-basis object is a real constraint, not one
+// vacuously satisfied by substitution alone.
+struct StringOnlyCallable {
+    auto operator()(const std::string &s) const -> std::string {
+        return s + "!";
+    }
+};
+
 } // namespace
 
 TEST_CASE("apply: optional invoke combines effectful arguments") {
@@ -322,4 +371,41 @@ TEST_CASE("apply: discard_second falls back to the invoke derivation") {
     const auto &m = bt::applicative_typeclass<std::optional<int>>;
     REQUIRE(m.discard_second(std::optional<int>{2}, std::optional<int>{3}) ==
             std::optional<int>{2});
+}
+
+TEST_CASE("apply: an ap-only Impl still derives the full surface") {
+    // No native invoke anywhere on ApOnlyImpl -- invoke and everything
+    // derived from it comes entirely from the ap basis.
+    ApOnlyMap m{};
+    REQUIRE(m.invoke([](int a, int b) { return a * b; }, std::optional<int>{6},
+                     std::optional<int>{14}) == std::optional<int>{84});
+    REQUIRE(m.ap(m.pure([](int x) { return x * 2; }), std::optional<int>{21}) ==
+            std::optional<int>{42});
+
+    REQUIRE(m.map([](int x) { return x + 1; }, std::optional<int>{41}) ==
+            std::optional<int>{42});
+    REQUIRE(m.map([](int x) { return x + 1; }, std::optional<int>{}) ==
+            std::optional<int>{});
+
+    REQUIRE(m.lift(7) == std::optional<int>{7});
+
+    REQUIRE(m.zip_with([](int a, int b) { return a + b; },
+                       std::optional<int>{2},
+                       std::optional<int>{3}) == std::optional<int>{5});
+    REQUIRE(m.zip_with([](int a, int b) { return a + b; }, std::optional<int>{},
+                       std::optional<int>{3}) == std::optional<int>{});
+
+    REQUIRE(m.discard_first(std::optional<int>{2}, std::optional<int>{3}) ==
+            std::optional<int>{3});
+    REQUIRE(m.discard_second(std::optional<int>{2}, std::optional<int>{3}) ==
+            std::optional<int>{2});
+}
+
+TEST_CASE("apply: an inapplicable callable still makes map and zip_with "
+          "disappear, not hard-error") {
+    using Map = bt::remove_cvref_t<
+        decltype(bt::applicative_typeclass<std::optional<int>>)>;
+    static_assert(!has_map<Map, StringOnlyCallable, std::optional<int>>);
+    static_assert(!has_zip_with<Map, StringOnlyCallable, std::optional<int>,
+                                std::optional<int>>);
 }
