@@ -113,7 +113,8 @@ TEST_CASE("induced_monoid: KleisliEndo associativity -- the Kleisli-form "
     Endo h{decrement_above_zero};
 
     auto left = bt::monoid_v<Endo>.combine(bt::monoid_v<Endo>.combine(f, g), h);
-    auto right = bt::monoid_v<Endo>.combine(f, bt::monoid_v<Endo>.combine(g, h));
+    auto right =
+        bt::monoid_v<Endo>.combine(f, bt::monoid_v<Endo>.combine(g, h));
 
     REQUIRE(agree_on_samples(left, right));
 }

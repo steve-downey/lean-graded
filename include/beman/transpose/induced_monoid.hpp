@@ -99,8 +99,8 @@ template <class APPLICATIVE_OBJECT, class CONTEXT>
 struct LiftedMonoid {
     CONTEXT d_value;
 
-    friend constexpr auto operator==(const LiftedMonoid &,
-                                     const LiftedMonoid &) -> bool = default;
+    friend constexpr auto operator==(const LiftedMonoid &, const LiftedMonoid &)
+        -> bool = default;
 };
 
 /** Monoid<LiftedMonoid<APPLICATIVE_OBJECT, CONTEXT>>: identity lifts `A`'s
