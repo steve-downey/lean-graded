@@ -20,4 +20,12 @@ Mark your own step done before writing the next step's handoff.
 - [x] 15. [grade-obligations](step-grade-obligations.md) — added 2026-09-08: what a grade must be, layered, with a non-idempotent counter-instance; `foldG_le` needed `IsIdemPomonoid`, not `Pomonoid` alone as predicted — see [obligations](../../docs/design.md#obligations)
 - [x] 16. [oracle-export](step-oracle-export.md) — added 2026-09-08: mechanical law inventory (146 theorems) with pomonoid properties and C++ probe list; corrected the plan's own predictions — commutativity is six sites not three, the at-most-one-error condition is four sites and not the same finding four times, `foldG_le`'s table row is honestly incomplete pending [grade-join-strength](../../docs/design.md#grade-join-strength)
 - [x] 17. [blog-series-edit](step-blog-series-edit.md) — closing.org numbered Letter 16, not the literally-stated 17 (fixed a systematic off-by-one self-numbering bug in the existing letters instead); see [handoff-integration-review](handoff-integration-review.md)
-- [x] 18. [integration-review](INTEGRATION-REVIEW.md) — cross-step coherence GREEN; one live contradiction (`join_comm` "second appearance", five sites), `#provisional-decisions` misses `#grade`, and the `#carrier` cast verdict is overtaken by `ComposeApp` — see §6. Metrics promoted to `metrics/fanout-runs.jsonl`
+- [x] 18. [integration-review](INTEGRATION-REVIEW.md) — cross-step coherence GREEN; findings in §6. The three doc/code defects it named (`join_comm` "second appearance" at five sites, `#provisional-decisions` missing `#grade`, two `Canonical.lean` rules violations, and an untested commutativity path) were fixed in `94bd0b8`; the `#carrier` cast verdict being overtaken by `ComposeApp` is addressed by steps 19-20 below. Metrics promoted to `metrics/fanout-runs.jsonl`
+
+Follow-up run, planned 2026-09-08 after the integration review found the
+cast burden had outgrown [monad-laws]'s verdict. Step 20 is gated on 19's
+measured verdict; the remainder is the open question
+[cast-burden-migration-scope](../../docs/design.md#cast-burden-migration-scope).
+
+- [ ] 19. [sufficient-grade-bind](step-sufficient-grade-bind.md) — the cast-free layer, the union layer, and the bridge between them
+- [ ] 20. [sufficient-grade-applicative](step-sufficient-grade-applicative.md) — **gated on 19's verdict**; where the burden is worst

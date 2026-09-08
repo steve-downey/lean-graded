@@ -122,3 +122,29 @@ judgment, that is `blocked-<slug>.md` and human review.
 16. oracle-export — the law inventory with hypotheses, as a table the C++ probe harness can run against.
 17. blog-series-edit — order the letters, write the index and the closing letter, run the voice check if the skill is present.
 18. Integration review (Opus).
+
+## Follow-up run: the cast burden (planned 2026-09-08)
+
+The integration review found that [monad-laws]'s "casts tolerable, not
+dominating" verdict was right for one grade coordinate at step 5 and does
+not describe the two-coordinate composite: 39 of 146 theorems carry a
+`cast` in their *statement*, `Comp.ap_interchange` carries six in one, and
+`GradedHom`'s fields are cast-quantified.
+
+The fix is **not** the provisional note's "replace `bind` with a
+sufficient-grade version" — that would remove the casts by modelling a
+design P3200 does not have, since the C++ `bind` really does compute the
+union grade. It is two layers and a bridge, verified before planning:
+`bind x f = bindK (le_join_left g h) (le_join_right g h) x f` is `rfl`.
+
+19. sufficient-grade-bind — `bindK` beside `bind`, the three monad laws
+    cast-free, the bridge theorem, and the measurement that decides the
+    rest. Its letter (17) is the post explaining the difficulty and the fix.
+20. sufficient-grade-applicative — **gated on 19's verdict.** `apK`,
+    `map2K` and the two-coordinate composite, where the burden is worst,
+    and the question of whether commutativity was ever needed by the
+    applicative or only by computing the grade exactly.
+
+Everything beyond those two is the open question
+`cast-burden-migration-scope` in `docs/design.md`, deliberately unplanned
+until the measurements exist.

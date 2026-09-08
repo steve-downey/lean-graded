@@ -1574,6 +1574,67 @@ demonstration alive.
   antisymmetry proves `join_idem`, so the exclusion is what makes
   idempotence look like an independent axiom. Question opened.
 
+### cast-burden-migration-scope
+
+**Question.** How much of the model should gain a sufficient-grade,
+cast-free layer: only `bind` and `ap`, or also `traverse`, `flatten`,
+`Comp` and `GradedHom`?
+
+**Status: OPEN**, and deliberately not planned yet.
+
+**Why it is not planned yet.** A brief for the remaining four structures
+written now would be guesswork, and this project already paid for exactly
+that once: [compose-flatten]'s brief named the right structure in its
+first sentence and then set the task against a different one, producing a
+true refutation of a question nobody had asked
+([graded-traversable-composition](#graded-traversable-composition)). The
+brief for this must be written from [sufficient-grade-bind]'s and
+[sufficient-grade-applicative]'s *measurements*, not from the expectation
+that the pattern generalizes.
+
+**What is already settled.** The shape of the fix is two layers and a
+bridge, not a replacement, because the casts faithfully record that the
+C++ `bind` computes the union grade
+([cpp-counterpart](#cpp-counterpart)). Verified before planning:
+`bind x f = bindK (le_join_left g h) (le_join_right g h) x f` closes by
+`rfl` in both constructor cases, so the layers coexist definitionally and
+no existing theorem has to change. The three monad laws state with no
+`cast` at all in the sufficient-grade form.
+
+**The measured burden, as of the integration review.** 39 of 146 theorems
+carry a `cast` in their statement (26%). By module: `Monad` 7/8,
+`Accum` 7/16, `ComposeApp` 6/13, `Morphism` 5/15, `Applicative` 5/11,
+`Compose` 4/8, `Traverse` 2/12, `Carrier` 2/5, `Widen` 1/6, and
+`Ungraded` **0/16** — at one fixed grade they vanish, which is what shows
+the burden is a grade-arithmetic cost rather than an inherent one.
+
+**What would decide it.** Whether the threaded `g ⊆ k` obligations stay
+free at call sites. They are proof-irrelevant, so they should; if they do
+not, the sufficient-grade layer trades casts in statements for proof
+arguments at every use and is not worth extending. `GradedHom` is the
+sharpest case: its *fields* are cast-quantified, so it is either the
+biggest win or the place the design breaks.
+
+**A finding to watch for, which would change more than the casts.**
+`ap_flip` needs `join_comm` by construction, comparing `join g h` against
+`join h g`. At a common `k` there is nothing to compare. If its analogue
+needs no commutativity, then commutativity was a cost of computing the
+grade *exactly* rather than a requirement of the applicative — which
+revises [grade-obligations]' layering, where commutativity is currently
+attributed to order-independence, and revises what P3200 must promise
+about `error_set`.
+
+**Log.**
+
+- 2026-09-08 — integration review found the cast burden had outgrown
+  [monad-laws]'s "tolerable, not dominating" verdict, and recommended
+  bind-at-sufficient-grade as a follow-up run.
+- 2026-09-08 — orchestrator verified the bridge theorem and the cast-free
+  law statements before planning, and rejected the provisional note's
+  "replace `bind`" reading as modelling a design P3200 does not have.
+  [sufficient-grade-bind] and [sufficient-grade-applicative] planned; the
+  remaining four structures left to this question.
+
 ## laws-inventory
 
 The table: [`docs/laws.md`](laws.md) (146 theorems, generated from
@@ -1760,6 +1821,10 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 - [#grade](#grade) — no Mathlib lattice instance is *declared* for
   `Grade`; note the correction there, since the original rationale
   claimed a protection an `abbrev` cannot give.
+- [#monad](#cast-burden-migration-scope) — **OPEN question**
+  `cast-burden-migration-scope`: how much of the model gains a cast-free
+  sufficient-grade layer. Deliberately unplanned until the first two
+  steps' measurements exist.
 - [#obligations](#grade-join-strength) — **OPEN question**
   `grade-join-strength`: whether a grade's join must be a least upper
   bound. Under the stronger reading `join_idem` is a theorem, not an
