@@ -29,6 +29,7 @@ Graded/Tuple.lean        traverse-tuple: GList, joinAll, sequence
 Graded/Compose.lean      compose-flatten: flatten and its laws
 Graded/Morphism.lean     graded-morphism: rename, GradedHom, traverse naturality
 Graded/Canonical.lean    canonical-representation: Canon, canonEquiv
+Graded/ComposeApp.lean   compose-applicative: Comp, Comp.ap, traverseComp, flatten_ap
 Tests.lean, Tests/*.lean one per module; examples at inductive E | parse | range | io
 Examples.lean, Examples/Validation.lean   the single running consumer, grown by every step
 Makefile                 verify | nosorry | letters | laws (laws added by oracle-export)
@@ -85,6 +86,15 @@ proof cites its lemmas by name — this is by design and is what
 - `Accum` is planned, documented, and not a fork. Don't flag it.
 - Letters are part of GREEN (`make letters`), so a step that is green on
   code but missing its letter is not done.
+- The plan grew one step after it started. [compose-applicative] was
+  inserted at 13 (before oracle-export) on 2026-09-08, because
+  [compose-flatten] tested a *flattened* composition law, refuted it, and
+  the record briefly read as though graded traversable composition had
+  failed — it had not been tested. `step-compose-flatten.md` carries a
+  dated amendment saying so; the open question is
+  `graded-traversable-composition` at `docs/design.md#compose`. Worth
+  checking whether other steps make the same shape of substitution:
+  naming the right structure and then testing a convenient one.
 - The C++ side is **not** in this repository. Facts about it live only in
   `docs/design.md#cpp-counterpart`, written at baseline from the plan.
   If the C++ design moves, that section is the one to update, and the

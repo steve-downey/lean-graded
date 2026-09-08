@@ -116,6 +116,7 @@ judgment, that is `blocked-<slug>.md` and human review.
 10. compose-flatten — nested carriers, the product grade, and the union-flattening law.
 11. graded-morphism — grade-respecting morphisms (error renaming), naturality of `traverse`.
 12. canonical-representation — `Finset Err` versus sorted duplicate-free lists; the Lean statement of "`error_set<A,B>` is the same type as `error_set<B,A>`".
-13. oracle-export — the law inventory with hypotheses, as a table the C++ probe harness can run against.
-14. blog-series-edit — order the letters, write the index and the closing letter, run the voice check if the skill is present.
-15. Integration review (Opus).
+13. compose-applicative — the composed applicative with the product grade `(g, h)` kept unflattened, and the classical composition law stated against it. Added 2026-09-08; see `docs/design.md#graded-traversable-composition`.
+14. oracle-export — the law inventory with hypotheses, as a table the C++ probe harness can run against.
+15. blog-series-edit — order the letters, write the index and the closing letter, run the voice check if the skill is present.
+16. Integration review (Opus).

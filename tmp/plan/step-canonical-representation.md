@@ -165,5 +165,9 @@ git branch -d step/canonical-representation
 ## Handoff
 
 Mark `canonical-representation` done in `tmp/plan/checklist.md`. Read
-`tmp/plan/step-oracle-export.md`. Write `tmp/plan/handoff-oracle-export.md` fresh, per
+`tmp/plan/step-compose-applicative.md`. Write `tmp/plan/handoff-compose-applicative.md` fresh, per
 the contract in `AGENT-PROMPT.md`.
+
+(`compose-applicative` was inserted after the original plan was written;
+it used to be `oracle-export` that followed this step. See
+[graded-traversable-composition](../../docs/design.md#graded-traversable-composition).)

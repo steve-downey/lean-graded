@@ -10,15 +10,29 @@ blog series; see `docs/RULES.md#letter-template`.
 
 ## Why
 
-Traversable's composition law needs `Compose F G`; for graded functors
-the natural grade of `Graded g (Graded h α)` is the *pair* `(g, h)` in
-the product pomonoid, not the union. The C++ collapses nested
-`expected<expected<T,E1>,E2>` to `expected<T, E1 ∪ E2>` and treats that
-as obviously right. It is right, but it is a **distributive-law-shaped
-theorem**: the flattening must be compatible with `map`, `pure`, `bind`
-and `widen` in each layer. This step states the flattening and proves
-those compatibilities, and it settles whether the composition law of
-`traverse` holds through the flattening.
+The C++ collapses nested `expected<expected<T,E1>,E2>` to `expected<T,
+E1 ∪ E2>` and treats that as obviously right. It is right, but it is a
+**distributive-law-shaped theorem**: the flattening must be compatible
+with `map`, `pure`, `bind` and `widen` in each layer. This step states
+the flattening and proves those compatibilities.
+
+> **Amended 2026-09-08, after this step ran.** This section used to open
+> by observing that Traversable's composition law needs `Compose F G`,
+> and that for graded functors the natural grade of `Graded g (Graded h
+> α)` is the *pair* `(g, h)` in the product pomonoid rather than the
+> union — and then set the task as settling whether the composition law
+> holds *through the flattening*. Those are two different questions, and
+> asking the second answers nothing about the first. The step duly
+> refuted the flattened statement, and the result was briefly recorded as
+> though graded traversable composition had failed. It had not been
+> tested. The counterexample survives at a single grade, so it is not
+> about grading at all — it is about `flatten` forgetting which layer
+> failed, which an ungraded `Either` flattening does just as thoroughly.
+>
+> The composition law is now out of this step's scope entirely and
+> belongs to [compose-applicative], which builds the product-graded
+> composite and states the law against it. See
+> [graded-traversable-composition](../../docs/design.md#graded-traversable-composition).
 
 ## What already exists
 
@@ -50,15 +64,11 @@ def flatten : Graded g (Graded h α) → Graded (Grade.join g h) α
   provable when at most one layer is an error**; otherwise the surviving
   error differs. Prove the conditional form; record it as the third
   appearance of the same condition.
-- Traverse composition: with `traverse` from [traverse-list],
-  `traverse (fun a => map (traverse k) (f a)) xs` at grade `g` of
-  `Graded h (List γ)` flattened equals `traverse (fun a => flatten
-  (map k' (f a))) xs` — state the cleanest form you can get to typecheck
-  in `Compose.lean` **only if** it lands in three attempts or a bounded
-  `grind` loop; otherwise state it as a `theorem` with the exact
-  statement and a `sorry`, **do not commit**, and write
-  `blocked-compose-flatten.md` with the statement. The statement is worth
-  more than a weakened proof here.
+- Traverse composition: **removed from this step by the amendment
+  above.** It belongs to [compose-applicative], which has the structure
+  the law is about. Do not attempt it here, and do not state a flattened
+  variant of it: that variant is false, and the counterexample is in
+  `tmp/plan/blocked-compose-flatten.md`.
 
 ### Consumer
 
@@ -167,3 +177,7 @@ git branch -d step/compose-flatten
 Mark `compose-flatten` done in `tmp/plan/checklist.md`. Read
 `tmp/plan/step-graded-morphism.md`. Write `tmp/plan/handoff-graded-morphism.md` fresh, per
 the contract in `AGENT-PROMPT.md`.
+
+(The composition question this step used to carry is now
+[compose-applicative], step 13, and needs no handoff from you — its
+inbound handoff comes from [canonical-representation].)

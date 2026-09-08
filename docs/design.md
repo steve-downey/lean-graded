@@ -754,6 +754,11 @@ rests on this. The finding is a guardrail for a claim the paper has not
 made: a flattening-shaped composition law would be false, and the
 counterexample is on hand if one is ever proposed.
 
+**Who answers it.** [compose-applicative], step 13 of the plan, added
+2026-09-08 for this purpose. It builds the structure and states the law
+against it, and updates this section in place rather than opening a
+second question.
+
 **What would settle it.** An `ap` for `Graded g ∘ Graded h` kept
 genuinely nested — combining outer layers with the outer `ap` and inner
 layers with the inner `ap` lifted inside, as `Compose`'s own instance
@@ -776,6 +781,10 @@ the code.
   refuting graded traversable composition, which it does not. Confirmed
   [cpp-counterpart](#cpp-counterpart) makes no composition claim, so
   nothing in the C++ design currently depends on the answer.
+- 2026-09-08 — [compose-applicative] added to the plan as step 13 to
+  answer this, and `step-compose-flatten.md` amended so a re-run of the
+  plan cannot repeat the substitution of the flattened question for this
+  one.
 
 ## morphisms
 
