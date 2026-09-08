@@ -3,7 +3,7 @@
 #+CATEGORY: lean-transpose
 #+STEP: compose-flatten
 
-Dear colleague,
+Steve,
 
 * What I set out to do
 
@@ -15,8 +15,8 @@ combined error set. It looks obviously safe. I wanted to know what "safe"
 actually costs: does the flattening play nicely with mapping a function
 over the payload, with combining it with =and_then=, with widening
 either layer to a bigger error set before or after you flatten it? And
-the more interesting question: if you flatten *inside* a loop — traverse
-a whole container of these fetch-then-parse results — does flattening
+the more interesting question: if you flatten *inside* a loop (traverse
+a whole container of these fetch-then-parse results), does flattening
 each one first and then combining across the container give you the same
 answer as combining across the container first and flattening once at
 the end?
@@ -25,7 +25,7 @@ the end?
 
 The first refusal was small and mechanical. I wanted to state that
 flattening a nested value is exactly the same operation as =and_then=
-with the identity function — the "it's just the monad's own multiplication"
+with the identity function: the "it's just the monad's own multiplication"
 fact. Lean rejected the statement outright, before it even got to
 checking a proof, over what it called a universe mismatch. The short
 version: a =Graded h α= value (the inner, still-nested carrier) is a
@@ -56,7 +56,7 @@ def k : Nat → Graded h Nat         -- always fails
 Two elements: the first succeeds at the outer stage and then fails at the
 inner one; the second fails at the outer stage outright. Combine
 everything at the outer stage first, then the inner stage second, and you
-report the *second element's* outer failure — you never even reach the
+report the *second element's* outer failure: you never even reach the
 inner stage, because the outer combination already gave up. Flatten each
 element as you go, and you report the *first element's* inner failure,
 because now every element looks like one flat "did something go wrong"
@@ -75,13 +75,13 @@ try to weaken it into something provable. What I did keep, and what
 surprised me, was a related question about reordering the two layers
 instead of composing them across a container. I expected flattening to
 commute with swapping inner and outer only when at most one layer
-actually held an error — the same hedge I'd already needed twice before,
+actually held an error, the same hedge I'd already needed twice before,
 once for combining two independent function-and-argument results and
 once for combining a tuple of independent results. It turned out that
 hedge was never needed here at all: a nested value only ever holds *one*
-live error to begin with — there's no way to construct one with both
+live error to begin with: there's no way to construct one with both
 layers failing at once, unlike two genuinely separate results that can
-each fail independently — so the swap is safe unconditionally.
+each fail independently, so the swap is safe unconditionally.
 
 * Back in C++
 
@@ -89,8 +89,8 @@ The safe part of this letter is safe: flattening a nested =expected=
 really does commute with mapping, with wrapping either layer in a
 trivial success, with re-flattening a triple-nested one from either end,
 and with widening either layer's error set first. All of that you can
-rely on exactly the way you already do, without having to check which
-layer might have failed.
+rely on the way you already do, without having to check which layer
+might have failed.
 
 The part worth slowing down for is the loop. If you write a function
 that fetches then parses, returning one flattened =expected= per element,
@@ -98,9 +98,9 @@ and you run it across a =std::vector= with a short-circuiting
 =transpose=, you'll get "the first element whose fetch-or-parse failed,
 whichever came first, no matter which stage." That's very likely what
 you want. But if your code is instead structured as two separate passes
-— gather all the fetches into a vector of raw results, check that whole
-vector for any failure, and only then parse the ones that came back — you
-are running a *different* algorithm, one that always prefers a fetch
+(gather all the fetches into a vector of raw results, check that whole
+vector for any failure, and only then parse the ones that came back),
+you are running a *different* algorithm, one that always prefers a fetch
 failure over a parse failure, anywhere in the container, even one that
 occurs after a fetch failure earlier in the list would have short-
 circuited the single-pass version first. Both are reasonable designs.
@@ -108,5 +108,4 @@ They are not the same design, and nothing about =expected<expected<T,
 E1>, E2>= being "obviously" flattenable to =expected<T, E1 ∪ E2>= tells
 you which one you've written.
 
-Yours,
-Steve
+--SMD

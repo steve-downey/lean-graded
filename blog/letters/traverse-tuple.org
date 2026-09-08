@@ -3,7 +3,7 @@
 #+CATEGORY: lean-transpose
 #+STEP: traverse-tuple
 
-Dear colleague,
+Steve,
 
 * What I set out to do
 
@@ -17,8 +17,8 @@ error_set<io>>>)=, which should give you back =expected<std::tuple<int,
 int, Unit>, error_set<parse, range, io>>=. Every element here has a
 *different* payload type and a *different* error set. There's no single
 uniform grade to fold over a runtime length, the way there was for the
-vector. The result's error set is fixed by the tuple's *shape* — how many
-slots, and which error set each one carries — and that shape is known at
+vector. The result's error set is fixed by the tuple's *shape* (how many
+slots, and which error set each one carries), and that shape is known at
 compile time. So the grade isn't something you fold at runtime at all;
 it's something you compute once, from the types.
 
@@ -29,7 +29,7 @@ case spent so much effort on.
 * What the checker refused
 
 The representation came first, and it fought back before any theorem
-did. My first attempt defined the tuple as an honest indexed family — one
+did. My first attempt defined the tuple as an honest indexed family: one
 constructor for an empty tuple, one for "one more graded element on the
 front," carrying the element's own type and error set as extra,
 per-slot information. The checker rejected the very declaration, not a
@@ -37,8 +37,8 @@ proof: it said the constructor needed a universe (a "how big can this
 type be" classification Lean tracks so it can't build paradoxes) one
 level higher than the one I'd written.
 
-The reason, once I worked through it, made sense. A =Sigma= type — the
-usual "a value paired with a proof about it" — gets to be cheap about
+The reason, once I worked through it, made sense. A =Sigma= type (the
+usual "a value paired with a proof about it") gets to be cheap about
 universes because its type parameter is fixed once, for the whole type.
 My tuple's per-slot type wasn't fixed once; a fresh one shows up at every
 slot, which is exactly the point (that's what makes it heterogeneous).
@@ -65,21 +65,20 @@ that slot's value and the rest of the tuple; a length mismatch between
 the two index lists (which never actually happens, but Lean's pattern
 matching wants every case covered) gets the empty, uninhabited type. A
 plain function computing which type to use doesn't trigger the "fresh
-types at each step" rule at all — it's not a data structure that
-produces types, it's a description of one. I gave it constructor-shaped
-names, =GList.nil= and =GList.cons=, purely so the rest of the code
-reads the way it would if it really were the indexed family I first
-tried.
+types at each step" rule at all: it's not a data structure that produces
+types, it's a description of one. I gave it constructor-shaped names,
+=GList.nil= and =GList.cons=, purely so the rest of the code reads the
+way it would if it really were the indexed family I first tried.
 
 * What changed
 
 With the representation settled, the two theorems about the grade split
-exactly the way the vector case's did, but for a different reason.
+the same way the vector case's did, but for a different reason.
 Reordering a tuple's element types shouldn't change the union of their
-error sets — that's the fact that licenses your compiler treating
+error sets: that's the fact that licenses your compiler treating
 =error_set<parse, range>= and =error_set<range, parse>= as the same
 type. Proving that needed only that union is commutative and
-associative — nothing about a set absorbing a duplicate of itself,
+associative: nothing about a set absorbing a duplicate of itself,
 because there's no duplicate to absorb; reordering doesn't remove
 anything.
 
@@ -99,12 +98,12 @@ theorem joinAll_perm {gs gs' : List (Grade Err)} (h : gs ~ gs') :
 up from four moves: do nothing, keep an element and permute the rest,
 swap the front two, or chain two permutations together. Each case of
 =induction ... with= handles one move: =swap= is the only one that
-touches order, and it needs exactly the two facts I said — reassociate
-the union so the front two elements sit next to each other
-(=join_assoc=), then swap them (=join_comm=).
+touches order, and it needs just the two facts I said: reassociate the
+union so the front two elements sit next to each other (=join_assoc=),
+then swap them (=join_comm=).
 
-Idempotence — the same fact the vector case needed for a *different*
-reason — only came back once I asked a second, smaller question: does
+Idempotence (the same fact the vector case needed for a *different*
+reason) only came back once I asked a second, smaller question: does
 removing a genuinely duplicate error set from the list change anything?
 It doesn't, but proving that does cost the "union with itself is
 itself" fact, at the exact point where a repeated error set collapses
@@ -116,16 +115,15 @@ duplicate is not.
 
 This is the theorem underneath your compiler's canonicalization step.
 When it sorts =error_set<Y, X>= into the same type as =error_set<X, Y>=,
-sorting is *an implementation* of order-independence — one convenient
-way to make two things that ought to be equal actually come out equal at
-the type level. What makes any such implementation legitimate at all is
+sorting is *an implementation* of order-independence: one convenient way
+to make two things that ought to be equal actually come out equal at the
+type level. What makes any such implementation legitimate at all is
 commutativity and associativity of the union underneath it: those are
 what say the two type arguments were interchangeable in the first place.
-The sorting itself could be replaced with something else — a hash, a
-canonical tree shape, whatever — and the tuple's =transpose= would still
+The sorting itself could be replaced with something else (a hash, a
+canonical tree shape, whatever) and the tuple's =transpose= would still
 be sound, because the thing doing the work is the algebra, not the
 sorting. I hadn't separated those two ideas this cleanly before sitting
 down to prove it.
 
-Yours,
-Steve
+--SMD

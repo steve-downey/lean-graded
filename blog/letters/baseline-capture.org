@@ -3,14 +3,14 @@
 #+CATEGORY: lean-transpose
 #+STEP: baseline-capture
 
-Dear colleague,
+Steve,
 
 * What I set out to do
 
 You've seen P3200's grading design in beman.transpose: an =expected<T,
 error_set<Es...>>= where =error_set<Es...>= is a compile-time set of error
 *types*. The set is ordered by inclusion and joined by union; the empty set
-is its unit. It's a nominal type — not just a raw parameter pack — so that
+is its unit. It's a nominal type, not just a raw parameter pack, so that
 =error_set<A, B>= and =error_set<B, A>= come out as literally the same
 type, via a public alias that sorts the pack before handing it to a detail
 carrier. A function that can fail with a parse error or a range error
@@ -19,30 +19,30 @@ calls it and can also fail with an I/O error returns the union grade,
 =expected<T, error_set<parse_error, range_error, io_error>>=; subsumption
 from the smaller set to the bigger one happens by implicit conversion, so
 callers compose without ceremony. At the empty grade, the carrier isn't
-=expected<T, error_set<>>= — it's bare =T=, chosen that way on purpose so
+=expected<T, error_set<>>=; it's bare =T=, chosen that way on purpose so
 client code doesn't have to unwrap a wrapper that can never hold an error.
 
-Here's the thing I can't get past: the C++ type system tracks all of this
-faithfully, but it checks none of it. The monad and applicative instances
-for this carrier are what I'd call duck-typed gadgets — write a =bind= and
-a =pure= with plausible-looking signatures, and the compiler is satisfied.
-Nothing checks that =bind= is associative, that =pure= is really a unit for
-it, that the applicative instance you hand-write agrees with the one you
-could have derived from the monad. If I get the union-grade arithmetic
-wrong in a corner case — say, two grades that are supposed to be equal
-because a set was built in a different order — the code compiles, runs,
-and maybe passes its unit tests anyway, because the tests were written by
-the same person who wrote the bug.
+The C++ type system tracks all of this faithfully, but it checks none of
+it. The monad and applicative instances for this carrier are what I'd call
+duck-typed gadgets: write a =bind= and a =pure= with plausible-looking
+signatures, and the compiler is satisfied. Nothing checks that =bind= is
+associative, that =pure= is really a unit for it, that the applicative
+instance you hand-write agrees with the one you could have derived from
+the monad. If I get the union-grade arithmetic wrong in a corner case (say,
+two grades that are supposed to be equal because a set was built in a
+different order), the code compiles, runs, and maybe passes its unit tests
+anyway, because the tests were written by the same person who wrote the
+bug.
 
 So the plan, which is going to take me a good deal longer than the plan
 summary suggests, is to write the same design a second time, in a language
 where "the code compiles" and "the law is proved" are the same sentence.
-Not a rewrite of transpose — a *model* of its grading, small enough to
+Not a rewrite of transpose: a *model* of its grading, small enough to
 state every law I care about as an actual theorem, and honest enough that
 if a theorem doesn't hold, or holds only under an extra assumption I didn't
 expect, that's something I learn about the C++ design, not just about the
 model. The question I'm chasing across this whole series is: which
-*properties of the grade* — of the ordering, the join, the unit — does each
+*properties of the grade* (of the ordering, the join, the unit) does each
 law of the monad, the applicative, the traversal actually need? Right now
 the C++ answer is "whichever properties =error_set= happens to have,"
 because nothing forces the question to be asked. I want the sharper
@@ -53,11 +53,11 @@ specifically, and I don't think I can get it by staring at the C++ harder.
 
 * What the checker refused
 
-Nothing yet — this is the setup letter, not a proof letter. Starting with
+Nothing yet. This is the setup letter, not a proof letter. Starting with
 the next one, this section is where I tell you what I tried first, what
 the proof assistant threw back in my face, and what that refusal taught me
 about the actual shape of the problem. I expect most of what's interesting
-in this series to live in that section, not this one.
+in this series to live in that section.
 
 * What changed
 
@@ -65,7 +65,7 @@ I stood up a Lean 4 project with the Mathlib library available, a
 Makefile that reduces "is this green" to two commands, a short style guide
 for how the proofs in this project cite the algebraic facts they depend
 on, and a living design document that will grow one section per concept as
-the series goes on. Nothing about the grading design exists yet — this
+the series goes on. Nothing about the grading design exists yet; this
 letter is letter zero precisely because there's no result to report,
 only a workbench to describe.
 
@@ -74,23 +74,23 @@ only a workbench to describe.
 Two things worth knowing if you want to follow along or try this yourself.
 
 First, what Lean actually is, in terms you already have handles for: it's
-a programming language whose type checker doubles as a proof checker —
-when you write a theorem's statement as a type and its proof as a term of
-that type, the same elaborator that would reject a badly-typed expression
-also rejects a wrong proof. There is no separate "prover" you invoke
-after the fact; type-checking the proof *is* checking the proof. And
-=lake=, Lean's build tool, plays exactly the role CMake plays for you —
-it resolves dependencies, decides what needs rebuilding, and drives the
-compiler — except one of its dependencies, called Mathlib, is a single
-library containing most of a research mathematics curriculum as
-machine-checked theorems, which is what let me build on "join-semilattice"
-and "commutative monoid" as existing, already-proved vocabulary instead of
+a programming language whose type checker doubles as a proof checker. When
+you write a theorem's statement as a type and its proof as a term of that
+type, the same elaborator that would reject a badly-typed expression also
+rejects a wrong proof. There is no separate "prover" you invoke after the
+fact; type-checking the proof *is* checking the proof. And =lake=, Lean's
+build tool, plays exactly the role CMake plays for you. It resolves
+dependencies, decides what needs rebuilding, and drives the compiler,
+except that one of its dependencies, called Mathlib, is a single library
+containing most of a research mathematics curriculum as machine-checked
+theorems, which is what let me build on "join-semilattice" and
+"commutative monoid" as existing, already-proved vocabulary instead of
 re-deriving lattice theory from scratch.
 
 Second, the one number allowed in a letter that isn't a proof letter: the
 first time I asked for Mathlib's prebuilt library files instead of
-compiling all of Mathlib from source myself — which is the equivalent of
-fetching a prebuilt Boost instead of running its build from scratch — it
+compiling all of Mathlib from source myself (which is the equivalent of
+fetching a prebuilt Boost instead of running its build from scratch), it
 took a little over two minutes to fetch and unpack roughly 8,700 files.
 After that, a full rebuild of my own (still essentially empty) project
 took well under fifteen seconds, and a no-op rebuild took well under five.
@@ -98,7 +98,7 @@ If those numbers hold up as the project grows, "is this green" stays a
 question I can ask often, which is the whole point of doing this in a
 checker instead of on paper.
 
-Next letter: the grade itself — what a "pomonoid" is and why =error_set=
+Next letter: the grade itself, what a "pomonoid" is and why =error_set=
 needs to be one.
 
-— Steve
+--SMD
