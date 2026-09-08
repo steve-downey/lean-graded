@@ -27,7 +27,16 @@ namespace beman::transpose {
  */
 template <class Impl>
 struct Functor : protected Impl {
-    using Impl::fmap;
+    /** Applies `function` to every element of `value`. */
+    template <class FUNCTION, class T>
+    auto fmap(this auto &&self, FUNCTION &&function, T &&value)
+        requires requires(const Impl &impl) {
+            impl.fmap(std::forward<FUNCTION>(function), std::forward<T>(value));
+        }
+    {
+        return impl_of(self).fmap(std::forward<FUNCTION>(function),
+                                  std::forward<T>(value));
+    }
 
     /** Replaces every element of `value` with `replacement`, ignoring the
      * original element values.

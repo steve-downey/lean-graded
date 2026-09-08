@@ -1216,3 +1216,70 @@ is not repeated is the const propagation, which lives once in `impl_ref_t`.
   re-export changed. The own-member rule (this decision's third part) is
   applied to a real member for the first time by
   [monad-fmap-basis](../tmp/plan/step-monad-fmap-basis.md), the next step.
+
+## functor-monad-grounding
+
+**Question:** How does a type with a `Monad` instance and no separate
+`Functor` registration obtain its `fmap`, given that `fmap f x == bind(x,
+pure . f)` is a theorem rather than a coincidence?
+**Status:** DECIDED 2026-09-07
+**Decided by:** the design, applied by
+[monad-fmap-basis](../tmp/plan/step-monad-fmap-basis.md).
+**Decision:** Structurally, not by a superclass constraint. `Monad<Impl>`
+provides the Functor **basis** operation, `fmap`, derived as `bind(ma, pure .
+f)` with native preference for an `Impl::fmap` when the instance supplies
+one. The full Functor instance is then spelled at the registration or call
+site as `Functor<SomeMonadMap>{}` — no adapter type, no nominal wrapper
+requirement. The CRTP base is the adapter.
+
+**Monad grows only the basis operations of the classes it can ground, never
+their derived operations.** `replace` stays on `Functor<>` and is reached
+through the layered instance, not duplicated onto `Monad`. This is what
+keeps a monad-grounded instance tracking Functor's derived surface instead
+of forking from it as that surface gains operations.
+
+**Why:** Conformance in this library is structural throughout — provide the
+operations, claim the laws at the registration site — so a superclass
+constraint would be foreign to the rest of the design where a theorem
+suffices. Growing only the basis, and never the derived surface, is the rule
+that keeps the two typeclasses from drifting: if `Monad` also grew `replace`
+directly, a change to `Functor::replace`'s derivation would have to be
+mirrored onto `Monad` by hand, and nothing would catch a missed mirror. The
+agreement test in `laws.test.cpp` is the sentinel: where a hand-written
+`Functor` and a `Monad` coexist on the same carrier (`std::optional`), the
+hand-written `fmap` and the Monad-derived one are checked equal, so the
+redundancy cannot drift silently.
+
+`fmap`'s `requires`-clause is a disjunction — native `Impl::fmap`, or
+`Impl::bind` — spelled in the `Applicative<Impl>::ap` shape from
+`apply.hpp`, for the same reason: an unconstrained probing member is
+satisfied by substitution alone, so a later deep object concept checking for
+`fmap` would find it vacuously present even when neither `Impl` operation
+exists. Both branches address `Impl` directly, never `self` — `fmap` and
+`bind` are one of the mutually-derivable pairs (`bind` is recoverable from
+`join` + `fmap`) that `apply.hpp`'s cycle discipline exists to keep from
+recursing into each other, and generalizing Impl-direction to other members
+is out of scope for this decision.
+**Log:**
+- 2026-09-07 — [monad-fmap-basis](../tmp/plan/step-monad-fmap-basis.md) added
+  `fmap` to `Monad<Impl>` and converted `Functor<Impl>::fmap` from a `using
+  Impl::fmap;` re-export to its own forwarding member — the own-member rule
+  from [impl-access-through-bases](#impl-access-through-bases), applied to a
+  real member for the first time. That conversion is what makes
+  `Functor<OptionalMonadMap<int>>` compile at all: with the re-export, an
+  external call landed directly in `Monad<Impl>::fmap` with `self` typed as
+  the outer `Functor<...>`, where the protected-inherited `Impl` is
+  unreachable (`'OptionalMonadImpl<int>' is an inaccessible base of
+  'Functor<OptionalMonadMap<int>>'`); with `Functor` owning the member, the
+  call enters `Functor::fmap` first, where the conversion is accessible, and
+  hands `Monad<Impl>::fmap` a `self` typed as the `Map` — one level deep,
+  where addressing already works. Surfaced along the way: `OptionalMonadImpl
+  ::bind` computed its result type only in the body (bare `auto`, `using
+  Result = ...std::invoke_result_t<F, const A &>...`), which is exactly the
+  non-SFINAE-friendly shape `apply.hpp`'s basis invariant warns against —
+  probing it from `fmap`'s disjunctive `requires`-clause with an
+  incompatible `F` produced a hard error rather than a clean constraint
+  failure. Given a trailing return type (`-> remove_cvref_t<
+  std::invoke_result_t<F, const A &>>`), the probe fails cleanly, matching
+  the invariant `apply.hpp` already states for `Applicative` impls. Suite
+  went from 124 to 131.
