@@ -280,7 +280,7 @@ template <class IMPL, class CONTEXT>
 concept monad_impl = requires(const IMPL &impl, const CONTEXT &context,
                               const applicative_value_t<CONTEXT> &element) {
     impl.pure(element);
-    impl.bind(context, probe_witness<CONTEXT>{});
+    impl.bind(context, detail::probe_witness<CONTEXT>{});
 };
 
 /** Deep object concept for a Monad object over `CONTEXT`: satisfied when
@@ -302,17 +302,17 @@ concept monad_object =
     requires(const OBJ &obj, const CONTEXT &context,
              const applicative_value_t<CONTEXT> &element) {
         obj.pure(element);
-        obj.bind(context, probe_witness<CONTEXT>{});
-        obj.fmap(probe_witness<applicative_value_t<CONTEXT>>{}, context);
-        obj.invoke(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.bind(context, detail::probe_witness<CONTEXT>{});
+        obj.fmap(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.invoke(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
         obj.join(obj.pure(context));
-        obj.kleisli(probe_witness<CONTEXT>{}, probe_witness<CONTEXT>{});
-        obj.bind_with(obj, context, probe_witness<CONTEXT>{});
+        obj.kleisli(detail::probe_witness<CONTEXT>{}, detail::probe_witness<CONTEXT>{});
+        obj.bind_with(obj, context, detail::probe_witness<CONTEXT>{});
     } &&
     (!requires(const OBJ &obj) {
-        obj.pure(probe_witness<applicative_value_t<CONTEXT>>{});
+        obj.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{});
     } || requires(const OBJ &obj, const CONTEXT &context) {
-        obj.ap(obj.pure(probe_witness<applicative_value_t<CONTEXT>>{}),
+        obj.ap(obj.pure(detail::probe_witness<applicative_value_t<CONTEXT>>{}),
                context);
     }) &&
     (!graded_context<CONTEXT> ||

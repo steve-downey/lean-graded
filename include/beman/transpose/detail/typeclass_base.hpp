@@ -71,6 +71,8 @@ struct applicative_value<std::optional<T>, void> {
 template <class T>
 using applicative_value_t = typename applicative_value<remove_cvref_t<T>>::type;
 
+namespace detail {
+
 /** Representative witness callable for probing a one-argument derived
  * operation that is templated over an arbitrary callable -- `fmap`, `map`,
  * `fold_map`, `traverse`, and similar. A concept can check membership for
@@ -79,6 +81,7 @@ using applicative_value_t = typename applicative_value<remove_cvref_t<T>>::type;
  * needs the callable to produce. Its presence in a concept is a witness
  * that the operation exists, not a proof that it exists for every callable.
  */
+//! \expos
 template <class RESULT>
 struct probe_witness {
     template <class ARGUMENT>
@@ -96,6 +99,7 @@ struct probe_witness {
  * never reach the second, silently truncating the arity the probe means to
  * exercise.
  */
+//! \expos
 template <class RESULT>
 struct probe_witness2 {
     template <class FIRST, class SECOND>
@@ -103,6 +107,8 @@ struct probe_witness2 {
         return RESULT{};
     }
 };
+
+} // namespace detail
 
 } // namespace beman::transpose
 

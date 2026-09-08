@@ -187,10 +187,10 @@ struct Monoid<detail::First<VALUE_TYPE>> {
  */
 template <class IMPL, class STRUCTURE>
 concept foldable_impl = requires(const IMPL &impl, const STRUCTURE &structure) {
-    impl.fold_map(probe_witness<Count>{}, structure);
+    impl.fold_map(detail::probe_witness<Count>{}, structure);
 } || requires(const IMPL &impl, const STRUCTURE &structure) {
     typename IMPL::element_type;
-    impl.fold_right(structure, int{}, probe_witness2<int>{});
+    impl.fold_right(structure, int{}, detail::probe_witness2<int>{});
 };
 
 /** CRTP base for Foldable instances.
@@ -645,15 +645,15 @@ concept has_registered_monoid = requires { Monoid<VALUE_TYPE>{}; };
 template <class OBJ, class STRUCTURE>
 concept foldable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
-        obj.fold_map(probe_witness<Count>{}, structure);
+        obj.fold_map(detail::probe_witness<Count>{}, structure);
         obj.length(structure);
-        obj.fold_left(structure, int{}, probe_witness2<int>{});
-        obj.fold_right(structure, int{}, probe_witness2<int>{});
-        obj.any_of(structure, probe_witness<bool>{});
-        obj.all_of(structure, probe_witness<bool>{});
+        obj.fold_left(structure, int{}, detail::probe_witness2<int>{});
+        obj.fold_right(structure, int{}, detail::probe_witness2<int>{});
+        obj.any_of(structure, detail::probe_witness<bool>{});
+        obj.all_of(structure, detail::probe_witness<bool>{});
         obj.empty(structure);
         obj.to_vector(structure);
-        obj.find_first(structure, probe_witness<bool>{});
+        obj.find_first(structure, detail::probe_witness<bool>{});
     } && (!detail::has_registered_monoid<applicative_value_t<STRUCTURE>> ||
           requires(const OBJ &obj, const STRUCTURE &structure) {
               obj.combine_all(structure);

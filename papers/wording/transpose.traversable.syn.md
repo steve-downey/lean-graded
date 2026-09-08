@@ -73,7 +73,7 @@ template<class IMPL, class STRUCTURE>
 concept traversable_impl = requires(const IMPL& impl, const STRUCTURE& structure) {
   typename IMPL::element_type;
   impl.traverse(applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
-                probe_witness<optional<applicative_value_t<STRUCTURE>>>{}, structure);
+                $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{}, structure);
 };
 ```
 
@@ -89,13 +89,13 @@ concept traversable_object =
     requires(const OBJ &obj, const STRUCTURE &structure) {
         obj.traverse(
             applicative_typeclass<optional<applicative_value_t<STRUCTURE>>>,
-            probe_witness<optional<applicative_value_t<STRUCTURE>>>{},
+            $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{},
             structure);
         obj.for_each(
             structure,
-            probe_witness<optional<applicative_value_t<STRUCTURE>>>{});
+            $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{});
         obj.traverse_with(
-            obj, probe_witness<optional<applicative_value_t<STRUCTURE>>>{},
+            obj, $probe-witness$<optional<applicative_value_t<STRUCTURE>>>{},
             structure);
     } &&
     (!requires(const OBJ &) {

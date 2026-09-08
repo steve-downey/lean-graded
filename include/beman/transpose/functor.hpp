@@ -91,7 +91,7 @@ inline constexpr auto functor_typeclass = std::false_type{};
  */
 template <class IMPL, class CONTEXT>
 concept functor_impl = requires(const IMPL &impl, const CONTEXT &context) {
-    impl.fmap(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+    impl.fmap(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
 };
 
 /** Deep object concept for a Functor object over `CONTEXT`: satisfied when
@@ -111,7 +111,7 @@ concept functor_impl = requires(const IMPL &impl, const CONTEXT &context) {
 template <class OBJ, class CONTEXT>
 concept functor_object = requires(const OBJ &obj, const CONTEXT &context,
                                   const applicative_value_t<CONTEXT> &element) {
-    obj.fmap(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+    obj.fmap(detail::probe_witness<applicative_value_t<CONTEXT>>{}, context);
     obj.replace(context, element);
 };
 
