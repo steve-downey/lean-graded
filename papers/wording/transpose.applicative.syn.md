@@ -56,14 +56,14 @@ struct Applicative : protected Impl {
   auto map(this auto&& self, FUNCTION&& function, ARGUMENT&& argument)
     requires requires(const Impl& impl) {
       impl.map(forward<FUNCTION>(function), forward<ARGUMENT>(argument));
-    } || requires(const Impl& impl) {
-      impl.invoke(forward<FUNCTION>(function), forward<ARGUMENT>(argument));
+    } || requires {
+      self.invoke(forward<FUNCTION>(function), forward<ARGUMENT>(argument));
     };
 
   template<class VALUE>
   auto lift(this auto&& self, VALUE&& value)
     requires requires(const Impl& impl) { impl.lift(forward<VALUE>(value)); } ||
-             requires(const Impl& impl) { impl.pure(forward<VALUE>(value)); };
+             requires { self.pure(forward<VALUE>(value)); };
 
   template<class FUNCTION, class FIRST_ARGUMENT, class SECOND_ARGUMENT>
   auto zip_with(this auto&& self, FUNCTION&& function, FIRST_ARGUMENT&& first_argument,
@@ -72,8 +72,8 @@ struct Applicative : protected Impl {
       impl.zip_with(forward<FUNCTION>(function),
                     forward<FIRST_ARGUMENT>(first_argument),
                     forward<SECOND_ARGUMENT>(second_argument));
-    } || requires(const Impl& impl) {
-      impl.invoke(forward<FUNCTION>(function), forward<FIRST_ARGUMENT>(first_argument),
+    } || requires {
+      self.invoke(forward<FUNCTION>(function), forward<FIRST_ARGUMENT>(first_argument),
                   forward<SECOND_ARGUMENT>(second_argument));
     };
 
@@ -83,8 +83,8 @@ struct Applicative : protected Impl {
     requires requires(const Impl& impl) {
       impl.discard_first(forward<FIRST_ARGUMENT>(first_argument),
                          forward<SECOND_ARGUMENT>(second_argument));
-    } || requires(const Impl& impl) {
-      impl.invoke(discard_first_eval, forward<FIRST_ARGUMENT>(first_argument),
+    } || requires {
+      self.invoke(discard_first_eval, forward<FIRST_ARGUMENT>(first_argument),
                   forward<SECOND_ARGUMENT>(second_argument));
     };
 
@@ -94,8 +94,8 @@ struct Applicative : protected Impl {
     requires requires(const Impl& impl) {
       impl.discard_second(forward<FIRST_ARGUMENT>(first_argument),
                           forward<SECOND_ARGUMENT>(second_argument));
-    } || requires(const Impl& impl) {
-      impl.invoke(discard_second_eval, forward<FIRST_ARGUMENT>(first_argument),
+    } || requires {
+      self.invoke(discard_second_eval, forward<FIRST_ARGUMENT>(first_argument),
                   forward<SECOND_ARGUMENT>(second_argument));
     };
 
