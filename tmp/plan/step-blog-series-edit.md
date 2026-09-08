@@ -21,7 +21,7 @@ every letter, once, as a bounded exception like the integration review.
 ## What already exists
 
 `blog/letters/*.org` (one per implementation step);
-`docs/design.md#blog-series` (addressee, provisional);
+`docs/design.md#blog-series` (addressee, **decided** — see step 1);
 `docs/design.md#laws-inventory` (for the closing letter).
 
 ## The change
@@ -66,8 +66,8 @@ every letter, once, as a bounded exception like the integration review.
    available, say so in the handoff to the integration review and
    leave voice for the author.
 7. Update `docs/design.md#blog-series` with the final order and the
-   index path; mark the addressee decision non-provisional if you
-   changed it, otherwise leave the mark.
+   index path. The addressee decision is already recorded there and its
+   provisional mark is already gone; do not re-add either.
 8. Extend `scripts/check-letters.sh` to also require `index.org` to
    list every slug present in `blog/letters/`.
 
