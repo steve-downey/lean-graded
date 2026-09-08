@@ -1,6 +1,7 @@
 import Graded.Carrier
 import Graded.Widen
 import Graded.Monad
+import Graded.Sufficient
 import Graded.Applicative
 import Graded.Accum
 import Graded.Traverse
@@ -46,6 +47,22 @@ def render : Graded ({E.parse, E.range} : Grade E) Nat → String
 #eval render (validate "42")    -- ok 42
 #eval render (validate "abc")   -- err E.parse : unparsable
 #eval render (validate "9999")  -- err E.range : out of range
+
+/-- The same two-stage validation, spelled through `bindK` at the literal
+    grade `{E.parse, E.range}` instead of `bind`'s computed union — here
+    the two happen to coincide, since `{E.parse, E.range}` *is*
+    `Grade.join {E.parse} {E.range}`, so both spellings exist and agree.
+    `validate` above is left untouched: this is a second view of the same
+    operation, not a replacement for it. -/
+def validateK (s : String) : Graded ({E.parse, E.range} : Grade E) Nat :=
+  bindK (by decide) (by decide) (parseNat s) checkRange
+
+-- `validate` and `validateK` render identically on every input: the
+-- union-graded `bind` and the sufficient-grade `bindK`, instantiated at
+-- the same grade, are the same operation (`bind_eq_bindK`).
+#guard render (validateK "42") = render (validate "42")
+#guard render (validateK "abc") = render (validate "abc")
+#guard render (validateK "9999") = render (validate "9999")
 
 /-- A third stage that only ever logs, modelling a call that carries an
     `E.io` grade but cannot itself fail otherwise. -/

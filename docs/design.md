@@ -158,7 +158,29 @@ was established, because that fact is compile-time and already erased.
 > **[monad-laws] verdict:** tolerable, not dominating. Three generic
 > transport lemmas (`cast_ok`, `cast_err`, `cast_widen`), each proved by
 > `subst e; rfl`, absorbed every `cast` the five monad laws produced; see
-> [#monad](#monad) for the detail. Standing, not revisited.
+> [#monad](#monad) for the detail. Standing at the time, revisited below.
+>
+> **Integration review, 2026-09-08:** the burden had outgrown this
+> verdict once the composite layers were counted — 39 of 146 theorems
+> (26%) carry a `cast`, `Comp.ap_interchange` carries six in one
+> statement, and `GradedHom`'s *fields* are cast-quantified.
+>
+> **[sufficient-grade-bind] verdict:** the alternative recorded above was
+> a trap read literally — replacing `bind` with a caller-nominated grade
+> models a design P3200 does not have, since the C++ `bind` genuinely
+> computes the union. The actual fix is not replacement: `bindK` (in
+> `Graded/Sufficient.lean`) exists *beside* `bind`, at any grade `k` with
+> `g ⊆ k` and `h ⊆ k` supplied by the caller, and `bind_eq_bindK` proves
+> the two are the same operation at `k := Grade.join g h`. The three
+> monad laws restate with no `cast` at all, shorter than their
+> union-graded counterparts (13 proof lines for `bindK_assoc` against 21
+> for `bind_assoc`), and the two `⊆` proofs a call site threads are free
+> — `bindK_irrel` is `rfl`. See [#monad](#monad)'s "The sufficient-grade
+> layer" for the measurement table. Verdict: worth extending to the
+> applicative layer; [sufficient-grade-applicative] is what tests it
+> against the higher cast density there, and against the one open
+> question this step's evidence could not reach — whether an `ap_flip`
+> analogue needs `join_comm` the way `ap_flip` itself does.
 
 The first consumer, `Examples/Validation.lean`: `parseNat : String →
 Graded {E.parse} Nat` and `checkRange : Nat → Graded {E.range} Nat`,
@@ -257,15 +279,93 @@ natural shape and meant no `.symm` was ever needed, at the law
 statements or at their use sites in the tests.
 
 **Verdict on the `cast` decision ([carrier](#carrier)):** tolerable, not
-dominating. Three small generic transport lemmas — `cast_ok`, `cast_err`,
-`cast_widen` (the mirror of `Widen.widen_cast`), each one `subst e; rfl`
-— handled every occurrence of `cast` meeting a constructor or a `widen`
-across all five theorems; no proof needed more than that plus `cases` on
-the scrutinee(s) and one closing `rw`. Rough count: of the ~45 lines of
-proof text, perhaps a third is `cast`/`widen`-shuffling (the `change`
-statements that spell out the fully-reduced goal) and the rest is
-ordinary case analysis. Nothing here suggests revisiting the provisional
-decision.
+dominating, as far as [monad-laws] alone could tell. **Superseded by
+[sufficient-grade-bind], below and at [carrier](#carrier): the
+integration review found the burden had outgrown this verdict once the
+composite layers (`Comp`, `GradedHom`) were counted.**
+
+### The sufficient-grade layer
+
+`Graded/Sufficient.lean` adds `bindK` beside `bind`, not instead of it.
+Where `bind x f : Graded (Grade.join g h) β` *computes* the result grade,
+`bindK (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g α) (f : α → Graded h β) :
+Graded k β` takes a grade `k` merely *sufficient* to hold both — supplied
+by the caller, via two inclusion proofs, rather than derived. `ok` hands
+its payload to `f` and widens up to `k` along `hh`; `err` carries its
+membership proof along `hg`. `pureK := fromEmpty` (reused, not
+redefined) is `pure` at any grade directly.
+
+Because `k` is never *equated* to another expression for the same grade
+— there is nothing here shaped like `Grade.join Grade.bot h = h`, only a
+hypothesis `Grade.bot ⊆ k` supplied once — the three monad laws restate
+with **no `cast` anywhere**:
+
+```lean
+theorem bindK_pure_left (hh : h ⊆ k) (a : α) (f : α → Graded h β) :
+    bindK (Grade.bot_le k) hh (pure a) f = widen hh (f a) := rfl
+
+theorem bindK_assoc (hg : g ⊆ k) (hh : h ⊆ k) (hj : j ⊆ k)
+    (x : Graded g α) (f : α → Graded h β) (kk : β → Graded j γ) :
+    bindK (Grade.le_refl' k) hj (bindK hg hh x f) kk =
+      bindK hg (Grade.le_refl' k) x (fun a => bindK hh hj (f a) kk) := by
+  ...
+```
+
+`bind_eq_bindK` (tagged `BRIDGE`) is what keeps this a second view of the
+same operation rather than a different design: instantiating `k` at the
+exact union `Grade.join g h`, along the same two inclusions `bind` itself
+already uses (`Grade.le_join_left`/`Grade.le_join_right`), recovers
+`bind` — `rfl` in both constructor cases, exactly as verified before
+planning this step.
+
+**The property shift.** Every cast-free law cites an *order* lemma
+(`Grade.bot_le`, `Grade.le_refl'`) where its union-graded counterpart
+cited a *unit* or *associativity* lemma (`Grade.bot_join`,
+`Grade.join_bot`, `Grade.join_assoc`) — confirmed by
+`scripts/laws-inventory.py`'s own mention scan, not asserted. The grade
+arithmetic that used to be an equation to transport across is now
+subsumption: proving `g ⊆ k` rather than computing `g ∪ h` and proving it
+equals something else.
+
+**`bindK_irrel`** (`bindK hg hh x f = bindK hg' hh' x f`, for any two
+proofs `hg, hg'` and `hh, hh'`) is `rfl` — which proof of `g ⊆ k`
+justifies the call does not matter, and Lean confirms it definitionally
+rather than by an argument about `Subsingleton`. This is the load-bearing
+fact for the whole design: it is what makes the two inclusion proofs a
+call site threads *free*, in the sense that no later reasoning has to
+track which specific proof term was used.
+
+**The measurement**, for the three monad laws only:
+
+| law | casts in statement (before → after) | proof lines (before → after) |
+|---|---|---|
+| `bind_pure_left` → `bindK_pure_left` | 1 → 0 | 3 → 1 (`rfl`) |
+| `bind_pure_right` → `bindK_pure_right` | 1 → 0 | 9 → 3 |
+| `bind_assoc` → `bindK_assoc` | 1 → 0 | 21 → 13 |
+
+What a call site pays: `bind x f` threads nothing — the result grade is
+computed. `bindK hg hh x f` threads two `⊆` proofs. At a concrete grade
+(`Examples.Validation.validateK`) both close with `by decide`; at an
+abstract grade they are ordinary hypotheses, the same shape `bindK_assoc`
+itself already carries for `hg`/`hh`/`hj`.
+
+**Verdict: worth extending to the applicative layer
+([sufficient-grade-applicative]).** On every axis this step measured, the
+sufficient-grade layer was strictly cheaper for `bind`: no casts, shorter
+proofs, and the threaded obligations are free by `bindK_irrel`.
+`Graded.Monad` had the worst cast ratio of any module (7/8); the
+applicative layer's worst offenders (`Comp.ap_interchange` at six casts
+in one statement, `GradedHom`'s cast-quantified fields) have more casts
+to remove, not fewer, and `⊆`-proof-irrelevance is a generic fact about
+`Finset`, not something specific to `bind` that might fail to
+generalize. The one thing this step did *not* test: `ap_flip` needs
+`Grade.join_comm` to compare `join g h` against `join h g`, and nothing
+in `bindK` compares two different joins at all, because `bindK` never
+computes a join in the first place. Whether an `apK`/`apFlippedK` pair
+still needs commutativity, or whether working at a common `k` makes the
+comparison vanish along with the cast, is a genuinely open question this
+step's evidence cannot answer — that is exactly the finding
+[sufficient-grade-applicative] has to make on its own.
 
 ## applicative
 

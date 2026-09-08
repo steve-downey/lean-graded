@@ -27,5 +27,5 @@ cast burden had outgrown [monad-laws]'s verdict. Step 20 is gated on 19's
 measured verdict; the remainder is the open question
 [cast-burden-migration-scope](../../docs/design.md#cast-burden-migration-scope).
 
-- [ ] 19. [sufficient-grade-bind](step-sufficient-grade-bind.md) — the cast-free layer, the union layer, and the bridge between them
+- [x] 19. [sufficient-grade-bind](step-sufficient-grade-bind.md) — `bindK` beside `bind`, cast-free laws, `bind_eq_bindK` bridge closes by `rfl`, `bindK_irrel` free by `rfl`; verdict: worth extending to the applicative layer
 - [ ] 20. [sufficient-grade-applicative](step-sufficient-grade-applicative.md) — **gated on 19's verdict**; where the burden is worst

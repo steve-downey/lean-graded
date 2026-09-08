@@ -102,6 +102,17 @@ ALLOWLIST = {
     "widen_cast": "structural: widen commutes with cast, no join",
     "widen_map": "structural: widen commutes with map, no join",
     "widen_irrel": "structural: proof-irrelevance of the inclusion witness",
+    "widen_ok": "structural: widen's own ok-case reduction, no join in sight",
+    "widen_err": "structural: widen's own err-case reduction; the inclusion "
+        "witness it threads is not a named property, just an argument",
+    "bindK_ok": "structural: bindK's own ok-case reduction, documented as "
+        "such at its own definition site, same footing as bindF_ok",
+    "bindK_err": "structural: bindK's own err-case reduction, same footing "
+        "as bindF_err",
+    "bindK_irrel": "structural: proof-irrelevance of the two threaded "
+        "inclusion witnesses, the sufficient-grade mirror of widen_irrel — "
+        "this is the theorem the sufficient-grade-bind step's verdict "
+        "turns on",
     "Comp.map_id": "structural: functor law, no grade in sight",
     "Comp.map_comp": "structural: functor law, no grade in sight",
     "ap_ok_ok": "structural: ok/ok case, function applied, no error, no join",
