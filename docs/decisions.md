@@ -1283,6 +1283,22 @@ is out of scope for this decision.
   std::invoke_result_t<F, const A &>>`), the probe fails cleanly, matching
   the invariant `apply.hpp` already states for `Applicative` impls. Suite
   went from 124 to 131.
+- 2026-09-07 — [as-functor-presentation](../tmp/plan/step-as-functor-presentation.md)
+  added `Monad<Impl>::as_functor()`, the free presentation member this
+  section's decision text forward-pointed to: `Functor<remove_cvref_t<
+  decltype(self)>>{}`, constructed fresh at the call site rather than looked
+  up. It deliberately does not consult `functor_typeclass<T>` — that
+  registered object may be an unrelated optimized instance, and the coherent
+  functor here is the one derived from the monad object in hand,
+  law-compatible with its `bind` by construction. It is free because every
+  typeclass object is stateless and empty (asserted with
+  `std::is_empty_v`), and it is optimization-preserving because the derived
+  members it exposes already probe `Impl` first: the sentinel test presents
+  a monad object whose own `Impl`-equivalent (the Map itself, since
+  `Functor<ThisMap>`'s `Impl` is the Map) supplies a native `replace`
+  returning a doubled-replacement marker, and asserts `as_functor().replace`
+  returns the marker, not the `fmap`-derived answer. Suite went from 154 to
+  159.
 
 ## derived-op-native-preference
 

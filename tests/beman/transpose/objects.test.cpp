@@ -204,6 +204,13 @@ static_assert(
 static_assert(bt::functor_object<bt::Functor<bt::OptionalMonadMap<int>>,
                                  std::optional<int>>);
 
+// -- as_functor() names the same wrapping --
+static_assert(
+    bt::functor_object<
+        bt::remove_cvref_t<
+            decltype(bt::monad_typeclass<std::optional<int>>.as_functor())>,
+        std::optional<int>>);
+
 // ============================================================================
 // typeclass-impl-concepts: the restricted Impl concepts, one per class,
 // naming only the minimal complete basis -- the MINIMAL pragma to the deep

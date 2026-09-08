@@ -3,10 +3,13 @@
 
 #include <beman/transpose/monad.hpp>
 
+#include <beman/transpose/functor.hpp>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <optional>
 #include <string>
+#include <type_traits>
 
 namespace bt = beman::transpose;
 
@@ -170,4 +173,102 @@ TEST_CASE("monad: ap falls back to the bind + pure derivation") {
 
     REQUIRE(m.ap(std::optional<decltype(increment)>{increment},
                  std::optional<int>{5}) == std::optional<int>{6});
+}
+
+// ============================================================================
+// as-functor-presentation: Monad::as_functor(), the one visible free call
+// that names which functor a monad object presents. See
+// docs/decisions.md#functor-monad-grounding.
+// ============================================================================
+
+TEST_CASE("monad: as_functor is usable in a constant expression and empty") {
+    constexpr auto &m = bt::monad_typeclass<std::optional<int>>;
+    constexpr auto f = m.as_functor();
+    static_assert(std::is_empty_v<decltype(f)>);
+    (void)f;
+}
+
+namespace {
+// The motivating scenario: an algorithm writer holding an opaque monad
+// object needing to call a Functor-constrained function. as_functor() is
+// what makes the call site sayable.
+template <class OBJ>
+    requires bt::functor_object<OBJ, std::optional<int>>
+auto increment_via_functor_object(const OBJ &f, std::optional<int> value) {
+    return f.fmap([](int x) { return x + 1; }, value);
+}
+} // namespace
+
+TEST_CASE(
+    "monad: as_functor lets a functor_object-constrained algorithm accept "
+    "an opaque monad object") {
+    const auto &m = bt::monad_typeclass<std::optional<int>>;
+
+    REQUIRE(
+        increment_via_functor_object(m.as_functor(), std::optional<int>{41}) ==
+        std::optional<int>{42});
+    REQUIRE(increment_via_functor_object(
+                m.as_functor(), std::optional<int>{}) == std::optional<int>{});
+}
+
+TEST_CASE("monad: as_functor's fmap computes what the monad's own fmap "
+          "computes") {
+    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    auto f = m.as_functor();
+    auto increment = [](int x) { return x + 1; };
+
+    REQUIRE(f.fmap(increment, std::optional<int>{41}) ==
+            m.fmap(increment, std::optional<int>{41}));
+    REQUIRE(f.fmap(increment, std::optional<int>{}) ==
+            m.fmap(increment, std::optional<int>{}));
+}
+
+TEST_CASE(
+    "monad: as_functor's replace is the fmap-derived answer when the monad "
+    "supplies no native replace") {
+    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    auto f = m.as_functor();
+
+    REQUIRE(f.replace(std::optional<int>{5}, 9) == std::optional<int>{9});
+}
+
+namespace {
+// An Impl with pure + bind (so Monad grows the Functor basis fmap), whose
+// Map additionally supplies its own native `replace` -- distinguishable
+// from the fmap derivation by doubling the replacement, the same marker
+// shape as functor.test.cpp's MarkedReplaceImpl. as_functor() wraps this Map
+// as Functor<ThisMap>, so Functor::replace's native-preference probe lands
+// on the Map's own `replace`, not Monad's Impl.
+struct NativeReplaceMonadImpl {
+    template <class VALUE>
+    auto pure(this auto &&, VALUE &&value)
+        -> std::optional<bt::remove_cvref_t<VALUE>> {
+        return std::optional<bt::remove_cvref_t<VALUE>>{
+            std::forward<VALUE>(value)};
+    }
+
+    template <class A, class F>
+    auto bind(this auto &&, const std::optional<A> &ma, F &&f)
+        -> bt::remove_cvref_t<std::invoke_result_t<F, const A &>> {
+        using Result = bt::remove_cvref_t<std::invoke_result_t<F, const A &>>;
+        if (!ma)
+            return Result{};
+        return Result{std::invoke(std::forward<F>(f), *ma)};
+    }
+};
+
+struct NativeReplaceMonadMap : bt::Monad<NativeReplaceMonadImpl> {
+    template <class T, class U>
+    auto replace(this auto &&, T &&, U &&replacement) -> std::optional<int> {
+        return std::optional<int>{replacement + replacement};
+    }
+};
+} // namespace
+
+TEST_CASE("monad: as_functor is optimization-preserving -- a native "
+          "Impl::replace wins over the derivation") {
+    NativeReplaceMonadMap m{};
+    auto f = m.as_functor();
+
+    REQUIRE(f.replace(std::optional<int>{5}, 3) == std::optional<int>{6});
 }
