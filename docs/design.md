@@ -704,13 +704,125 @@ gives the outer layer. Settling this needs an applicative/traversable
 instance for genuinely composed (unflattened) functors — out of this
 step's scope; not attempted here beyond the counterexample.
 
+### Comp: the product-graded composite, kept genuinely nested
+
+`Graded/ComposeApp.lean` builds the structure the classical composition
+law is actually about: `Comp g h α := Graded g (Graded h α)`, the same
+nested carrier `flatten` collapses, but indexed by the *pair* `(g, h)` —
+outer and inner, joined componentwise in the product pomonoid, never
+identified into one `Finset`. `Comp.ap` combines two `Comp` values by
+running the *outer* `Graded.ap` with the *inner* `Graded.ap` lifted inside
+as the combining function — exactly `Compose`'s own applicative instance,
+specialised to this carrier — landing at `Comp (g ⊔ g') (h ⊔ h')`.
+`Comp.pure`, `Comp.map`, `Comp.map2` are the expected liftings; two small
+double-indexed transport helpers, `Comp.widenGH` and `Comp.castGH`, apply
+`Graded.widen`/`Graded.cast` once per component and are used throughout
+rather than a single-layer `cast`/`widen`, following [applicative-from-monad]'s
+two-cast technique doubled.
+
+**The four applicative laws hold, and need exactly what the single-layer
+law needed, in each component independently.** `Comp.ap_pure_id`,
+`ap_pure_pure`, `ap_interchange`, `ap_comp` are each proved by citing the
+*inner* `Graded.ap` law directly (`Graded.ap_pure_id F`, etc.) on an
+opaque inner value, after casing only the *outer* shape of each `Comp`
+argument — the inner value is never itself case-split for these four laws.
+**No law needed any relationship between `g` and `h`** (or `g'` and `h'`):
+every cast cites a property of one component's own grades, matching
+[applicative-from-monad]'s finding exactly, doubled. `join_comm` appears
+nowhere in the four laws, same as the single-layer case.
+
+**`traverseComp` and the law this step exists for.** `traverseComp (f : α
+→ Comp g h β) (xs : List α) : Comp g h (List β)` is built the way
+`Graded.traverse` was: an honest per-element-folded raw traversal
+(`Comp.traverseRaw`, reusing `Graded.foldGrade`/`foldGrade_le` once per
+component — no second `foldGrade`), widened once via `Comp.widenGH` along
+`foldGrade_le` in each component, so the empty list needs no special
+case. `traverseComp_eq` is the law:
+
+```lean
+theorem traverseComp_eq (f : α → Graded g β) (k : β → Graded h γ) (xs : List α) :
+    traverseComp (fun a => map k (f a)) xs = map (traverse k) (traverse f xs)
+```
+
+**This holds, unconditionally, no hypothesis.** No `flatten` appears in
+its statement, and both sides live in `Graded g (Graded h (List γ))` with
+the two grades kept separate throughout. This is recognisably Mathlib's
+`LawfulTraversable.comp_traverse` (`Mathlib.Control.Traversable.Basic`):
+`traverse (Functor.Comp.mk ∘ map f ∘ g) x = Comp.mk (map (traverse f)
+(traverse g x))`, with Mathlib's `g` (applied first) matching this
+theorem's `f`, Mathlib's `f` (applied second) matching this theorem's `k`,
+and `Comp.mk` — Mathlib's marker constructor for keeping two functors
+distinct — omitted because `Comp g h α`'s *indices* already keep the
+layers apart, with no wrapper needed. The proof needed `Graded.traverse_cons`
+(hence `Grade.join_idem`, once per component, exactly mirroring
+`traverse_cons`'s own cast) plus the reduction lemmas `Comp.ap_ok_ok`/
+`ap_err_left`/`ap_ok_err` and `Graded.ap_ok_ok`/`ap_err_left`/`ap_ok_err` —
+no new property beyond what [traverse-list] and this step's own
+applicative laws already established, and no `join_comm`.
+
+**So P3200's composition claim is fine, provided it is stated about the
+unflattened, product-graded pair — never about a single flat grade.**
+[compose-flatten]'s counterexample refuted the flattened form; this
+theorem is the form that was actually true all along, and the two
+results are not in tension: they are about different structures.
+
+**`flatten_ap`: the explanation for [compose-flatten]'s counterexample.**
+Is `flatten` an applicative morphism from the product-graded composite to
+the union-graded carrier?
+
+```lean
+theorem flatten_ap (ff : Comp g h (α → β)) (xx : Comp g' h' α)
+    (hcond : (∃ e he, ff = Graded.err e he) ∨ (∃ f', ff = Graded.ok (Graded.ok f')) ∨
+      (∃ X, xx = Graded.ok X)) :
+    flatten (Comp.ap ff xx) = cast (Comp.grade_reassoc ..) (ap (flatten ff) (flatten xx))
+```
+
+**Holds only under `hcond`, and fails outright without it — a genuine,
+`#eval`-confirmed counterexample, not merely an unproved case.** The grade
+side needs both `Grade.join_assoc` *and* `Grade.join_comm` to reassociate
+`(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')` — the second appearance
+of `join_comm` in the whole model, after `ap_flip`. The *value* side fails
+for a structural reason distinct from `ap_flip`'s: `Comp.ap`'s own
+short-circuit order is outer-`ff`-error, then outer-`xx`-error, then
+`ff`'s inner error, then `xx`'s inner error; flattening each side first
+and combining with the single-layer `ap` gives outer-`ff`-error, then
+`ff`'s inner error (exposed the moment `ff` alone is flattened), then
+outer-`xx`-error — the middle two swap. The one case where this matters —
+`ff` is outer-`ok` with a *failing* inner payload, while `xx`'s outer
+layer *also* fails — is exactly where the two orders disagree: `Comp.ap`
+reports `xx`'s outer error (it never looks past `xx`'s outer failure to
+notice `ff`'s inner one); flatten-then-`ap` reports `ff`'s inner error.
+`hcond` is precisely "that case does not arise." This is not a third
+confirmation of `ap_flip`'s "at most one side is an error" condition — it
+is a genuinely different comparison (the nested carrier's own short-circuit
+order against the flattened carrier's), that happens to also need a
+disjunctive hypothesis.
+
+**This is the exact mechanism behind [compose-flatten]'s counterexample.**
+`Examples/Validation.lean` puts both sides of the *naive* law on one
+screen at the same two inputs (`checkRange` failing *early*, at position
+0; `parseNat` failing *late*, at position 1): `flatten (traverseComp (fun
+a => map checkRange (f a)) xs)` — which by `traverseComp_eq` equals the
+naive law's left side — reports the *late* `parseNat` failure (`E.parse`);
+`traverse (fun a => flatten (map checkRange (f a))) xs` — the naive law's
+right side — reports the *early* `checkRange` failure (`E.range`). They
+disagree, confirming [compose-flatten]'s finding; and now there is an
+explanation: the unflattened `traverseComp` reports its outer and inner
+grades separately (`renderComposed` shows `E.range` as an *inner* error,
+distinct from an *outer* `E.parse`), and `flatten_ap`'s failure is exactly
+what is lost by collapsing that distinction in either order.
+
 ### graded-traversable-composition
 
 **Question.** Does a graded Traversable satisfy the classical
 composition law, and if not, what is the right statement of it?
 
-**Status: OPEN.** Not answered by [compose-flatten]; see
-`tmp/plan/blocked-compose-flatten.md` for the full record.
+**Status: CLOSED.** Answered by [compose-flatten] (the flattened form is
+false) and [compose-applicative] (the product-graded form is true,
+unconditionally). See `tmp/plan/blocked-compose-flatten.md` for the
+flattened counterexample's full record, and [#compose](#compose)'s `Comp`
+subsection for the product-graded law, `traverseComp_eq`, and the
+`flatten_ap` explanation.
 
 **What is settled.** The naive single-carrier form
 
@@ -735,38 +847,60 @@ just as thoroughly. So this is evidence that flatten-then-traverse is the
 wrong shape for a composition law, graded or not — it is not evidence
 against graded traversables.
 
-**What has not been tested at all.** The classical composition law is
-about `Compose F G` — two functors kept *separate*. For graded functors
-the natural grade of `Graded g (Graded h α)` is the **pair** `(g, h)` in
-the product pomonoid, not the union. [compose-flatten]'s own step file
-says exactly this in its first sentence, and then sets the task as
-settling whether the law holds *through the flattening* — a different
-question, whose answer is no. So the product-graded composite has never
-been built or tested here. Nothing in this model is evidence for or
-against the classical law in its proper form; reading the refutation
-above as a result about graded traversables is the generalization to
-avoid, and it is the one the record briefly invited.
+**What is now settled: the product-graded form.** The classical
+composition law is about `Compose F G` — two functors kept *separate*.
+For graded functors the natural grade of `Graded g (Graded h α)` is the
+**pair** `(g, h)` in the product pomonoid, not the union. `Comp g h α :=
+Graded g (Graded h α)` ([#compose](#compose)'s `Comp` subsection) is that
+structure, built and tested: `Comp.ap` combines outer layers with the
+outer `Graded.ap` and inner layers with the inner `Graded.ap` lifted
+inside, exactly `Compose`'s own instance, and
 
-**What this costs P3200 today: nothing.** [cpp-counterpart](#cpp-counterpart)
+```lean
+theorem traverseComp_eq (f : α → Graded g β) (k : β → Graded h γ) (xs : List α) :
+    traverseComp (fun a => map k (f a)) xs = map (traverse k) (traverse f xs)
+```
+
+holds **unconditionally** — no `flatten`, no hypothesis, both sides kept
+nested. It is recognisably Mathlib's `LawfulTraversable.comp_traverse`
+(`Mathlib.Control.Traversable.Basic`), and its proof consumed nothing
+beyond `Grade.join_idem` (once per component, via `Graded.traverse_cons`)
+and the applicative reduction lemmas — no `Grade.join_comm` anywhere. So
+the answer to the question above is: **yes**, a graded Traversable
+satisfies the classical composition law, stated against the product-graded
+composite; **no**, it does not satisfy the flattened form, which is a
+different (and false) statement. Reading [compose-flatten]'s refutation as
+a result about graded traversables in general was the generalization to
+avoid, and it was wrong to draw — this step's own law is the counter-
+demonstration.
+
+**The explanation for the flattened form's falsity.** `flatten_ap` asks
+whether `flatten` is an applicative morphism from the product-graded
+composite to the union-graded carrier, and the answer is **conditional**:
+it holds under a one-sided hypothesis (`Comp.grade_reassoc`'s reassociation
+needs both `Grade.join_assoc` and `Grade.join_comm` — the second
+appearance of `join_comm` in the whole model, after `ap_flip` — and the
+*value* side needs "`ff`'s outer layer fails, or `ff` succeeds all the way
+through, or `xx`'s outer layer succeeds"), and it **fails outright**
+without that hypothesis, confirmed by `#eval`. The failing case is exactly
+the shape [compose-flatten]'s own counterexample needed: `ff` outer-`ok`
+with a failing inner payload, while `xx`'s outer layer also fails —
+`Comp.ap`'s own short-circuit never looks past `xx`'s outer failure to
+notice `ff`'s inner one, while flatten-then-`ap` sees `ff`'s inner failure
+the moment `ff` alone is flattened. `Examples/Validation.lean` puts both
+sides of the *naive* flattened law on one screen at inputs matching this
+exact shape (`checkRange` failing early, `parseNat` failing late) and
+confirms they disagree, with `traverseComp`'s own separately-graded
+answer showing which layer is actually responsible for each.
+
+**What this costs P3200 today: it can now state the composition law, but
+only about the unflattened pair.** [cpp-counterpart](#cpp-counterpart)
 claims only that `traverse` is shape-preserving over ranges and over
-tuples. It makes no composition claim, so no current part of the design
-rests on this. The finding is a guardrail for a claim the paper has not
-made: a flattening-shaped composition law would be false, and the
-counterexample is on hand if one is ever proposed.
-
-**Who answers it.** [compose-applicative], step 13 of the plan, added
-2026-09-08 for this purpose. It builds the structure and states the law
-against it, and updates this section in place rather than opening a
-second question.
-
-**What would settle it.** An `ap` for `Graded g ∘ Graded h` kept
-genuinely nested — combining outer layers with the outer `ap` and inner
-layers with the inner `ap` lifted inside, as `Compose`'s own instance
-does — plus a `traverse` parametrised over it, and the law stated against
-*that*. New infrastructure of roughly [monad-laws]'s size. Deferred, not
-declined: whether it is worth building turns on whether P3200 ever wants
-to claim the law, which is a judgment about the paper rather than about
-the code.
+tuples; it makes no composition claim yet, so nothing existing changes.
+But if P3200 ever wants a composition claim, the true statement is: "the
+composed traversal computed with the two grades kept separate agrees with
+composing the two `traverse` calls" — never "flatten first," since that
+collapse is proved lossy by `flatten_ap`'s own failing case.
 
 **Log.**
 
@@ -785,6 +919,17 @@ the code.
   answer this, and `step-compose-flatten.md` amended so a re-run of the
   plan cannot repeat the substitution of the flattened question for this
   one.
+- 2026-09-08 — [compose-applicative] built `Comp g h α`, the product-graded
+  composite, and proved `traverseComp_eq` (the classical composition law,
+  stated against the unflattened pair) holds unconditionally, consuming
+  only `Grade.join_idem` per component and no `join_comm`. Proved
+  `flatten_ap` (is `flatten` an applicative morphism from the composite to
+  the union-graded carrier?) holds only under a one-sided hypothesis and
+  fails outright without it, confirmed by `#eval` — the precise mechanism
+  behind [compose-flatten]'s counterexample. Status changed to CLOSED:
+  both halves of the question (flattened form false, product-graded form
+  true) are now settled, and they are not in tension because they are
+  statements about different structures.
 
 ## morphisms
 
