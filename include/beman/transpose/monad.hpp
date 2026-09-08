@@ -247,6 +247,43 @@ struct Monad : protected Impl {
 template <class T>
 inline constexpr auto monad_typeclass = std::false_type{};
 
+/** Deep object concept for a Monad object over `CONTEXT`: satisfied when
+ * `OBJ` provides the full object surface -- `pure`, `bind`, `fmap`,
+ * `invoke`, `join`, `kleisli` and `bind_with`. `ap` and `subsume` are
+ * required only where their own condition licenses them, mirroring
+ * `applicative_object`'s treatment.
+ *
+ * `kleisli` is probed for existence -- the class surface names it -- but its
+ * presence is never load-bearing evidence here: `Monad<Impl>::kleisli`'s own
+ * condition is `impl.kleisli(f, g) || true`, genuinely unconstrained,
+ * because its `bind` call lives inside a returned closure whose argument
+ * type is unknown until the closure is invoked. It is `bind` and `join`
+ * (and `fmap`, `invoke`) that carry a real either-basis condition and do the
+ * actual discriminating.
+ */
+template <class OBJ, class CONTEXT>
+concept monad_object =
+    requires(const OBJ &obj, const CONTEXT &context,
+             const applicative_value_t<CONTEXT> &element) {
+        obj.pure(element);
+        obj.bind(context, probe_witness<CONTEXT>{});
+        obj.fmap(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.invoke(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.join(obj.pure(context));
+        obj.kleisli(probe_witness<CONTEXT>{}, probe_witness<CONTEXT>{});
+        obj.bind_with(obj, context, probe_witness<CONTEXT>{});
+    } &&
+    (!requires(const OBJ &obj) {
+        obj.pure(probe_witness<applicative_value_t<CONTEXT>>{});
+    } || requires(const OBJ &obj, const CONTEXT &context) {
+        obj.ap(obj.pure(probe_witness<applicative_value_t<CONTEXT>>{}),
+               context);
+    }) &&
+    (!graded_context<CONTEXT> ||
+     requires(const OBJ &obj, const CONTEXT &context) {
+         obj.template subsume<grade_of_t<CONTEXT>>(context);
+     });
+
 // -- std::optional monad instance --
 // Delegates pure to the existing applicative_typeclass.
 

@@ -605,6 +605,53 @@ struct Foldable : protected Impl {
 template <class T>
 inline constexpr auto foldable_typeclass = std::false_type{};
 
+namespace detail {
+
+/** Satisfied when `VALUE_TYPE` has a registered `Monoid`. Naming a
+ * `Monoid<VALUE_TYPE>` specialization is always well-formed even when none
+ * exists -- the primary template is declared, only undefined -- so the
+ * probe has to attempt to *construct* one, which needs the type complete.
+ * `combine_all` and `fold` fold over the elements themselves via the
+ * identity function, so unlike every other member in the fold family they
+ * need the element type, not a wrapped accumulator type, to be a Monoid;
+ * `std::vector<int>` is Foldable but its `int` elements carry no Monoid
+ * since docs/decisions.md#monoid-carrier-canonicity, so this concept is
+ * what keeps `combine_all`/`fold` a conditional operation the same way `ap`
+ * and `subsume` are conditional elsewhere.
+ */
+template <class VALUE_TYPE>
+concept has_registered_monoid = requires { Monoid<VALUE_TYPE>{}; };
+
+} // namespace detail
+
+/** Deep object concept for a Foldable object over `STRUCTURE`: satisfied
+ * when `OBJ` provides the full object surface -- `fold_map`, `length`,
+ * `fold_left`, `fold_right`, `any_of`, `all_of`, `empty`, `to_vector` and
+ * `find_first`, each probed with a representative witness callable.
+ * `combine_all` and `fold` are required only where `STRUCTURE`'s element
+ * type has a registered `Monoid` -- see `detail::has_registered_monoid` --
+ * since both fold over the elements themselves rather than a wrapped
+ * accumulator. Foldable is evidence, not proposed wording; this concept
+ * carries no wording either.
+ */
+template <class OBJ, class STRUCTURE>
+concept foldable_object =
+    requires(const OBJ &obj, const STRUCTURE &structure) {
+        obj.fold_map(probe_witness<Count>{}, structure);
+        obj.length(structure);
+        obj.fold_left(structure, int{}, probe_witness2<int>{});
+        obj.fold_right(structure, int{}, probe_witness2<int>{});
+        obj.any_of(structure, probe_witness<bool>{});
+        obj.all_of(structure, probe_witness<bool>{});
+        obj.empty(structure);
+        obj.to_vector(structure);
+        obj.find_first(structure, probe_witness<bool>{});
+    } && (!detail::has_registered_monoid<applicative_value_t<STRUCTURE>> ||
+          requires(const OBJ &obj, const STRUCTURE &structure) {
+              obj.combine_all(structure);
+              obj.fold(structure);
+          });
+
 } // namespace beman::transpose
 
 #endif // BEMAN_TRANSPOSE_FOLD_HPP

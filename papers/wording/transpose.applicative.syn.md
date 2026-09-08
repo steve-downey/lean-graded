@@ -145,6 +145,40 @@ inline constexpr auto accumulating_applicative_typeclass = false_type{};
 
 :::
 
+::: wording
+
+```cpp
+template <class OBJ, class CONTEXT>
+concept applicative_object =
+    requires(const OBJ &obj, const CONTEXT &context,
+             const applicative_value_t<CONTEXT> &element) {
+        obj.pure(element);
+        obj.invoke(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.map(probe_witness<applicative_value_t<CONTEXT>>{}, context);
+        obj.lift(element);
+        obj.zip_with(probe_witness2<applicative_value_t<CONTEXT>>{}, context,
+                     context);
+        obj.discard_first(context, context);
+        obj.discard_second(context, context);
+        obj.invoke_with(obj, probe_witness<applicative_value_t<CONTEXT>>{},
+                        context);
+    } &&
+    (!requires(const OBJ &obj) {
+        obj.pure(probe_witness<applicative_value_t<CONTEXT>>{});
+    } || requires(const OBJ &obj, const CONTEXT &context) {
+        obj.ap(obj.pure(probe_witness<applicative_value_t<CONTEXT>>{}),
+               context);
+    }) &&
+    (!graded_context<CONTEXT> ||
+     requires(const OBJ &obj, const CONTEXT &context) {
+         obj.template subsume<grade_of_t<CONTEXT>>(context);
+     });
+```
+
+[x+6]{.pnum} *Remarks*: This concept is satisfied when `OBJ` provides the full Applicative object surface over `CONTEXT`: `pure`, the `invoke` basis, and the derived `map`, `lift`, `zip_with`, `discard_first`, `discard_second` and `invoke_with`. `ap` and `subsume` are required only where their own condition -- the same one their own declarations carry, not a second spelling of it -- licenses them: `ap` where `CONTEXT` can hold a callable (probed by lifting a witness callable through `OBJ`'s own `pure`, the same mechanism the library's own ap-from-invoke derivation uses), `subsume` where `CONTEXT` participates in grading. Operations templated over an arbitrary callable are probed with one representative witness (`probe_witness`/`probe_witness2`): this checks that the operation exists, not that it holds for every callable. Conformance here is structural, so a hand-implemented object that never derives from `Applicative<Impl>` can satisfy this concept.
+
+:::
+
 ```cpp
 template<class VALUE_TYPE>
 struct OptionalApplicativeImpl {
