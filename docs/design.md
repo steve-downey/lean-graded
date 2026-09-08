@@ -1704,9 +1704,15 @@ Addressee: **"Steve,"**, signed **"--SMD"**. The letters are notes
 addressed to the author, not to a third party; the reader they are *written
 for* is unchanged — a working C++ programmer who has never opened Lean —
 but the second person in them is the author himself. Decided 2026-09-08 by
-the author, in an editorial pass over all sixteen letters (commit
-`e1fa465`), which also replaced em-dashes with colons, parentheses or full
-stops throughout. That pass is the register for the series; later letters
+the author, in an editorial pass (commit `e1fa465`) which also replaced
+em-dashes with colons, parentheses or full stops. That pass covered the
+**ten** letters that existed when it was made, which was every letter at
+the time; the six written afterwards ([graded-morphism],
+[canonical-representation], [compose-applicative], [ungraded-baseline],
+[grade-obligations], [oracle-export]) were drafted from the older template
+and were brought into the decided register by [blog-series-edit]. An
+earlier revision of this paragraph said the pass covered all sixteen,
+which it could not have. That pass is the register for the series; later letters
 should match it rather than the earlier "Dear colleague" / "— Steve" form.
 
 Letters directory: `blog/letters/`, one `<slug>.org` per step, per the
