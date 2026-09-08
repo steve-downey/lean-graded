@@ -425,8 +425,87 @@ errors present, the thing `Graded`'s carrier cannot show.
 
 ## traverse
 
-Filled by [traverse-list](../tmp/plan/step-traverse-list.md) and
-[traverse-tuple](../tmp/plan/step-traverse-tuple.md).
+### List: shape-independence is idempotence, spent precisely
+
+`Graded/Traverse.lean` models the C++ `traverse(f, xs)` for a uniform
+`f : α → expected<β, error_set<Es...>>`: in C++ its return type is
+`expected<vector<β>, error_set<Es...>>`, a grade that does not grow with
+`xs`'s runtime length. That signature is only writable because
+`error_set`'s union is idempotent, and this module states that as two
+separate theorems rather than one, because they cost different things.
+
+`foldGrade (g : Grade Err) : List α → Grade Err` folds `g` once per list
+element (`Grade.bot` at the base, `Grade.join g (foldGrade g xs)` at each
+`cons`) — the honest, un-widened shape-fold. `traverseRaw f xs : Graded
+(foldGrade g xs) (List β)` is `traverse` at that honest grade.
+
+- `foldGrade_le : foldGrade g xs ⊆ g` — **bounded, for free.** Holds for a
+  list of any length and needs only the order half of the pomonoid
+  (`Grade.join_le`, `Grade.bot_le`); `Grade.join_idem` never appears.
+- `foldGrade_cons_ne_nil : xs ≠ [] → foldGrade g xs = g` — **exact, and it
+  costs idempotence.** A nonempty list's fold doesn't just stay bounded by
+  `g`, it *equals* `g` regardless of length: the one-element base case
+  costs `Grade.join_bot`, and every further element costs `Grade.join_idem`
+  rather than growing the grade. This is the one law in the whole plan (six
+  prior steps: [monad-laws], [applicative-from-monad],
+  [applicative-accumulation]) that needed idempotence — every earlier law
+  consumed only unit, associativity, and the order.
+
+**The design consequence.** The public `traverse (f : α → Graded g β)
+(xs : List α) : Graded g (List β) := widen (foldGrade_le xs) (traverseRaw f
+xs)` is defined through `widen` and `foldGrade_le`, *not* through `cast`
+and `foldGrade_cons_ne_nil`. That choice is itself the finding: the
+*definition* of `traverse` needs only the order — `foldGrade_le` bounds
+`foldGrade g []= ⊥` exactly as uniformly as any nonempty list, so the empty
+list needs no special case to define `traverse` at all — while the
+*precision* claim (the grade `g` isn't padding; every error kind the
+signature admits is genuinely reachable) is `foldGrade_cons_ne_nil`, and
+that is where idempotence is spent. Defining `traverse` the other way
+(`cast` along `foldGrade_cons_ne_nil`) would need idempotence just to
+typecheck the empty-list case, which has no elements to be idempotent
+over.
+
+`traverse_cons (f : α → Graded g β) (x : α) (xs : List α) : traverse f (x
+:: xs) = cast (Grade.join_idem g) (map2 (· :: ·) (f x) (traverse f xs))`
+is where idempotence resurfaces at the public API: both `f x` and
+`traverse f xs` are already at the uniform grade `g`, so `map2`'s own
+grade is `Grade.join g g`, and collapsing that down to `g` again is
+exactly `Grade.join_idem`. `traverse_nil : traverse f [] = fromEmpty []`
+holds for *every* `f` (`traverseRaw`'s nil case never calls `f`) and needs
+no idempotence at all — it is proved directly, the two `⊆`/`=` proofs
+standing behind the two sides' `widen`/`fromEmpty` being interchangeable
+by proof irrelevance (`widen_irrel`).
+
+Two further theorems: `traverse_map (f : α → Graded g β) (h : γ → α) (xs :
+List γ) : traverse f (xs.map h) = traverse (f ∘ h) xs`, by induction using
+`traverse_nil`/`traverse_cons` (no new idempotence use — it reuses
+`traverse_cons`'s existing cast on each side and cancels); and
+`traverse_fromEmpty (xs : List α) : traverse (fromEmpty : α → Graded g α)
+xs = fromEmpty xs`, the identity law ("traversing with a context that
+cannot fail is the identity"), by induction through the same
+`traverse_cons` cast. `traverse_length` (shape preservation — an `.ok`
+result has the same length as the input list) is proved from three
+`traverse_cons`-derived reduction lemmas (`traverse_cons_ok_ok`,
+`traverse_cons_err_left`, `traverse_cons_ok_err`, mirroring
+[applicative-from-monad]'s `ap_ok_ok`/`ap_err_left`/`ap_ok_err`); the two
+`err`-shaped lemmas also mention `Grade.join_idem`, but only because they
+restate `traverse_cons`'s own cast for the error branches specifically —
+not a further idempotence cost beyond what `traverse_cons` already pays.
+
+**Scope.** The general non-idempotent case — grades that are not
+idempotent under join, or elements each carrying a genuinely different
+grade with no uniform `g` — is not modelled here. This is deliberate
+scope, not a gap: `foldGrade` and `foldGrade_le` are already stated for an
+arbitrary (not-necessarily-idempotent) pomonoid grade and would still
+typecheck, but `foldGrade_cons_ne_nil` — the fact that makes the grade
+length-independent — is specific to `Grade`'s idempotent join, and no
+attempt is made here to state what a non-idempotent grade's traversal
+signature would even look like (in C++ terms, it would have to mention
+the container's length, which generic code over `error_set` cannot do).
+
+Filled by [traverse-list](../tmp/plan/step-traverse-list.md) (`List`) and
+[traverse-tuple](../tmp/plan/step-traverse-tuple.md) (fixed-size, to
+follow).
 
 ## compose
 
