@@ -343,13 +343,15 @@ theorem traverseComp_eq (f : α → Graded g β) (k : β → Graded h γ) (xs : 
 -- The explanation deliverable: is `flatten` an applicative morphism from
 -- the product-graded composite to the union-graded carrier? The grade
 -- equation needs *both* `Grade.join_assoc` and `Grade.join_comm` —
--- reassociating `(g ⊔ g') ⊔ (h ⊔ h')` into `(g ⊔ h) ⊔ (g' ⊔ h')` — the
--- second appearance of `join_comm` in the whole model, after `ap_flip`.
+-- reassociating `(g ⊔ g') ⊔ (h ⊔ h')` into `(g ⊔ h) ⊔ (g' ⊔ h')`. This is
+-- one of six theorems in the model that consume `Grade.join_comm`; see
+-- `docs/laws.md` for the generated list.
 
 /-- The grade equation `flatten_ap`'s cast needs: reassociating `(g ⊔ h) ⊔
     (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')` needs both `Grade.join_assoc` and
-    `Grade.join_comm` — the second appearance of `join_comm` in the whole
-    model, after `ap_flip`. -/
+    `Grade.join_comm`. One of six theorems that consume `Grade.join_comm`
+    (`ap_flip`, `flatten_comm`, this one, `joinAll_perm`, `join_mem_eq`, and
+    the generic `joinAllG_perm`); `docs/laws.md` is the generated list. -/
 theorem Comp.grade_reassoc (g g' h h' : Grade Err) :
     Grade.join (Grade.join g h) (Grade.join g' h') =
       Grade.join (Grade.join g g') (Grade.join h h') :=

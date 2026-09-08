@@ -126,4 +126,21 @@ example (ff : Comp ({E.parse} : Grade E) ({E.range} : Grade E) (Nat → Nat)) (a
       Graded.cast (Comp.grade_reassoc _ _ _ _) (ap (flatten ff) (flatten (Comp.pure a))) :=
   flatten_ap ff (Comp.pure a) (Or.inr (Or.inr ⟨Graded.ok a, rfl⟩))
 
+-- The same law at four *non-empty, distinct* grades, so that
+-- `Comp.grade_reassoc`'s equation does not collapse by the unit laws
+-- alone. In the instance above `xx` sits at `∅`/`∅`, which makes
+-- `(g ⊔ h) ⊔ (∅ ⊔ ∅) = (g ⊔ ∅) ⊔ (h ⊔ ∅)` a consequence of `bot_join`
+-- and `join_bot`; commutativity is never reached. Here every one of the
+-- four grades is inhabited, so the reassociation genuinely needs
+-- `Grade.join_comm`, which `grade_reassoc` cites. This is the model's
+-- commutativity path under test rather than merely stated.
+
+example (ff : Comp ({E.parse} : Grade E) ({E.range} : Grade E) (Nat → Nat)) :
+    flatten (Comp.ap ff (Graded.ok (Graded.ok 1) :
+        Comp ({E.io} : Grade E) ({E.parse} : Grade E) Nat)) =
+      Graded.cast (Comp.grade_reassoc _ _ _ _)
+        (ap (flatten ff) (flatten (Graded.ok (Graded.ok 1) :
+          Comp ({E.io} : Grade E) ({E.parse} : Grade E) Nat))) :=
+  flatten_ap ff (Graded.ok (Graded.ok 1)) (Or.inr (Or.inr ⟨Graded.ok 1, rfl⟩))
+
 end Tests

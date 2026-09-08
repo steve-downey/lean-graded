@@ -69,12 +69,13 @@ def ofFinset (s : Finset Err) : Canon Err := ⟨s.sort, s.sortedLT_sort⟩
 def toFinset (c : Canon Err) : Finset Err := c.val.toFinset
 
 /-- `toFinset (ofFinset s) = s`: sorting a `Finset` and then reading its
-    elements back out recovers the original set. Cites `Finset.sort_toFinset`
-    by name rather than unfolding, per the elaboration gotcha flagged in
-    this step's handoff: naming the fact keeps every later use pinned to
-    `Canon.ofFinset`/`Canon.toFinset` rather than the raw `Finset.sort`. -/
+    elements back out recovers the original set. The Mathlib fact doing the
+    work is `Finset.sort_toFinset`, and the proof names it in its `simp
+    only` set rather than letting a bare `simp` find it, so a later reader
+    can see which fact this rests on. The two unfoldings in that set are
+    this module's own definitions, not Mathlib facts re-proved inline. -/
 theorem toFinset_ofFinset (s : Finset Err) : toFinset (ofFinset s) = s := by
-  simp [toFinset, ofFinset]
+  simp only [toFinset, ofFinset, Finset.sort_toFinset]
 
 /-- `ofFinset (toFinset c) = c`: sorting the set of a canonical
     representative's elements recovers the representative itself. Proved
@@ -144,7 +145,8 @@ theorem canonEquiv_union (g h : Grade Err) :
     canonEquiv (Grade.join g h) = Canon.union (canonEquiv g) (canonEquiv h) := by
   change Canon.ofFinset (Grade.join g h) =
     Canon.ofFinset (Canon.toFinset (Canon.ofFinset g) ∪ Canon.toFinset (Canon.ofFinset h))
-  rw [Canon.toFinset_ofFinset, Canon.toFinset_ofFinset, Grade.join]
+  rw [Canon.toFinset_ofFinset, Canon.toFinset_ofFinset]
+  rfl
 
 /-- `canonEquiv` carries `Grade.bot` (∅) across to the empty canonical
     representative. -/

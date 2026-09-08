@@ -95,11 +95,29 @@ Five of these carry a `/-- PROPERTY: ... -/` docstring tag —
 [oracle-export](../tmp/plan/step-oracle-export.md) greps to find which laws
 depend on which property.
 
-> **Provisional.** `Grade` is deliberately *not* registered as a Mathlib
-> `SemilatticeSup`/`OrderedCommMonoid` instance, so that lemma use stays
-> greppable: an instance would let `simp` reach for these properties
-> invisibly, which defeats the point of naming them. Revisit if a later
-> step needs Mathlib's lattice API for a proof that is otherwise long.
+> **Provisional.** No Mathlib lattice or ordered-monoid instance is
+> *declared* for `Grade`, so that this module's named lemmas stay the
+> entry points a grep can find.
+>
+> **Corrected 2026-09-08, after the run.** The original wording said an
+> instance "would let `simp` reach for these properties invisibly", as
+> though declaring none withheld them. It does not: `Grade` is an
+> `abbrev` for `Finset`, so `Finset`'s own instances apply through it.
+> Verified — `#synth SemilatticeSup (Grade E)`, `Lattice (Grade E)` and
+> `OrderBot (Grade E)` all resolve (to `Finset.instLattice` and friends),
+> and `example (g h : Grade E) : Grade.join g h = Grade.join h g := by
+> unfold Grade.join; exact sup_comm ..` compiles. Mathlib's lattice API
+> was available the whole time.
+>
+> What the decision did secure is narrower and did hold: every property
+> of the grade has a *named* lemma here, and every proof in the model
+> cites one rather than reaching for the Mathlib fact — confirmed by
+> [oracle-export]'s generated table, where `Finset.union_*` appears only
+> in this module. That was worker discipline, not a property of the
+> type. A future run wanting the guarantee rather than the convention
+> would need `Grade` to be a `def` or a one-field structure, which would
+> cost instance resolution everywhere. Revisit only if a proof is
+> otherwise long enough to be worth that.
 
 ## carrier
 
@@ -780,8 +798,8 @@ theorem flatten_ap (ff : Comp g h (α → β)) (xx : Comp g' h' α)
 **Holds only under `hcond`, and fails outright without it — a genuine,
 `#eval`-confirmed counterexample, not merely an unproved case.** The grade
 side needs both `Grade.join_assoc` *and* `Grade.join_comm` to reassociate
-`(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')` — the second appearance
-of `join_comm` in the whole model, after `ap_flip`. The *value* side fails
+`(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')`, making it
+one of six theorems that consume `Grade.join_comm` (`ap_flip`, `flatten_comm`, `Comp.grade_reassoc`, `joinAll_perm`, `join_mem_eq`, and the generic `joinAllG_perm`). The *value* side fails
 for a structural reason distinct from `ap_flip`'s: `Comp.ap`'s own
 short-circuit order is outer-`ff`-error, then outer-`xx`-error, then
 `ff`'s inner error, then `xx`'s inner error; flattening each side first
@@ -878,8 +896,8 @@ demonstration.
 whether `flatten` is an applicative morphism from the product-graded
 composite to the union-graded carrier, and the answer is **conditional**:
 it holds under a one-sided hypothesis (`Comp.grade_reassoc`'s reassociation
-needs both `Grade.join_assoc` and `Grade.join_comm` — the second
-appearance of `join_comm` in the whole model, after `ap_flip` — and the
+needs both `Grade.join_assoc` and `Grade.join_comm`, making it
+one of six theorems that consume `Grade.join_comm` (`ap_flip`, `flatten_comm`, `Comp.grade_reassoc`, `joinAll_perm`, `join_mem_eq`, and the generic `joinAllG_perm`) — and the
 *value* side needs "`ff`'s outer layer fails, or `ff` succeeds all the way
 through, or `xx`'s outer layer succeeds"), and it **fails outright**
 without that hypothesis, confirmed by `#eval`. The failing case is exactly
@@ -1605,10 +1623,9 @@ comparing `ap`'s grade `g ⊔ h` against `apFlipped`'s `h ⊔ g`);
 `joinAll_dedup`'s own load-bearing helper and cites `join_comm` directly
 in its own right, not merely by inheriting from `joinAll_perm`; and
 `Graded/ComposeApp.lean`'s `Comp.grade_reassoc`, which `flatten_ap` needs
-to reassociate `(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')` — the
-second appearance of commutativity in the whole model, cited directly in
-`grade_reassoc`'s own proof, not in `flatten_ap`'s (see the mechanical
-scan's own miss on this, below). `Graded/Obligations.lean`'s generic
+to reassociate `(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')`, cited
+directly in `grade_reassoc`'s own proof and not in `flatten_ap`'s (see the
+mechanical scan's own miss on this, below). `Graded/Obligations.lean`'s generic
 `joinAllG_perm` is a seventh, separate confirmation at the abstract
 `IsCommPomonoid` layer, matching `joinAll_perm` exactly — not a fourth
 concrete site, since it proves the same fact again over an abstract
@@ -1740,15 +1757,19 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 
 - [#toolchain](#toolchain) — build-time numbers are machine- and
   network-dependent.
+- [#grade](#grade) — no Mathlib lattice instance is *declared* for
+  `Grade`; note the correction there, since the original rationale
+  claimed a protection an `abbrev` cannot give.
 - [#obligations](#grade-join-strength) — **OPEN question**
   `grade-join-strength`: whether a grade's join must be a least upper
   bound. Under the stronger reading `join_idem` is a theorem, not an
   axiom, and the three-layer account applies only to the weaker one.
-- [#compose](#graded-traversable-composition) — **OPEN question**
-  `graded-traversable-composition`: the classical Traversable composition
-  law is refuted for the flattened carrier (and the refutation is not
-  about grading); whether a `Compose`-aware version is worth building is
-  undecided.
+- [#compose](#graded-traversable-composition) — **CLOSED**
+  `graded-traversable-composition`: the flattened composition law is
+  false (and the refutation is not about grading); the product-graded
+  form `traverseComp_eq` holds unconditionally, built and proved by
+  [compose-applicative]. Kept in this index because the anchor still
+  carries the reasoning, not because anything is open.
 - [#carrier](#carrier) — laws stated with exact union grades and `cast`,
   rather than `bind` at any sufficient grade.
 - [#applicative](#applicative) — `Accum`'s error field is a `List Err`

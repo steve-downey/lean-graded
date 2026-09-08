@@ -125,8 +125,10 @@ theorem flatten_ap : flatten (Comp.ap ff xx) = cast _ (ap (flatten ff) (flatten 
 i.e. is `flatten` an applicative morphism from the product-graded
 composite to the union-graded carrier? Expect a grade cast reassociating
 `(g ⊔ g') ⊔ (h ⊔ h')` into `(g ⊔ h) ⊔ (g' ⊔ h')`, which needs
-associativity **and commutativity** — the second appearance of
-`join_comm` in the model, and worth flagging as such. If the equation
+associativity **and commutativity**, and is worth flagging as such.
+(An earlier revision of this line said "the second appearance of
+`join_comm` in the model". That was wrong: six theorems consume it. The
+generated `docs/laws.md` is the count of record.) If the equation
 holds only under a condition, state the condition; if it fails outright,
 that failure *is* the explanation for [compose-flatten]'s counterexample
 and should be cited from that open question's Log. Either way this is
