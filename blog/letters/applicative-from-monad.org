@@ -1,0 +1,109 @@
+#+TITLE: Letter 6: 'The applicative is identical to the monad' — identical in what?
+#+DATE: 2026-09-07
+#+CATEGORY: lean-transpose
+#+STEP: applicative-from-monad
+
+Dear colleague,
+
+* What I set out to do
+
+Applicative is the thing that lets you combine two independent
+computations without a nesting order — you're not using the first
+result to decide what the second computation even is, the way
+=and_then= does, you just have two results and a function to combine
+them. Think =parse_nat(s1)= and =parse_nat(s2)=, added together: neither
+parse needs the other's answer first.
+
+Our design document states, in one line, that the applicative instance
+for a monad *is* the monad instance — not derived from it, identical to
+it. For an ordinary C++ =expected=, that's a fact nobody argues with. For
+a *graded* monad, it's a claim about error sets too: applying a graded
+function to a graded argument has to produce a result graded with the
+*union* of the two, and if you build that union by running the function's
+effect first and the argument's effect second, you've picked an order,
+even though "independent" was supposed to mean order didn't matter. My
+job this step was to build that applicative from =bind=, prove the four
+laws that make something deserve the name "applicative," and find out
+exactly where — if anywhere — the *order* leaks through into something
+observable.
+
+* What the checker refused
+
+My first guess, going in, was that the interchange law would need
+commutativity of the union — swapping =g ∪ ∅= and =∅ ∪ g= looked like it
+needed the union's two sides to trade places. Lean disagreed, and it was
+right to: both of those are individually just =g=, by the two separate
+"empty set is a no-op" facts, so there was never a genuine swap to
+justify. I'd been about to reach for the heavier tool because the shape
+of the goal *looked* like a swap; stating the law with two small
+conversions instead of one, each landing at the same tidy grade, made
+the swap unnecessary. That's a case of the checker refusing my first
+draft's *reasoning*, not any particular tactic.
+
+The one place order really does leak through took more digging. I built
+a second version of "apply," called it =apFlipped=, that runs the
+argument's effect first and the function's effect second — same
+ingredients, other order. Comparing =ap= and =apFlipped= at the *type*
+level needs exactly one commutativity fact (the two error sets really
+are the same set, just unioned in the other order). But comparing them
+as *values* — same inputs, do you get the same answer — is not true in
+general, and the checker made me say so explicitly: I could only prove
+it under a side condition, "at most one of the two arguments is actually
+an error."
+
+* What changed
+
+=ap= is =bind=/=pure= threaded twice: apply the function, then apply the
+argument, each success handed to the next stage exactly like =and_then=
+would.
+
+#+begin_src lean
+def ap (f : Graded g (α → β)) (x : Graded h α) : Graded (Grade.join g h) β :=
+  cast (congrArg (Grade.join g) (Grade.join_bot h))
+    (bind f (fun f' => bind x (fun a => pure (f' a))))
+#+end_src
+
+The =cast= at the top is bookkeeping, the same kind from last letter: the
+grade Lean computes along the way is =g ∪ (h ∪ ∅)=, and =congrArg= turns
+the fact "=h ∪ ∅= is =h=" into the fact "=g ∪ (h ∪ ∅)= is =g ∪ h=" so the
+two sides line up. All four applicative laws came out needing nothing
+but that kind of unit-law bookkeeping, plus one use of associativity for
+the "composing three applies re-associates" law — never the commutativity
+I'd guessed at going in.
+
+Then I wrote the counterexample the value-level finding demanded. Take a
+function that's already failed with a parse error, and an argument
+that's already failed with a range error:
+
+#+begin_src lean
+#guard renderN (ap bothErrF bothErrX) = "err ... E.parse"
+#guard renderN (apFlipped bothErrF bothErrX) = "err ... E.range"
+#+end_src
+
+Same two inputs, same claimed grade, two different answers depending on
+which order you run them in. =ap= reports the parse error because it
+runs the function's side first; =apFlipped= reports the range error
+because it runs the argument's side first. Nothing here is a bug — both
+are legitimate ways to build "apply" out of a sequencing monad, and
+that's exactly the problem: "independent" computations built this way
+still have to pick an order, and the order decides which failure you
+learn about.
+
+* Back in C++
+
+The design document's line — applicative is identical to monad — is true
+of the *type*: whichever order you sequence in, the result's error set
+is the same union. It is silent about the *value*, and that silence
+costs nothing as long as at most one side of an =and_then=-built
+applicative can actually fail, which in a lot of real code is most of
+the time. But the moment two independent validations can both fail —
+which is the entire point of reaching for an applicative instead of
+chaining =and_then= calls — a monad-derived =ap= has quietly chosen
+which failure you see, by an order the caller never asked it to pick.
+If a C++ author wants the *other* thing — collecting both failures, or
+guaranteeing a stable "leftmost failure wins" contract callers can rely
+on — that has to be a different instance, built to do that on purpose,
+not inherited for free from the monad. That's next.
+
+Yours,
+Steve

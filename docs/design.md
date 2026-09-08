@@ -251,8 +251,76 @@ decision.
 
 ## applicative
 
-Filled by [applicative-from-monad](../tmp/plan/step-applicative-from-monad.md)
-and [applicative-accumulation](../tmp/plan/step-applicative-accumulation.md).
+`Graded.ap (f : Graded g (α → β)) (x : Graded h α) : Graded (Grade.join g h)
+β` (in `Graded/Applicative.lean`) is derived from `bind`/`pure` — not given
+its own primitive definition — checking the C++ claim
+([cpp-counterpart](#cpp-counterpart)) that the applicative instance for a
+monad *is* the monad instance. `ap` sequences its two arguments through
+`bind` in a fixed order, function first: `bind f (fun f' => bind x (fun a
+=> pure (f' a)))`, cast once through `Grade.join_bot` to collapse the inner
+`h ∪ ∅`. `apFlipped` sequences the other way (argument first) and lands at
+`Grade.join h g` — the same two grades, joined in the other order.
+`map2 (k : α → β → γ) : Graded g α → Graded h β → Graded (join g h) γ :=
+ap (map k x) y` combines two independently-graded computations.
+`seqLeft`/`seqRight` are omitted: nothing in this step's four laws or its
+consumer needed them, and adding them speculatively would be exactly the
+kind of unrequested API this plan avoids.
+
+**Property table** — every one of the four applicative laws needs only
+*unit* and/or *associativity*, never `join_comm`, confirming this step's
+own prediction:
+
+| law | property | note |
+|---|---|---|
+| `ap_pure_id` | unit (`bot_join`) | identity |
+| `ap_pure_pure` | unit (`bot_join`, `∅ ∪ ∅ = ∅`) | homomorphism |
+| `ap_interchange` | unit (`join_bot` *and* `bot_join`, separately) | interchange |
+| `ap_comp` | unit (`bot_join`) + associative (`join_assoc`) | composition, the heaviest proof |
+
+**`ap_interchange` finding.** The step brief predicted this law "needs
+`join_comm`" then immediately doubted it ("`g ∪ ∅` vs `∅ ∪ g` are both `g`
+by the unit laws alone"). The doubt was right: stated with **two** casts —
+`cast (Grade.join_bot g) (ap u (pure a)) = cast (Grade.bot_join g) (ap
+(pure (fun f => f a)) u)`, both sides landing at the same tidy grade `g` —
+the law needs only the two unit lemmas, each in its own stated direction,
+no `.symm` and no `Grade.join_comm`. A single-cast phrasing (cast one
+side directly to the other's grade, `join g ∅` vs `∅ ∪ g`) would need
+`join_comm` instead; the two-cast phrasing is the weaker-hypothesis proof
+and is what's implemented.
+
+**`join_comm` — where it is needed, and only there.** `ap_flip : ap f x =
+cast (Grade.join_comm h g) (apFlipped f x)` is the one place `join_comm`
+appears in the module. It is needed *by construction*: `ap`'s grade is
+`Grade.join g h`, `apFlipped`'s is `Grade.join h g` — the same union with
+its arguments the other way around — and relating them at all is exactly
+what commutativity states, independent of any value-level question.
+
+**The value-side finding — this is the substance of the C++ "identical"
+claim.** `ap_flip` as a *value* equation is only provable under a
+hypothesis: `(∃ f', f = .ok f') ∨ (∃ a, x = .ok a)` — at most one side is
+an error. `Tests/Applicative.lean` gives the counterexample the step asked
+for: `bothErrF : Graded {E.parse} (Nat → Nat) := .err E.parse _` and
+`bothErrX : Graded {E.range} Nat := .err E.range _`. Both `ap bothErrF
+bothErrX` and `apFlipped bothErrF bothErrX` land at the *same* grade
+(`{E.parse, E.range}`, via `Grade.join_comm`) but disagree on the *value*:
+`ap` (which sequences `f` first, matching `bind`'s own order) reports
+`E.parse`; `apFlipped` (argument first) reports `E.range`. Whichever side
+runs first is the error a caller sees. This is exactly the gap in the C++
+claim: "the applicative instance is identical to the monad instance" is
+true of the *grade* unconditionally, and true of the *value* only when at
+most one side can fail — a condition the C++ design text never states,
+because with a non-commutative grade the two orderings are observably
+different operations.
+
+The consumer, `Examples/Validation.lean`: `sumTwo (s1 s2 : String) :
+Graded {E.parse} Nat := map2 (· + ·) (parseNat s1) (parseNat s2)` combines
+two independent (non-`bind`-threaded) validations. Because both stages
+share the error kind `E.parse`, `sumTwo`'s own `#guard`s can show
+short-circuiting (either failure fails the whole) but not *which* side
+failed — that distinction needs two different error kinds, which is what
+`Tests/Applicative.lean`'s cross-grade counterexample is for.
+
+Filled by [applicative-accumulation](../tmp/plan/step-applicative-accumulation.md) next.
 
 ## traverse
 
