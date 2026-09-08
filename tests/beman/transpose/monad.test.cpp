@@ -6,8 +6,14 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <optional>
+#include <string>
 
 namespace bt = beman::transpose;
+
+namespace {
+template <class M, class F, class MA>
+concept has_fmap = requires(M &m, F &f, MA &ma) { m.fmap(f, ma); };
+} // namespace
 
 TEST_CASE("monad: optional bind short-circuits on empty") {
     auto half_if_even = [](int x) {
@@ -47,4 +53,30 @@ TEST_CASE("monad: invoke coheres with the applicative invoke") {
     REQUIRE(
         monad.invoke(add, std::optional<int>{}, std::optional<int>{5}) ==
         applicative.invoke(add, std::optional<int>{}, std::optional<int>{5}));
+}
+
+TEST_CASE("monad: fmap is the Functor basis grounded in bind + pure") {
+    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    auto increment = [](int x) { return x + 1; };
+
+    REQUIRE(m.fmap(increment, std::optional<int>{41}) ==
+            std::optional<int>{42});
+    REQUIRE(m.fmap(increment, std::optional<int>{}) == std::optional<int>{});
+}
+
+TEST_CASE("monad: fmap deduces a changed value type") {
+    const auto &m = bt::monad_typeclass<std::optional<int>>;
+    auto to_string = [](int x) { return std::to_string(x); };
+
+    auto result = m.fmap(to_string, std::optional<int>{7});
+    static_assert(std::same_as<decltype(result), std::optional<std::string>>);
+    REQUIRE(result == std::optional<std::string>{"7"});
+}
+
+TEST_CASE("monad: fmap is not callable with a mismatched function") {
+    struct not_invocable_on_int {};
+    using not_applicable_t = decltype([](not_invocable_on_int) { return 0; });
+
+    static_assert(!has_fmap<decltype(bt::monad_typeclass<std::optional<int>>),
+                            not_applicable_t, std::optional<int>>);
 }

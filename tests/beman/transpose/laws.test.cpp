@@ -5,7 +5,9 @@
 
 #include <beman/transpose/error_set.hpp>
 #include <beman/transpose/expected.hpp>
+#include <beman/transpose/functor.hpp>
 #include <beman/transpose/grade.hpp>
+#include <beman/transpose/monad.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -410,6 +412,72 @@ static_assert(accepts_accumulating_expected_invoke<bare_c, int>);
 static_assert(!accepts_accumulating_expected_invoke<bare_c, boolean_may>);
 
 } // namespace mixing_point
+
+// =========================================================================
+// FUNCTOR-MONAD GROUNDING: the layered instance, its laws, and the
+// agreement between a hand-written Functor and the fmap Monad grows.
+//
+// std::optional carries both a hand-written functor_typeclass and a Monad
+// instance; the latter grows fmap structurally, from bind + pure, and the
+// full Functor instance is spelled Functor<OptionalMonadMap<int>>{} rather
+// than registered anywhere. This section checks that layered instance
+// compiles, satisfies the functor laws, and agrees with the hand-written
+// one -- see docs/decisions.md#functor-monad-grounding.
+// =========================================================================
+
+namespace functor_monad_grounding {
+
+constexpr bt::Functor<bt::OptionalMonadMap<int>> layered_functor{};
+
+constexpr auto increment(int x) -> int { return x + 1; }
+constexpr auto double_it(int x) -> int { return x * 2; }
+constexpr auto identity(int x) -> int { return x; }
+
+} // namespace functor_monad_grounding
+
+TEST_CASE("laws: functor identity holds for Functor<OptionalMonadMap>") {
+    using namespace functor_monad_grounding;
+    REQUIRE(layered_functor.fmap(identity, std::optional<int>{5}) ==
+            std::optional<int>{5});
+    REQUIRE(layered_functor.fmap(identity, std::optional<int>{}) ==
+            std::optional<int>{});
+}
+
+TEST_CASE("laws: functor composition holds for Functor<OptionalMonadMap>") {
+    using namespace functor_monad_grounding;
+    auto composed = [](int x) { return double_it(increment(x)); };
+
+    REQUIRE(
+        layered_functor.fmap(composed, std::optional<int>{5}) ==
+        layered_functor.fmap(
+            double_it, layered_functor.fmap(increment, std::optional<int>{5})));
+    REQUIRE(
+        layered_functor.fmap(composed, std::optional<int>{}) ==
+        layered_functor.fmap(
+            double_it, layered_functor.fmap(increment, std::optional<int>{})));
+}
+
+TEST_CASE("laws: hand-written Functor and Monad-grown fmap agree on optional") {
+    using functor_monad_grounding::increment;
+
+    const auto &functor = bt::functor_typeclass<std::optional<int>>;
+    const auto &monad = bt::monad_typeclass<std::optional<int>>;
+    auto via_bind = [](std::optional<int> ma) {
+        return bt::mbind(
+            ma, [](int a) { return std::optional<int>{increment(a)}; });
+    };
+
+    for (auto ma : {std::optional<int>{5}, std::optional<int>{}}) {
+        REQUIRE(functor.fmap(increment, ma) == monad.fmap(increment, ma));
+        REQUIRE(functor.fmap(increment, ma) == via_bind(ma));
+    }
+}
+
+TEST_CASE("laws: replace reaches fmap through the layered instance") {
+    using namespace functor_monad_grounding;
+    REQUIRE(layered_functor.replace(std::optional<int>{1}, 9) ==
+            std::optional<int>{9});
+}
 
 TEST_CASE("laws: the shipped model satisfies the graded laws") {
     // Compile-time only; reaching here means the static_assert above held.

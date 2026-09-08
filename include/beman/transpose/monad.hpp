@@ -40,6 +40,39 @@ struct Monad : protected Impl {
     using Impl::bind;
     using Impl::pure;
 
+    /** fmap: the Functor basis, grounded in bind + pure.
+     *
+     *   fmap(f, ma) = ma >>= (pure . f)
+     *
+     * A monad is a functor, and this is that theorem spelled as an operation
+     * rather than as a superclass constraint. Prefers a native Impl::fmap
+     * when the instance supplies one -- an instance that can map without
+     * sequencing usually should. The full Functor instance is spelled at the
+     * registration site as Functor<ThisMap>{}; Monad grows the Functor BASIS
+     * only, so Functor's derived surface stays Functor's.
+     */
+    template <class FUNCTION, class MA>
+    auto fmap(this auto &&self, FUNCTION &&function, MA &&ma)
+        requires requires(const Impl &impl) {
+            impl.fmap(std::forward<FUNCTION>(function), std::forward<MA>(ma));
+        } || requires(const Impl &impl) {
+            impl.bind(std::forward<MA>(ma), std::declval<FUNCTION &>());
+        }
+    {
+        if constexpr (requires {
+                          impl_of(self).fmap(std::forward<FUNCTION>(function),
+                                             std::forward<MA>(ma));
+                      }) {
+            return impl_of(self).fmap(std::forward<FUNCTION>(function),
+                                      std::forward<MA>(ma));
+        } else {
+            return impl_of(self).bind(std::forward<MA>(ma), [&](auto &&a) {
+                return impl_of(self).pure(
+                    std::invoke(function, std::forward<decltype(a)>(a)));
+            });
+        }
+    }
+
     // invoke: n-ary lift synthesized from bind + pure (left-nested binds):
     //   invoke(f, m1, ..., mn) = m1 >>= \a1 -> ... mn >>= \an ->
     //   pure(f(a1...an))
@@ -169,7 +202,8 @@ struct OptionalMonadImpl {
     }
 
     template <class A, class F>
-    auto bind(this auto &&, const std::optional<A> &ma, F &&f) {
+    auto bind(this auto &&, const std::optional<A> &ma, F &&f)
+        -> remove_cvref_t<std::invoke_result_t<F, const A &>> {
         using Result = remove_cvref_t<std::invoke_result_t<F, const A &>>;
         if (!ma)
             return Result{};
