@@ -2,9 +2,10 @@
 # For every "- [x] N. [slug]" line in tmp/plan/checklist.md, require
 # blog/letters/<slug>.org to exist and contain the four required headings.
 # baseline-capture is exempt from the "What the checker refused" heading.
-# blog-series-edit and integration-review are exempt entirely: neither
-# produces a per-step letter. blog-series-edit's output is the index and
-# the closing letter; integration-review is a consult whose output is the
+# blog-series-edit, integration-review and migration-review are exempt
+# entirely: none produces a per-step letter. blog-series-edit's output is
+# the index and the closing letter; the two reviews are consults whose
+# output is the
 # review itself.
 #
 # Separately, require blog/letters/index.org to exist and to mention the
@@ -28,7 +29,7 @@ while IFS= read -r line; do
 	[ -n "$slug" ] || continue
 
 	case "$slug" in
-	blog-series-edit | integration-review)
+	blog-series-edit | integration-review | migration-review)
 		continue
 		;;
 	esac
