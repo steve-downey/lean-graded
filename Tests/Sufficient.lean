@@ -193,6 +193,27 @@ example (f : Graded ({E.parse} : Grade E) (Nat → Nat)) (x : Graded ({E.range} 
     "err Examples.Validation.E.range"
 
 -- ---------------------------------------------------------------------
+-- `traverseK`: the [obligation-layering] probe — computes at a `k`
+-- strictly larger than the element grade `g`, with no cast (contrast
+-- `traverse_cons`'s cast along `Grade.join_idem`).
+
+def renderListK : Graded ({E.parse, E.range, E.io} : Grade E) (List Nat) → String
+  | .ok l => s!"ok {l}"
+  | .err e _ => s!"err {repr e}"
+
+#guard renderListK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (fun n => (Graded.ok (n + 1) : Graded ({E.parse} : Grade E) Nat))
+      [1, 2, 3]) = "ok [2, 3, 4]"
+
+#guard renderListK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide)
+      (fun n => if n = 2 then (Graded.err E.parse (by decide) : Graded ({E.parse} : Grade E) Nat)
+        else Graded.ok (n + 1))
+      [1, 2, 3]) = "err Examples.Validation.E.parse"
+
+-- ---------------------------------------------------------------------
 -- `Comp.apK`: the two-coordinate composite at a sufficient grade *pair*,
 -- each strictly larger than its own component's join —
 -- `{E.parse, E.range}` widened to `{E.parse, E.range, E.io}` in the

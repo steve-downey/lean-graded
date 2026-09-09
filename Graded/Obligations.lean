@@ -8,23 +8,51 @@ import Graded.Grade
     for `Finset Err`, so nothing ever forced a proof to live inside its
     recorded budget, and no second grade was ever tried.
 
-    This module states the budget as three Lean classes, layered:
+    This module states the budget as four Lean classes: one operational,
+    three independent mixins over it.
 
-    - `Pomonoid`      — associative join, a two-sided unit, a partial order
-                        with `bot` as its minimum, and monotonicity of
-                        `join` in the order. This is the textbook
-                        "partially ordered monoid": an `OrderedAddCommMonoid`
-                        without commutativity, restated multiplicatively.
-    - `IsCommPomonoid` — `Pomonoid` plus `join_comm`.
-    - `IsIdemPomonoid` — `IsCommPomonoid` plus `join_idem`.
+    - `Pomonoid`          — associative join, a two-sided unit, a partial
+                            order with `bot` as its minimum, and
+                            monotonicity of `join` in the order. This is
+                            the textbook "partially ordered monoid": an
+                            `OrderedAddCommMonoid` without commutativity,
+                            restated multiplicatively. **This is the
+                            operational obligation** — every monad,
+                            applicative, traversal, subsumption and
+                            morphism law in `Graded/` needs at most this,
+                            per [obligation-layering]'s classification.
+    - `IsCommPomonoid`     — `Pomonoid` plus `join_comm`, on its own.
+    - `IsIdemPomonoid`     — `Pomonoid` plus `join_idem`, on its own (not
+                            through `IsCommPomonoid`).
+    - `IsCanonicalPomonoid` — `Pomonoid` plus *both* `join_comm` and
+                            `join_idem`, direct fields, not inherited from
+                            the two classes above. Named for what a
+                            **type** promises (canonical, exact spelling
+                            — reordering and repetition both wash out) —
+                            not because any theorem in this file needs the
+                            conjunction (none does), but because that is
+                            what `Grade Err` actually is, and what
+                            `error_set` promises in C++.
 
     `error_set`'s own two extra axioms (commutative, idempotent) are
-    logically independent of each other, but this module nests them
-    (`IsIdemPomonoid extends IsCommPomonoid`) rather than placing
-    idempotence beside commutativity as a sibling of `Pomonoid`. That is a
-    judgement call, marked provisional at `docs/design.md#obligations`; see
-    the remark on `foldG_le`/`foldG_cons_ne_nil` below for why the nesting
-    costs nothing in practice — neither proof ever cites `join_comm`.
+    logically independent of each other, and this module now states them
+    as **independent siblings** of `Pomonoid`, not a nested chain
+    (`IsIdemPomonoid extends IsCommPomonoid`, as an earlier revision of
+    this module had it). [obligation-layering] resolved the provisional
+    judgement call this module used to carry: `IsIdemPomonoid` no longer
+    presupposes `IsCommPomonoid`, because no theorem in this file that
+    cites `join_idem` also cites `join_comm` — `foldG_le` and
+    `foldG_cons_ne_nil` need `join_idem` alone, `joinAllG_perm` needs
+    `join_comm` alone, and nothing needs both. Nesting was smuggling an
+    unneeded hypothesis into `foldG_le`/`foldG_cons_ne_nil`'s stated
+    obligation; decoupling sharpens it to exactly what each proof uses,
+    per `docs/RULES.md`'s hypothesis discipline. A third class,
+    `IsCanonicalPomonoid`, bundles both axioms together — not because any
+    theorem here needs the conjunction, but because that conjunction is
+    what a real grade like `Grade Err` (`Finset` union) actually has, and
+    it is the C++-facing name for "this grade's type promises canonical
+    exact spelling." See `docs/design.md#obligations` (revised
+    2026-09-08) for the classification this rests on.
 
     **What is deliberately *not* copied from `Graded/Grade.lean`.** Grade's
     own `join_le` (`g ⊆ k → h ⊆ k → g ∪ h ⊆ k`, proved directly by
@@ -49,9 +77,11 @@ import Graded.Grade
     correct combination is `join_mono ha hb : join a b ≤ join c c`, then
     `join_idem c` collapses the right side to `c`). That means
     `foldG_le` — which the step brief predicted would need "`Pomonoid`
-    alone" — actually needs `IsIdemPomonoid`, the *same* layer as
-    `foldG_cons_ne_nil`, once the grade's `join_le` is no longer assumed as
-    a primitive. At the concrete `Grade` instance this is invisible,
+    alone" — actually needs `IsIdemPomonoid` (idempotence, not
+    commutativity: its proof cites `join_idem` alone, never `join_comm`),
+    the same class `foldG_cons_ne_nil` needs, once the grade's `join_le`
+    is no longer assumed as a primitive. At the concrete `Grade` instance
+    this is invisible,
     because `Grade.join_le` has a direct, cheap proof from `Finset` that
     never goes through `Grade.join_idem` — the per-instance proof and the
     generic derivation take different routes to the same fact. The `Nat`
@@ -83,26 +113,48 @@ class Pomonoid (G : Type u) where
   bot_le     : ∀ a, le bot a
   join_mono  : ∀ {a b c d}, le a b → le c d → le (join a c) (join b d)
 
-/-- `Pomonoid` plus commutativity of `join`. Buys order-independence:
+/-- `Pomonoid` plus commutativity of `join`, on its own — a sibling of
+    `IsIdemPomonoid`, not its ancestor. Buys order-independence:
     `joinAllG_perm` below, which is what licenses the C++ claim
-    `error_set<X,Y> ≡ error_set<Y,X>` at the concrete `Grade` instance. -/
+    `error_set<X,Y> ≡ error_set<Y,X>` at the concrete `Grade` instance.
+    The `Nat` counter-instance below inhabits this class without
+    inhabiting `IsIdemPomonoid`, which is exactly the point: commutativity
+    without idempotence is a real, populated case, not a hypothetical one
+    foreclosed by the class hierarchy's own shape. -/
 class IsCommPomonoid (G : Type u) extends Pomonoid G where
   join_comm : ∀ a b, join a b = join b a
 
-/-- `IsCommPomonoid` plus idempotence of `join`. Buys length-independence:
-    `foldG_cons_ne_nil` below (and, as the module docstring explains,
-    `foldG_le` too, once `join_le` is no longer assumed as a primitive) —
-    which is what makes the C++ `traverse` signature writable at all.
+/-- `Pomonoid` plus idempotence of `join`, on its own — **not** through
+    `IsCommPomonoid`. [obligation-layering] resolved the question an
+    earlier revision of this module left open (nest, or sit beside): sit
+    beside. Neither `foldG_le` nor `foldG_cons_ne_nil` below ever cites
+    `join_comm`, so requiring it would have been an unneeded hypothesis on
+    both — the nesting used to smuggle it in silently. Buys
+    length-independence: `foldG_cons_ne_nil` below (and, as the module
+    docstring explains, `foldG_le` too, once `join_le` is no longer
+    assumed as a primitive) — which is what makes the C++ `traverse`
+    signature writable at all. A grade that is idempotent without being
+    commutative is not ruled out by the mathematics, and this class no
+    longer rules it out either. -/
+class IsIdemPomonoid (G : Type u) extends Pomonoid G where
+  join_idem : ∀ a, join a a = a
 
-    **Provisional**, per `docs/design.md#obligations`: `error_set` has
-    commutativity and idempotence as two *independent* axioms of `Finset`
-    union, and nothing forces one to extend the other. This module nests
-    them because neither `foldG_le` nor `foldG_cons_ne_nil` ever cites
-    `join_comm` in its proof — the nesting costs nothing observable to
-    either headline theorem — but a grade that is idempotent without being
-    commutative is not ruled out by the mathematics, only by this
-    hierarchy's shape. Revisit if a later step needs such a grade. -/
-class IsIdemPomonoid (G : Type u) extends IsCommPomonoid G where
+/-- `Pomonoid` plus *both* `join_comm` and `join_idem`, stated as this
+    class's own direct fields rather than by extending
+    `IsCommPomonoid`/`IsIdemPomonoid` (avoiding the diamond back to
+    `Pomonoid` that extending both would create). No theorem in this file
+    takes `IsCanonicalPomonoid` as a hypothesis — every one that needs a
+    pomonoid property needs exactly one of `join_comm`/`join_idem`, never
+    their conjunction. This class exists to *name* the bundle a real grade
+    inhabits: `Grade Err` gets an instance below (`Finset` union is both
+    commutative and idempotent), `Nat` does not (it has `IsCommPomonoid`
+    but is not idempotent). The C++ reading: a grade's *type* promises
+    canonical exact spelling exactly when it inhabits this class, and
+    [obligation-layering]'s classification is that no operational law
+    needs that promise — only the grade's own bookkeeping
+    (`foldG`/`foldGrade`) does. -/
+class IsCanonicalPomonoid (G : Type u) extends Pomonoid G where
+  join_comm : ∀ a b, join a b = join b a
   join_idem : ∀ a, join a a = a
 
 namespace Pomonoid
@@ -138,8 +190,11 @@ theorem join_le {G : Type u} [IsIdemPomonoid G] {a b c : G}
   rwa [IsIdemPomonoid.join_idem c] at h
 
 -- ---------------------------------------------------------------------
--- `Finset Err` satisfies all three layers, citing `Graded.Grade`'s named
--- lemmas — never reproving them.
+-- `Finset Err` satisfies all four classes, citing `Graded.Grade`'s named
+-- lemmas — never reproving them. Each instance is built directly off
+-- `instPomonoidGrade`, not off another instance of this file's own
+-- classes, so there is exactly one route to `Pomonoid (Grade Err)` no
+-- matter which of the four is asked for — no diamond.
 
 variable {Err : Type u} [DecidableEq Err]
 
@@ -160,8 +215,16 @@ instance instCommPomonoidGrade : IsCommPomonoid (Grade Err) where
   join_comm  := Grade.join_comm
 
 instance instIdemPomonoidGrade : IsIdemPomonoid (Grade Err) where
-  toIsCommPomonoid := instCommPomonoidGrade
-  join_idem := Grade.join_idem
+  toPomonoid := instPomonoidGrade
+  join_idem  := Grade.join_idem
+
+/-- `Grade Err` inhabits the bundle: `Finset` union is both commutative
+    and idempotent, so `Grade Err`'s type genuinely does promise canonical
+    exact spelling — the fact `#obligations`' C++ reading rests on. -/
+instance instCanonicalPomonoidGrade : IsCanonicalPomonoid (Grade Err) where
+  toPomonoid := instPomonoidGrade
+  join_comm  := Grade.join_comm
+  join_idem  := Grade.join_idem
 
 -- ---------------------------------------------------------------------
 -- The grade algebra, generic over an abstract `Pomonoid`. `foldG` and
@@ -188,14 +251,15 @@ end FoldG
 
 -- `foldG_le` and `foldG_cons_ne_nil` take `[IsIdemPomonoid G]` *alone*
 -- (not also a separate `[Pomonoid G]`) so that instance search only ever
--- has one route to `Pomonoid G` — through `IsIdemPomonoid.toIsCommPomonoid
--- .toPomonoid` — rather than two independent instance arguments that
--- happen to agree. Mixing a bare `[Pomonoid G]` section variable with an
--- explicit `[IsIdemPomonoid G]` here is exactly the "instance diamond"
--- `linter.overlappingInstances` warns about, and it is not merely a lint:
--- the two `Pomonoid G` values are then genuinely different terms, and
--- `foldG_le`/`foldG_cons_ne_nil` (proved against one) fail to apply
--- against a proof term built against the other.
+-- has one route to `Pomonoid G` — through `IsIdemPomonoid.toPomonoid`,
+-- now a single hop since [obligation-layering] made `IsIdemPomonoid`
+-- extend `Pomonoid` directly — rather than two independent instance
+-- arguments that happen to agree. Mixing a bare `[Pomonoid G]` section
+-- variable with an explicit `[IsIdemPomonoid G]` here is exactly the
+-- "instance diamond" `linter.overlappingInstances` warns about, and it is
+-- not merely a lint: the two `Pomonoid G` values are then genuinely
+-- different terms, and `foldG_le`/`foldG_cons_ne_nil` (proved against
+-- one) fail to apply against a proof term built against the other.
 section FoldGIdem
 variable {G : Type u} [IsIdemPomonoid G] {α : Type v}
 
@@ -212,15 +276,15 @@ theorem foldG_le (g : G) : ∀ (xs : List α), Pomonoid.le (foldG g xs) g
       rw [foldG_cons]
       exact join_le (Pomonoid.le_refl' g) (foldG_le g xs)
 
-/-- **This is the theorem the whole step is about.** A nonempty list's
-    fold equals `g` exactly, regardless of length — confirmed to need
-    `IsIdemPomonoid`, exactly as the step brief predicted, and it does not
-    typecheck at the bare `Pomonoid` layer (no `Pomonoid`-only proof
-    exists; the `Nat` instance below is the witness). The proof itself
-    cites only `join_bot` (`Pomonoid`) and `join_idem`
-    (`IsIdemPomonoid`) — never `join_comm` — which is the evidence behind
-    this module's provisional note on nesting idempotence under
-    commutativity rather than beside it. -/
+/-- **This is the theorem [grade-obligations] was about.** A nonempty
+    list's fold equals `g` exactly, regardless of length — needs
+    `IsIdemPomonoid`, and does not typecheck at the bare `Pomonoid` layer
+    (no `Pomonoid`-only proof exists; the `Nat` instance below is the
+    witness). The proof itself cites only `join_bot` (`Pomonoid`) and
+    `join_idem` (`IsIdemPomonoid`) — never `join_comm` — which is exactly
+    why [obligation-layering] decoupled `IsIdemPomonoid` from
+    `IsCommPomonoid`: this theorem never needed the commutativity the old
+    nested hierarchy silently required alongside it. -/
 theorem foldG_cons_ne_nil (g : G) :
     ∀ (xs : List α), xs ≠ [] → foldG g xs = g
   | [], h => absurd rfl h

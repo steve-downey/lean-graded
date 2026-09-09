@@ -1550,52 +1550,198 @@ report.
 
 ## obligations
 
+**Revised 2026-09-08 by [obligation-layering], superseding the account
+this replaces in place — nothing below this note should be read as the
+current shape of `Graded/Obligations.lean`; it is retained only where it
+is still-accurate background (Mathlib classes considered, the `Nat`
+demonstration, the non-commutative scope note).** [grade-obligations]
+read the evidence available at the time as three layers, each "more
+grade" than the last: a pomonoid carries the operational laws,
+commutativity buys order-independence, idempotence buys
+length-independence. [sufficient-grade-applicative] then produced a fact
+that account cannot explain: `apK_flip`, the cast-free analogue of
+`ap_flip`, needs **no** pomonoid property at all, where `ap_flip` needs
+`Grade.join_comm` *by construction* — comparing `Grade.join g h` against
+`Grade.join h g`, two different expressions for the same grade that only
+exist because `ap`'s definition computes the union exactly. That is not a
+missing case; it is a different account. [obligation-layering] classified
+every theorem in the model that cites `join_comm`/`join_idem` against
+this finding, and the three-layer story does not survive it: **no
+operational law — monad, applicative, traversal, subsumption, or
+morphism — needs either property.** Every consumer is a claim about a
+grade's *spelling* (that two expressions denote the same grade, or that a
+grade equals some fold), never about what an operation computes for a
+payload or an error. The operational obligation on a grade is exactly
+`Pomonoid`: associative, unital, ordered, monotone.
+
 **The question this section answers.** `#cpp-counterpart` ends: "Only
 `error_set` is intended as a grade for now; the design should not make it
-the *only possible* grade." Fourteen prior sections each recorded which
-pomonoid property a law consumed, but `Graded.Grade Err` is a concrete
-`abbrev` for `Finset Err`, so nothing ever forced a proof to live inside
-its recorded budget, and no second grade was ever tried. `Graded/
-Obligations.lean` turns the observation into an obligation: three Lean
-classes, a proof that `Finset Err` satisfies all three (citing
-`Graded/Grade.lean`'s named lemmas, never reproving them), and a
-commutative-but-not-idempotent counter-instance (`Nat`, under `+`/`0`/`≤`)
-that fails exactly the theorems idempotence buys.
+the *only possible* grade." `Graded/Obligations.lean` turns the
+observation into an obligation: Lean classes stating exactly what a grade
+must supply for each law family, a proof that `Finset Err` satisfies all
+of them (citing `Graded/Grade.lean`'s named lemmas, never reproving
+them), and a commutative-but-not-idempotent counter-instance (`Nat`,
+under `+`/`0`/`≤`) that fails exactly the theorems idempotence buys.
 
-### The three layers
+### The classification
+
+For every theorem `docs/laws.md` tags `commutative` or `idempotent`
+(mechanically, via `scripts/laws-inventory.py --by-property` — not
+hand-copied from any step's prose: both [oracle-export] and
+[grade-obligations] disagreed with their own generated tables at least
+once), a verdict against what the proof actually does: **operational** —
+a law about what `bind`/`ap`/`traverse`/`widen`/`rename` computes for a
+payload or an error — or **canonicalization** — a claim that two
+expressions denote the same grade, or that a grade equals some fold.
+
+| theorem | module | property tag | verdict | why |
+|---|---|---|---|---|
+| `join_comm` | `Grade.lean` | (defining) | *neither* | the primitive axiom itself; not a consumer of it |
+| `join_idem` | `Grade.lean` | (defining) | *neither* | the primitive axiom itself; not a consumer of it |
+| `ap_flip` | `Applicative.lean` | commutative | canonicalization | `cast (Grade.join_comm h g)` reconciles `ap`'s grade `join g h` against `apFlipped`'s `join h g` — two spellings of one union. The *value* agreement (at most one side errs) is proved by case split alone; `apK_flip` (`Graded/Sufficient.lean`) proves the identical value fact at a common sufficient grade citing **zero** properties |
+| `flatten_comm` | `Compose.lean` | commutative | canonicalization | same shape: `cast (Grade.join_comm h g)`. `Graded g (Graded h α)` has at most one error *by construction* (three inhabited shapes, never two errors at once), so which value survives never needed reconciling — only the two grade spellings did |
+| `Comp.grade_reassoc` | `ComposeApp.lean` | associative, commutative | canonicalization | a pure `Grade`-level equation with no carrier in sight: reassociates `(g⊔h)⊔(g'⊔h')` into `(g⊔g')⊔(h⊔h')` |
+| `Comp.traverseComp_cons` | `ComposeApp.lean` | idempotent | canonicalization — checked, not assumed | `Comp.castGH (Grade.join_idem g) (Grade.join_idem h)`. Traced through the tactic script: the value branch is a plain case split on `f x` and `Comp.traverseRaw f xs`'s shape, closed by `cast_ok`/`cast_err` alone — idempotence appears only in the statement's cast target, never inside the case split that picks the result |
+| `foldGrade_cons_ne_nil` | `Traverse.lean` | idempotent, unit | canonicalization | the textbook case the hypothesis names: the theorem literally asserts a grade equals a fold |
+| `traverse_cons` | `Traverse.lean` | idempotent | canonicalization — checked, not assumed | `cast (Grade.join_idem g)`; same case-split-then-`cast_ok`/`cast_err` shape as `Comp.traverseComp_cons` |
+| `traverse_cons_err_left` | `Traverse.lean` | idempotent, order | canonicalization | `Grade.join_idem g ▸ …` transports a *membership proof* (`e ∈ g`) across the identity `join g g = g`; which error survives is already fixed by the hypothesis `hfx`, before idempotence is used at all |
+| `traverse_cons_ok_err` | `Traverse.lean` | idempotent, order | canonicalization | the mirror of the row above, other side |
+| `traverse_fromEmpty` | `Traverse.lean` | idempotent | canonicalization | delegates to `traverse_cons`'s cast; the payload (`y :: ys`) is already determined before the cast applies |
+| `joinAll_perm` | `Tuple.lean` | associative, commutative | canonicalization | pure `Grade`-level: reorders a *static* list of element grades; no carrier value appears in the statement |
+| `join_mem_eq` | `Tuple.lean` | associative, commutative, idempotent | canonicalization | pure `Grade`-level: `join g (joinAll gs) = joinAll gs` — a collapse of two spellings of the same grade |
+| `foldG_cons_ne_nil` | `Obligations.lean` | idempotent, unit | canonicalization | the generic mirror of `foldGrade_cons_ne_nil`, same reading |
+| `joinAllG_perm` | `Obligations.lean` | associative, commutative | canonicalization | the generic mirror of `joinAll_perm` |
+| `join_le` | `Obligations.lean` | idempotent, order | grade-boundedness — see below | never mentions a carrier value, `bind`, `ap`, `traverse`, `widen`, or `rename`; a `Pomonoid` inequality, not an equality of two spellings either |
+| `foldG_le` | `Obligations.lean` | order (mechanically — see below) | grade-boundedness, the sharpest case — see below | |
+
+**No operational counterexample.** Every one of the fourteen non-defining
+rows is a claim about the grade itself — that two ways of writing it
+denote the same thing, that it equals some fold, or (the last two rows)
+that it is bounded by something. None is a claim about what `bind`,
+`ap`, `traverse`, `widen`, or `rename` computes for an actual payload or
+error. The trap this step's brief set — that `Comp.traverseComp_cons`
+and the `traverse_cons` family might secretly need idempotence *to choose
+a value*, not merely to spell a grade — does not occur anywhere in the
+table: every idempotence citation in a `traverse`-shaped theorem is spent
+entirely inside a `cast`/`▸` target, never inside the case split that
+determines the result.
+
+### The sharpest case: `join_le` and `foldG_le`
+
+These two do not fit the operational/canonicalization split cleanly,
+because they are not about a carrier at all — `foldG : G → List α → G`
+never touches a `Graded g α` value, only counts list length against an
+abstract grade `G` — and `join_le`'s statement (`a ≤ c → b ≤ c → join a
+b ≤ c`) is an inequality, not a claim that two spellings are equal.
+"Bounded by `g`" sounds operational, because at the concrete level
+`Graded.Traverse.foldGrade_le` genuinely is part of *defining*
+`traverse` (see [traverse](#traverse)): the public `traverse` widens
+along it, not along the exactness fact `foldGrade_cons_ne_nil`.
+
+But `foldGrade_le` — the fact actually used to define `traverse` — needs
+only order (`Grade.join_le`, `Grade.bot_le`), proved directly from
+`Finset.union_subset`, no idempotence anywhere. The generic
+`Obligations.foldG_le` needs `IsIdemPomonoid` only because
+`Graded/Obligations.lean` deliberately declined to make `join_le` a
+primitive `Pomonoid` field — doing so would foreclose the `Nat`
+counter-instance this module exists to run, since `Nat`'s "join" (`+`) is
+not a lattice join. With `join_le` non-primitive, the only generic route
+back to boundedness is `join_mono` plus `join_idem`
+(`join_mono ha hb : join a b ≤ join c c`, then `join_idem c` collapses
+the right side to `c`) — so `foldG_le`'s idempotence dependency is an
+artifact of which order fact `Obligations.lean` chose as primitive, not a
+requirement of any traversal on values. At every concrete grade this
+project has produced, the *real* operational fact (`foldGrade_le`) is
+free of it.
+
+**Verdict: grade-boundedness, not an operational counterexample** — but a
+genuinely different kind of canonicalization claim than an equality of
+spellings, and worth keeping distinct from the other fourteen rather than
+folding it in silently. It is also the row that most directly bears on
+[grade-join-strength](#grade-join-strength): see there for what it
+settles and what it does not.
+
+**A gap in the mechanical table, found while classifying this row.**
+`docs/laws.md` tags `foldG_le` only `order`, not `idempotent`, even
+though its Lean signature requires `[IsIdemPomonoid G]` and its proof
+genuinely needs `join_idem` (by calling `join_le`, which needs it). This
+is not a new parser bug: `scripts/laws-inventory.py`'s own docstring
+already disclaims seeing through a delegated call ("it does not try to
+see through a `simp only [someDef]` unfold to whatever property
+`someDef`'s own body cites") — `foldG_le`'s proof text mentions `join_le`
+by name, and `join_le` is tagged `order` in `ORDER_SUPPLEMENT`, so the
+heuristic never looks inside `join_le`'s own body for the `join_idem`
+there. The type signature, not the generated tag, is the ground truth
+used for this row.
+
+### The restructure
+
+The three-class tower (`Pomonoid` → `IsCommPomonoid` → `IsIdemPomonoid`,
+nested) becomes `Pomonoid` plus **three independent siblings**:
 
 ```
-class Pomonoid (G : Type u) where
-  join : G → G → G
-  bot  : G
-  le   : G → G → Prop
-  join_assoc, bot_join, join_bot, le_refl', le_trans', bot_le, join_mono
+class Pomonoid (G : Type u) where            -- unchanged: the operational obligation
+  join, bot, le, join_assoc, bot_join, join_bot, le_refl', le_trans', bot_le, join_mono
 
 class IsCommPomonoid (G : Type u) extends Pomonoid G where
   join_comm : ∀ a b, join a b = join b a
 
-class IsIdemPomonoid (G : Type u) extends IsCommPomonoid G where
+class IsIdemPomonoid (G : Type u) extends Pomonoid G where   -- no longer extends IsCommPomonoid
+  join_idem : ∀ a, join a a = a
+
+class IsCanonicalPomonoid (G : Type u) extends Pomonoid G where
+  join_comm : ∀ a b, join a b = join b a
   join_idem : ∀ a, join a a = a
 ```
 
-Field names match `Graded/Grade.lean`'s existing theorem names exactly
-(`join_assoc`, `bot_join`, `join_bot`, `le_refl'`, `le_trans'`, `bot_le`,
-`join_mono`, `join_comm`, `join_idem`), so
-[oracle-export](../tmp/plan/step-oracle-export.md)'s grep sees one
-vocabulary rather than two.
+`IsCommPomonoid` and `IsIdemPomonoid` no longer nest — the classification
+above is *why*: `foldG_le`/`foldG_cons_ne_nil` cite `join_idem` alone,
+`joinAllG_perm` cites `join_comm` alone, and nothing in this module (or
+anywhere else — the three classes are used nowhere outside
+`Graded/Obligations.lean` and `Tests/Obligations.lean`) ever needs both
+at once. The old nesting was a real, if invisible, over-strong
+hypothesis: `foldG_le`/`foldG_cons_ne_nil` took `IsIdemPomonoid`, which —
+through `extends IsCommPomonoid` — silently required commutativity
+neither proof ever cites, in tension with `docs/RULES.md`'s "a theorem
+takes the weakest hypothesis that proves it." Decoupling fixes this
+without touching either theorem's name or its conclusion.
 
-> **Provisional, judgement call 1: nesting, not sitting beside.**
-> `IsIdemPomonoid extends IsCommPomonoid` rather than `IsIdemPomonoid`
-> sitting beside `IsCommPomonoid` as a second sibling of `Pomonoid`.
-> `error_set`'s own commutativity and idempotence are independent axioms
-> of `Finset` union — nothing forces one to imply the other — and neither
-> `foldG_le` nor `foldG_cons_ne_nil` below ever *cites* `join_comm` in its
-> proof, so the nesting costs nothing observable to either headline
-> theorem. It is chosen anyway, for one class fewer and because every
-> concrete grade this project has produced so far (`Finset` union) happens
-> to have both. A grade that is idempotent without being commutative is
-> not ruled out by the mathematics, only by this hierarchy's shape.
-> Revisit if a later step needs one.
+`IsCanonicalPomonoid` bundles both axioms as its own direct fields (not
+by extending both `IsCommPomonoid` and `IsIdemPomonoid`, which would
+reintroduce a diamond back to `Pomonoid`). No theorem in
+`Graded/Obligations.lean` takes it as a hypothesis, and that absence is
+the point: it exists to *name* the bundle a real grade inhabits, not
+because any internal proof needs the conjunction. `Grade Err` gets an
+instance (`Finset` union is both commutative and idempotent); `Nat` does
+not (it has `IsCommPomonoid` alone). Read against the classification
+above, this is exactly the shape the hypothesis predicts:
+`IsCanonicalPomonoid` names "this grade's *type* promises canonical exact
+spelling" — order-independent and length-independent — as one name
+instead of two, because that is what `error_set` promises in C++, not
+because `and_then` or `apply` need it.
+
+Every existing theorem in `Graded/Obligations.lean` remains provable
+unchanged (`make all` GREEN before and after this restructure), and both
+the `Grade`/`Finset` and `Nat` instances still resolve — `Nat` now
+additionally fails to instantiate `IsCanonicalPomonoid`, for the same
+reason it already failed `IsIdemPomonoid`.
+
+### What changed from [grade-obligations], and why
+
+| | [grade-obligations]'s account | this section, now |
+|---|---|---|
+| shape | three nested layers, each "more grade" | one operational class (`Pomonoid`) plus three independent mixins |
+| what commutativity buys | order-independence, a genuine extra capability | reconciling two *spellings* of an exactly-computed union; no capability any operation needs |
+| what idempotence buys | length-independence, a genuine extra capability | the same — reconciling `join g g` with `g`; no capability any operation needs, except the grade's own boundedness bookkeeping (`foldG_le`) |
+| `foldG_le`/`foldG_cons_ne_nil`'s hypothesis | `IsIdemPomonoid` (which silently also required `IsCommPomonoid`) | `IsIdemPomonoid` (now idempotence alone, nothing silent) |
+| `joinAllG_perm`'s hypothesis | `IsCommPomonoid` | unchanged |
+| the paper's claim | "a grade needs three algebraic layers" | "`error_set` has to be a semilattice because of a promise its C++ *type* makes (canonical spelling), not because any operation on values needs it" |
+
+[grade-obligations]'s measurements below (the `Nat` counter-instance, the
+Mathlib-classes-considered survey, the non-commutative scope note) are
+unaffected and retained as background; what changed is the
+*interpretation* of why the layers exist, and the class shape now says so
+directly.
 
 ### What was deliberately not copied from `Graded/Grade.lean`
 
@@ -1618,43 +1764,6 @@ derivable from the fields kept (`join_mono`, `join_bot`/`bot_join`,
 along `join_bot`) and are restated in `Graded/Obligations.lean` as
 theorems, not fields, so the vocabulary still lines up with
 `Graded/Grade.lean`.
-
-### The layer-to-law table, and where the brief was wrong
-
-| generic theorem | class needed | matches the brief? |
-|---|---|---|
-| `foldG_le` | `IsIdemPomonoid` | **no — brief predicted `Pomonoid` alone** |
-| `foldG_cons_ne_nil` | `IsIdemPomonoid` | yes |
-| `joinAllG_perm` | `IsCommPomonoid` | yes |
-
-**The headline finding.** `foldG_le` (`foldG g xs ≤ g`, "the fold never
-exceeds `g`") was predicted to need only `Pomonoid` — the design's own
-per-instance proof for `Grade` (`Graded.Traverse.foldGrade_le`, citing
-`Grade.join_le`/`Grade.bot_le`) never touches `Grade.join_idem`, and the
-prediction generalized that. It does not generalize: without a primitive
-`join_le`, the only way to recover "`join a b ≤ c` whenever `a, b ≤ c`" is
-`join_mono ha hb : join a b ≤ join c c` followed by `join_idem c : join c
-c = c` — which needs `IsIdemPomonoid`, the *same* layer
-`foldG_cons_ne_nil` needs. `Graded/Obligations.lean`'s `join_le` theorem
-states exactly this generic recovery, and its type makes the dependency
-explicit: `[IsIdemPomonoid G] → le a c → le b c → le (join a b) c`.
-
-The `Nat` instance is the witness, not merely an illustration: `foldG (1 :
-Nat) [(), (), ()] = 3`, and `3 ≤ 1` is false, so `foldG_le` genuinely
-fails at a *commutative* pomonoid that has every field `Pomonoid` asks
-for except idempotence. The per-instance `Grade` proof and the generic
-proof reach the same fact by different roads — `Finset.union_subset`
-needs no idempotence at all, because `Finset` union already *is* a
-lattice join; the generic route has no such shortcut, and idempotence is
-the only way back.
-
-**Consequence for the paper's claim.** "The obligations are layered" is
-still the right shape, but the split is not "bounded is free, exact costs
-idempotence" (the per-`Grade` framing in [traverse](#traverse)) — that
-framing is true only because `Grade`'s join is a genuine semilattice join.
-Generically, over an abstract pomonoid with no assumed lattice structure,
-**both** the bound and the exactness cost idempotence; only
-order-independence (`joinAllG_perm`) is free of it.
 
 ### Mathlib classes considered, and why none were inherited from
 
@@ -1715,7 +1824,8 @@ Two disproofs at `Nat`, both from the same witness (`g := 1`, `xs := [(),
   `foldGrade_cons_ne_nil` needed idempotence for, now shown false without
   it).
 - `foldG_le` fails too: `¬ ∀ g xs, foldG g xs ≤ g` (the boundedness claim
-  — see "the headline finding" above for why this one was not predicted).
+  — see "[The sharpest case](#obligations)" above for why this one is not
+  free generically even though its concrete sibling `foldGrade_le` is).
 
 And order-independence survives regardless: `joinAllG_perm` holds at
 `Nat` (`joinAllG [1,2,3] = joinAllG [3,1,2] = 6`, by `IsCommPomonoid`
@@ -1724,12 +1834,16 @@ shows the two axioms buying genuinely different things: commutativity
 survives on its own; idempotence's absence breaks both of `foldG`'s
 claims about a non-empty list.
 
-### Judgement call 2, restated
+### Judgement call, resolved
 
-Whether idempotence should extend `IsCommPomonoid` or sit beside it as a
-sibling of `Pomonoid`: extending was chosen (see the provisional note
-above), on the evidence that neither headline theorem needing idempotence
-ever cites `join_comm`.
+[grade-obligations] chose to nest `IsIdemPomonoid` under `IsCommPomonoid`
+rather than sit it beside `Pomonoid`, provisionally, on the evidence that
+neither headline theorem needing idempotence ever cites `join_comm`.
+[obligation-layering] resolved it the other way: sit beside. The evidence
+did not change; the reading of it did — "costs nothing observable" is an
+argument for decoupling, not against it, once the goal is each theorem's
+*weakest* hypothesis rather than "one class fewer." See
+[The restructure](#obligations) above.
 
 ### Scope note: the optional non-commutative instance
 
@@ -1747,21 +1861,51 @@ argued — via the layer-to-law table and the `Grade`/`Nat` agreement above
 
 ### grade-join-strength
 
-**Question.** How strong is the obligation on a grade's `join`: must it be
-a *least upper bound* for the order (a join-semilattice, which is what
-`error_set`'s union is and what [grade](#grade) calls it throughout), or
-merely an associative, unital, monotone operation (an ordered monoid)?
+**Question, as originally asked.** How strong is the obligation on a
+grade's `join`: must it be a *least upper bound* for the order (a
+join-semilattice, which is what `error_set`'s union is and what
+[grade](#grade) calls it throughout), or merely an associative, unital,
+monotone operation (an ordered monoid)?
 
-**Status: OPEN.** Raised by the orchestrator after [grade-obligations],
-which had to choose and chose the weaker reading.
+**Status: OPEN, reframed by [obligation-layering] — sharpened, not
+closed.** Raised by the orchestrator after [grade-obligations], which had
+to choose and chose the weaker reading; reframed after
+[obligation-layering]'s classification (`#obligations`) found that no
+*operational* law (monad, applicative, traversal, subsumption, morphism)
+ever needs `join_comm`/`join_idem`/`join_le` — every consumer is a claim
+about a grade's spelling or bound, never about a value. That does not
+answer the original question; it changes what answering it would mean.
 
-**Why it matters, and it is not a small difference.** [grade-obligations]
-deliberately left `join_le` (`a ≤ c → b ≤ c → join a b ≤ c`, the
-least-upper-bound property) *out* of the `Pomonoid` class, because
-including it would stop `Nat` under `+` from being an instance and
-foreclose that step's counter-demonstration. That is documented and
-defensible as an exploratory choice. But it has a consequence the step did
-not draw out:
+**The reframing.** The question is no longer "does the algebra force
+idempotence" (settled: it does not, `Nat` is the witness) but "must a
+grade's C++ *type* promise canonical exact spelling — order-independent
+and length-independent, i.e. genuinely be a join-semilattice — for
+`traverse`'s signature to be writable at all?" [obligation-layering]'s
+[#obligations](#obligations) section, "The sharpest case: `join_le` and
+`foldG_le`", is the sharpest evidence either way:
+
+- At the concrete `Grade` instance, `traverse`'s own definition
+  (`Graded.Traverse.foldGrade_le`) costs *only* order — `Finset` union
+  already is a semilattice join, so boundedness is free, and the
+  idempotence `foldGrade_cons_ne_nil` costs is spent entirely on the
+  *exactness* claim, never the definition.
+- Generically, over an abstract `Pomonoid` that is *not* assumed to be a
+  semilattice, even the *definition*-level boundedness fact (`foldG_le`)
+  needs idempotence to reconstruct — because `Graded/Obligations.lean`
+  deliberately excludes `join_le` as a primitive (to keep `Nat` an
+  instance).
+
+Both readings therefore agree that **something in the grade's own
+algebra** must supply boundedness before `traverse` can exist at a fixed
+signature — either handed for free (grade = join-semilattice) or bought
+with idempotence (grade = ordered monoid, idempotence as a separate
+axiom). Where they disagree is only in *how* that requirement enters:
+as part of what a grade already *is* (the stronger reading), or as an
+extra, independently statable axiom (the weaker reading, `Graded/
+Obligations.lean`'s current shape). Since `join_le` plus antisymmetry
+already implies `join_idem` (below), the two readings are not two
+different sets of admissible grades so much as two different ways of
+*naming* the one requirement traversal has.
 
 > **`join_le` together with antisymmetry of the order implies
 > `join_idem`.** Verified in Lean: `join_le le_refl' le_refl'` gives
@@ -1771,38 +1915,44 @@ not draw out:
 > orders; `Pomonoid` simply does not require it as a field, so `le` there
 > is really a preorder.
 
-So under the *stronger* reading, idempotence is **not an extra axiom at
-all** — it is a theorem, and with it the length-independence of the
-traversal grade ([traverse-list]'s `foldGrade_cons_ne_nil`) comes free for
-any grade worth the name. The three-layer story in
-[#obligations](#obligations) — pomonoid, then commutativity, then
-idempotence — is a true account of the *weaker* reading only.
+**What each answer still costs, restated against the classification.**
 
-**What each answer costs.**
+- *Grade = join-semilattice.* Boundedness and length-independence are
+  free, `Nat` under `+` is simply not a grade, and the type itself
+  guarantees `traverse` is always writable. The paper's obligation on a
+  grade is short, strong, and — per this step's classification —
+  entirely about what the *type* promises, never about what `and_then`
+  or `apply` need.
+- *Grade = ordered monoid.* Idempotence is a real, separately-stated
+  extra requirement; `Nat`-style counting grades are admissible as
+  grades in every other respect (they get a working `bind`/`ap`, cast-
+  laden but total, per [sufficient-grade-bind]/[sufficient-grade-
+  applicative]) but cannot support `traverse`. This is `Graded/
+  Obligations.lean`'s current shape.
 
-- *Grade = join-semilattice.* Idempotence and length-independence are
-  free; `Nat` under `+` is simply not a grade, and
-  [grade-obligations]'s counter-instance demonstrates that non-lattice
-  pomonoids are not grades rather than that idempotence is optional. The
-  paper's obligation on a grade is short and strong.
-- *Grade = ordered monoid.* Idempotence is a real extra requirement,
-  `Nat`-style counting grades are admissible, and `traverse` is simply
-  not available for them — which is `grade-obligations`'s finding as it
-  stands, and a genuinely more permissive design.
+**What is settled now, that was not before.** Commutativity is
+independent of both readings and is needed nowhere operationally — every
+citation in the classification table is canonicalization. Boundedness
+and length-independence are needed only for `traverse`'s own bookkeeping,
+never for `bind`, `ap`, subsumption, or morphisms — so whichever way this
+question is decided, it constrains only what `traverse` requires of a
+grade, not what a P3200 grade must be to support `and_then`/`apply` at
+all.
 
-**What is settled either way.** Commutativity is independent of both and
-is needed exactly where [traverse-tuple] and [applicative-from-monad]
-found it. And under the weaker reading `foldG_le` needs idempotence too,
-which is [grade-obligations]'s own unpredicted result — boundedness is
-free for `error_set` only because `Finset` union really is a lattice
-join.
-
-**Who decides.** This is a judgment about what P3200 wants to promise,
-not about the code: [cpp-counterpart](#cpp-counterpart) says only that
-`error_set` should not be the sole possible grade, and does not say how
-far the door opens. Recorded here so the choice is made deliberately
-rather than inherited from a class definition written to keep one
-demonstration alive.
+**What is not settled, and what would settle it.** Whether P3200's grade
+*concept* should require the stronger promise (a real join-semilattice)
+or permit the weaker one (an ordered monoid, with `traverse` simply
+absent for grades that do not also happen to be idempotent) is a decision
+about what a grade should be allowed to be, not a fact the code can
+determine — [obligation-layering]'s classification narrows the stakes
+(only `traverse` is at issue) without forcing an answer. It would be
+settled by either: (a) an explicit P3200 design decision that `traverse`
+is only ever offered for `error_set`-like grades and non-lattice grades
+simply do not get it (making the weaker reading fully adequate and this
+question moot), or (b) a genuine non-lattice `Pomonoid` instance with a
+real use for `traverse` that the current model cannot express, which
+would argue for the stronger requirement. Neither exists yet; the `Nat`
+instance is a demonstration, not a use case anyone wants `traverse` on.
 
 **Log.**
 
@@ -1813,6 +1963,12 @@ demonstration alive.
 - 2026-09-08 — orchestrator verified in Lean that `join_le` plus
   antisymmetry proves `join_idem`, so the exclusion is what makes
   idempotence look like an independent axiom. Question opened.
+- 2026-09-08 — [obligation-layering] classified every `join_comm`/
+  `join_idem` consumer in the model and found none operational, which
+  reframes this question from "does the algebra force idempotence" to
+  "must a grade's type promise canonical spelling for `traverse` to
+  exist" — narrower, but not settled by the classification alone. See
+  `#obligations`'s "the sharpest case" for the evidence.
 
 ### cast-burden-migration-scope
 
