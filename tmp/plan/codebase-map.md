@@ -32,7 +32,7 @@ Graded/Canonical.lean    canonical-representation: Canon, canonEquiv
 Graded/ComposeApp.lean   compose-applicative: Comp, Comp.ap, traverseComp, flatten_ap
 Graded/Ungraded.lean     ungraded-baseline: Fixed, pureF, bindF, apF, the Mathlib correspondence
 Graded/Obligations.lean  grade-obligations: Pomonoid/IsCommPomonoid/IsIdemPomonoid, Finset and Nat instances
-Graded/Sufficient.lean   sufficient-grade-bind/-applicative: bindK, apK, map2K, apFlippedK, the BRIDGE theorems; obligation-layering adds the traverseK probe
+Graded/Sufficient.lean   the whole cast-free layer: bindK, apK, map2K, apFlippedK, traverseK, the BRIDGE theorems; the three migration legs add traverseK's analogues, GradedHomK, flattenK and CompK
 Tests.lean, Tests/*.lean one per module; examples at inductive E | parse | range | io
 Examples.lean, Examples/Validation.lean   the single running consumer, grown by every step
 Makefile                 verify | nosorry | letters | laws (laws added by oracle-export)

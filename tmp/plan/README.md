@@ -153,6 +153,25 @@ union grade. It is two layers and a bridge, verified before planning:
     every consumer of both axioms as operational or canonicalization, and
     reframes `grade-join-strength` accordingly.
 
-Everything beyond those is the open question
-`cast-burden-migration-scope` in `docs/design.md`, deliberately unplanned
-until the measurements exist.
+### The migration, three legs (planned 2026-09-08)
+
+The measurements now exist, so `cast-burden-migration-scope` is planned.
+Ordering follows risk and evidence rather than the module list, and it
+reverses what both earlier steps recommended: the traversal leg first
+because a probe already exists and it is the cheapest; the morphism leg
+second because two steps predicted it would need an amendment and a spike
+showed it does not; the nested carriers last because they are the most
+mechanical, and because that leg closes the question and writes the
+migration's account of itself.
+
+22. sufficient-grade-traverse — `traverseK`'s missing analogues
+    (`traverse_map`, `traverse_length`, the identity law) and the bridge.
+    Its real claim: `foldGrade` and `foldGrade_cons_ne_nil` should have
+    *no* analogue at all, because the fold is what the exact grade cost.
+23. sufficient-grade-morphism — `GradedHomK`, whose casts vanish once the
+    homomorphism obligations `gmap_join`/`gmap_bot` are replaced by a
+    single monotonicity obligation. Revises `#morphisms`' account of what
+    a grade morphism must be.
+24. sufficient-grade-nested — `flattenK` and `CompK`. `flatten` is the one
+    operation whose job *is* grade arithmetic, so it bounds what the
+    discipline can remove. Closes the question and states the result.
