@@ -1,123 +1,107 @@
 # handoff → cast-burden-migration-scope (open question, not a step)
 
-[sufficient-grade-applicative] is done and merged
-(`18a4111213cd5345596fb076ad980525437f4ac0` into `integration/lean-model`).
-This is not a step handoff; it is the evidence
-[cast-burden-migration-scope](../../docs/design.md#cast-burden-migration-scope)
-asks for, addressed to whoever writes that open question's brief next.
+[obligation-layering] is done and merged into `integration/lean-model`.
+This replaces what [sufficient-grade-applicative] left here — read this
+version, not any earlier one. It is not a step handoff; it is evidence
+for whoever writes the next brief against
+[cast-burden-migration-scope](../../docs/design.md#cast-burden-migration-scope).
 
-## The headline number
+## The ordering recommendation carried forward unchanged
 
-`Comp.ap_interchange` (the two-coordinate composite's interchange law,
-`Graded/ComposeApp.lean`): **six** `cast`-substring occurrences across
-its statement+proof, driven by two `Comp.castGH` calls (each bundling
-two `Graded.cast`s). Its sufficient-grade analogue, `Comp.apK_interchange`
-(`Graded/Sufficient.lean`): **zero**, statement and proof combined, and
-the proof is a plain 3-way `cases` down to `rfl` — no property cited at
-all, where the union-graded version cites `Graded.ap_interchange`
-(unit, twice) explicitly.
+[sufficient-grade-applicative]'s recommendation stands: **`traverse`
+next, then `flatten`, then the rest of `Comp`, then `GradedHom` last**
+(cast-quantified *fields*, likely needs an amendment before a proof).
+Nothing this step found changes that order. What it does change is how
+cheap the first leg looks going in.
 
-The single-layer four applicative laws also went to zero casts each
-(`ap_pure_id`/`ap_pure_pure`/`ap_interchange`/`ap_comp` each carried 1-2;
-their `apK_*` analogues carry 0), and every one of the four now cites
-only `Grade.le_refl'` in its statement, never a unit or associativity
-lemma — the same "order replaces unit/associative" shift
-[sufficient-grade-bind] found for `bind`'s three laws.
+## `traverseK` exists now, and it is evidence, not the migration
 
-## The threaded-obligation question: resolved more sharply than predicted
+This step added a bounded probe (`Graded/Sufficient.lean`): `traverseK`,
+folding no grade at all, landing every element at a caller-supplied `k`
+directly. `traverseK_cons` is `rfl`, cast-free, where `traverse_cons`
+carries a `cast (Grade.join_idem g)`. **Do not read this as "traverse
+migration done, just wire it up."** It is bounded on purpose: only the
+uniform-`g`-over-`List` case, only two reduction lemmas, no
+`traverse_map`/`traverse_length`/`traverse_fromEmpty`/`traverse_rename`
+analogues, no interaction with `Comp.traverseComp_cons`. Extending it to
+those is the actual [traverse] leg of this migration, not yet done.
 
-The step brief predicted `apK` would need three threaded hypotheses
-where `bindK` needs two, free at worst by proof irrelevance the way
-`bindK_irrel` makes `bindK`'s two free. It came out better than that:
-`apK` takes exactly the same **two** hypotheses `bindK` does
-(`hg : g ⊆ k`, `hh : h ⊆ k`). The predicted third one (for `pure`'s own
-grade) never appears in the signature at all, because `pureK` (already
-established: `pure` widened to any grade directly, not pinned to
-`Grade.bot`) needs no inclusion proof of its own to land at `k`. Not
-"free by irrelevance" — simply absent. `Comp.apK` correspondingly needs
-four (two per coordinate, matching the step's "two coordinates each
-needing their own" prediction), not six.
+**What it does establish, narrowly.** Length-independence is not a
+*theorem* at a sufficient grade the way `foldGrade_cons_ne_nil` is one
+for `traverse` — it is a property of `traverseK`'s *signature*
+(`Graded k (List β)` for every list, before any theorem is stated). That
+suggests the sufficient-grade traversal leg may be cheaper than
+[sufficient-grade-applicative] guessed: no fold to reason about at all,
+only reduction lemmas in the `apK`/`bindK` style. Confirm this by
+actually building `traverse_map`/`traverse_length`'s analogues before
+committing to it in a brief — one spike theorem proving `rfl` is not the
+same claim as the whole leg being free.
 
-## The commutativity finding — the one that matters most
+**A caveat on my own evidence, so it isn't overstated a second time.**
+An earlier spike (not mine, the orchestrator's, predating this step)
+contained a `traverseK_grade` "theorem" that was `traverseK hg f xs =
+traverseK hg f xs := rfl` — a tautology proving nothing about grades at
+all. It is not in this step's output. Don't let a future brief cite it.
 
-`apK_flip` (`apK hg hh f x = apFlippedK hg hh f x`, under the same
-one-sided "at most one side is `ok`" condition `ap_flip` needs) proves
-with **no `Grade.join_comm` anywhere**, because at a common sufficient
-grade `k` there is no second expression for the grade to compare against
-the first — `ap_flip` needs `join_comm` *by construction*, comparing
-`Grade.join g h` against `Grade.join h g`; `apK`/`apFlippedK` both
-already land in the same `Graded k β`. `Comp.apK_interchange` confirms it
-at the composite scale (also zero casts, also `join_comm`-free, also no
-property cited).
+## The classification this step ran, and why it matters for scoping the rest
 
-**This revises [grade-obligations](../../docs/design.md#obligations)**,
-which currently attributes commutativity's necessity to the
-applicative's order-independence (combining the same two values in
-either order needs matching grades). The sharper reading: the
-applicative itself never needs `join_comm`, at any sufficient grade,
-including the exact union. Commutativity is the price of *computing the
-grade as a canonical, exact union* and then insisting the two
-computation orders be recognized as the same type — a cost of
-canonicalization, not a requirement the applicative interface imposes.
-`docs/design.md#applicative`'s new subsection states this in full; the
-letter (`blog/letters/sufficient-grade-applicative.org`, Letter 18)
-carries the same finding to the C++ reader: `error_set`'s union needs
-`join_comm` because P3200 canonicalizes it into one type per set of error
-kinds regardless of call-site order, not because applying a graded
-function to a graded argument inherently needs it.
+Every theorem in the model citing `Grade.join_comm`/`Grade.join_idem` (14
+non-defining ones, mechanically enumerated via
+`scripts/laws-inventory.py --by-property`, cross-checked against each
+proof's actual case-split) is a canonicalization fact — a claim that two
+expressions denote the same grade, or that a grade equals some fold —
+never a claim about what an operation computes for a payload or error.
+`docs/design.md#obligations` (revised) has the full table. Two
+consequences for whoever writes the `flatten`/`Comp`/`GradedHom` briefs:
 
-## What I did not touch, and where I'd start
+- **Do not expect a `join_comm`/`join_idem`-shaped cast to be "hard" in
+  the operational sense.** Every migration so far (`bind`, `ap`, now the
+  `traverseK` probe) has found these casts dissolve for the same reason:
+  at a caller-nominated sufficient grade there is no second spelling to
+  reconcile. `flatten_comm` (`Grade.join_comm`) and
+  `Comp.traverseComp_cons`/`Comp.grade_reassoc` (`Grade.join_idem`/
+  `join_comm`) are exactly this shape — budget them as "probably
+  dissolves," not as a fixed cost to design around.
+- **`GradedHom`'s cast-quantified fields are a different animal**, per
+  [sufficient-grade-applicative]'s original flag, unaffected by this
+  step's classification: those casts are in a *record's field types*,
+  not a theorem's statement, so "does the property disappear at a
+  sufficient grade" isn't even the right question there. Expect an
+  amendment, not a proof, when that leg comes up.
 
-This step's declared scope was `ap`/`map2`/`Comp.ap` only. Two cast sites
-this step's own docs cross-reference are still exactly as they were:
+## `grade-join-strength`: sharpened, not closed
 
-- `Comp.traverseComp_cons` (`Graded/ComposeApp.lean`) still casts along
-  `Grade.join_idem`, once per component — the same shape `traverse_cons`
-  (`Graded/Traverse.lean`, single-layer) casts along, for the same
-  reason (folding a uniform grade over a list is idempotent, not unit).
-- `GradedHom`'s cast-quantified *fields* (`Graded/Morphism.lean`,
-  referenced at `docs/design.md#monad`'s verdict paragraph) — casts
-  inside a record's field types, not a theorem's statement.
+`docs/design.md#grade-join-strength` now asks a narrower question than it
+did: not "does the algebra force idempotence" (settled: no, `Nat` is the
+witness) but "must a grade's C++ type promise canonical exact spelling —
+order-independent and length-independent — for `traverse`'s signature to
+be writable, or may a grade be a mere ordered monoid that simply doesn't
+get `traverse`." This step's classification narrows the stakes (only
+`traverse` is at issue; `bind`/`ap`/subsumption/morphisms need neither
+property under either reading) but does not decide between them — that's
+a decision about what P3200 should promise, not a fact the code
+determines. If the `traverse` leg of this migration produces a grade that
+is a `Pomonoid` but not an `IsCanonicalPomonoid` and still wants
+`traverse`, that would be the concrete case that finally settles it one
+way; watch for it.
 
-**My recommendation: `traverse` next, then `flatten`, then `Comp`
-(what's left of it), then `GradedHom` last.**
+## The restructured classes, if a future step needs to cite one
 
-- `traverse` first: it is the *same* technique (a caller-supplied
-  sufficient grade instead of a folded one) applied to a mechanically
-  similar situation (idempotence collapsing a fold, the way unit/
-  associativity collapsed `bind`/`ap`'s joins), on the module this step
-  already touched half of (`Comp.traverseComp_cons` lives beside
-  `Comp.apK` in the same file). Continuing here is the least speculative
-  next step: the pattern is proven twice already (monad, applicative),
-  and `foldGrade_le`'s cast-free "widen once" shape (already used by
-  `traverse`/`traverseComp` today) suggests the sufficient-grade version
-  may not even need a new fold, just a `k`-indexed reduction lemma set
-  the same shape `apK`'s were.
-- `flatten` second: `flatten_ap`'s conditional counterexample is an
-  *explanation* of where the union-graded design breaks, not a law with
-  a cast burden to remove the same way — lower mechanical payoff, but
-  natural to revisit once `traverse`'s sufficient-grade layer exists,
-  since `flatten` sits between the two.
-- `Comp` third, to close out what `traverseComp_cons` leaves: by then
-  the composite's own idioms (`Comp.widenGH`/`Comp.castGH` mirrors) will
-  already have a `traverse`-side sufficient-grade analogue to reuse.
-- `GradedHom` last, and flagged as likely **not** a "beside it" extension
-  at all: cast-quantified *fields* mean the record's own type carries the
-  cast, not a theorem about it — fixing that plausibly means changing
-  `GradedHom`'s definition itself, which is exactly the shape
-  `AGENT-PROMPT.md` says to halt on (`amendment-*`, not silently
-  reshape). Whoever picks this up should expect to write an amendment
-  before writing a proof.
+`Graded/Obligations.lean`: `Pomonoid` (operational, unchanged),
+`IsCommPomonoid`/`IsIdemPomonoid` (independent siblings now, not nested —
+`IsIdemPomonoid` no longer implies commutativity), `IsCanonicalPomonoid`
+(both axioms, direct fields, the named bundle a real grade like `Grade
+Err` inhabits). None of the three is used anywhere outside
+`Graded/Obligations.lean`/`Tests/Obligations.lean` — this migration's
+`traverse`/`flatten`/`Comp` legs operate on the concrete `Grade Err`
+throughout and have no reason to reach for them.
 
-## Files touched this step
+## Files this migration will touch, by leg
 
-`Graded/Sufficient.lean` (extended, not forked — `Graded/Applicative.lean`
-and `Graded/ComposeApp.lean` untouched), `Tests/Sufficient.lean`,
-`Examples/Validation.lean` (`sumTwoK`), `docs/design.md`
-(`#applicative` new subsection, `#monad`'s table extended),
-`scripts/laws-inventory.py` (10 ALLOWLIST entries, each justified
-individually — the pure `ok`/`err` reduction lemmas for `apK`/
-`apFlippedK`/`Comp.apK`, plus `apK_flip` itself, which is structural by
-the same "nothing to compare" argument as the commutativity finding
-above), `blog/letters/sufficient-grade-applicative.org` (Letter 18),
-`blog/letters/index.org`.
+- `traverse` leg: `Graded/Traverse.lean` (read only, for the shapes to
+  mirror), `Graded/Sufficient.lean` (extend past `traverseK`'s two
+  reduction lemmas), `Tests/Sufficient.lean`.
+- `flatten` leg: `Graded/Compose.lean` (read only), `Graded/Sufficient.lean`.
+- `Comp` leg: `Graded/ComposeApp.lean` (read only), `Graded/Sufficient.lean`.
+- `GradedHom` leg: `Graded/Morphism.lean` — expect this one to need
+  touching directly, hence the amendment expectation above.

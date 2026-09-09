@@ -919,6 +919,20 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "traverseK_nil",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_cons",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "Comp.apK_ok_ok",
     "module": "Graded/Sufficient.lean",
     "properties": [],

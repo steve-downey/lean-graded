@@ -305,6 +305,41 @@ theorem ap_eq_apK (f : Graded g (α → β)) (x : Graded h α) :
   | err e he => rw [ap_err_left, apK_err_left]
 
 -- ---------------------------------------------------------------------
+-- `traverseK`: the [obligation-layering] probe. `Graded.traverse` folds a
+-- single repeated grade `g` over a list and widens the result to `g`
+-- along `foldGrade_le`, paying a `Grade.join_idem` cast in `traverse_cons`
+-- to identify the folded `Grade.join g g` with `g`. At a sufficient grade
+-- `k` supplied once by the caller, there is no fold to identify with
+-- anything: every element lands at `k` directly, via the same `hg : g ⊆
+-- k` reused at every position, so both `traverseK_nil` and
+-- `traverseK_cons` below are `rfl`. This is not the traversal migration
+-- ([cast-burden-migration-scope](../docs/design.md#cast-burden-migration-scope)) —
+-- it is only enough to ask what [obligation-layering] needs: does a
+-- uniform list traversal, asked to land in a grade the caller nominates
+-- rather than one computed by folding, need idempotence at all? It does
+-- not: `traverseK_cons` carries no cast, where `traverse_cons` carries
+-- one along `Grade.join_idem`. Length-independence is not a *theorem*
+-- here the way `foldGrade_cons_ne_nil` is one for `traverse` — it is a
+-- property of `traverseK`'s *signature*, since `Graded k (List β)` is the
+-- result type for every list regardless of length, before any theorem is
+-- stated about it at all.
+
+/-- The uniform-grade traversal at a sufficient grade `k`: every element's
+    image under `f` (at `g`) and the accumulated tail (already at `k`)
+    combine via `map2K`, both reusing `hg : g ⊆ k` and `Grade.le_refl' k`
+    rather than folding `g` into itself once per element. -/
+def traverseK (hg : g ⊆ k) (f : α → Graded g β) : List α → Graded k (List β)
+  | []      => pureK []
+  | x :: xs => map2K hg (Grade.le_refl' k) (fun b bs => b :: bs) (f x) (traverseK hg f xs)
+
+theorem traverseK_nil (hg : g ⊆ k) (f : α → Graded g β) :
+    traverseK hg f ([] : List α) = pureK [] := rfl
+
+theorem traverseK_cons (hg : g ⊆ k) (f : α → Graded g β) (x : α) (xs : List α) :
+    traverseK hg f (x :: xs)
+      = map2K hg (Grade.le_refl' k) (fun b bs => b :: bs) (f x) (traverseK hg f xs) := rfl
+
+-- ---------------------------------------------------------------------
 -- `Comp.apK`: the composed applicative at a *pair* of sufficient grades.
 -- `Comp g h α` ([compose]) already generalises over any two grades, so no
 -- second carrier is needed — "sufficient" here means supplying `Comp`'s

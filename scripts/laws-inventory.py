@@ -232,6 +232,10 @@ ALLOWLIST = {
         "no join",
     "Comp.apK_ok_err": "structural: two-coordinate mirror of apK_ok_err, "
         "no join",
+    # --- obligation-layering (this step) ---------------------------------
+    "traverseK_nil": "structural: pureK's own nil-case reduction, no join "
+        "in sight — the sufficient-grade mirror of traverse_nil's own "
+        "un-costed shape",
 }
 
 PROPERTY_TAG_RE = re.compile(
@@ -411,7 +415,7 @@ def cpp_law_for(name: str) -> str:
     return CPP_LAW.get(name, "—")
 
 
-def main():
+def compute_rows():
     property_of = build_property_map()
 
     rows = []
@@ -429,17 +433,53 @@ def main():
             rows.append(row)
             if not props and name not in ALLOWLIST:
                 flagged.append((module, name))
+    return rows, flagged
+
+
+def report_flagged(flagged):
+    sys.stderr.write(
+        "laws-inventory: the following theorems cite no tagged pomonoid "
+        "property and are not on the allow-list — a human should look "
+        "at each:\n"
+    )
+    for module, name in flagged:
+        sys.stderr.write(f"  {module}: {name}\n")
+    sys.stderr.write(f"({len(flagged)} theorem(s) flagged)\n")
+
+
+def print_by_property(rows):
+    """`--by-property`: the mechanical property-to-law map, read straight
+    off `rows` (the same data `docs/laws.json` is generated from) rather
+    than off any hand-written prose. One section per property (plus a
+    final "—" section for theorems tagged with no property at all),
+    theorems listed `module: theorem` in file order. This is a reporting
+    mode over the existing dumb heuristic, not a second parser — it groups
+    the same `properties` field `write_outputs` already writes to
+    `docs/laws.json`."""
+    by_prop: dict[str, list[str]] = {}
+    for row in rows:
+        props = row["properties"] or ["—"]
+        for prop in props:
+            by_prop.setdefault(prop, []).append(f'{row["module"]}: {row["theorem"]}')
+    for prop in sorted(by_prop):
+        entries = by_prop[prop]
+        print(f"{prop} ({len(entries)}):")
+        for entry in entries:
+            print(f"  {entry}")
+
+
+def main():
+    by_property = "--by-property" in sys.argv[1:]
+
+    rows, flagged = compute_rows()
 
     if flagged:
-        sys.stderr.write(
-            "laws-inventory: the following theorems cite no tagged pomonoid "
-            "property and are not on the allow-list — a human should look "
-            "at each:\n"
-        )
-        for module, name in flagged:
-            sys.stderr.write(f"  {module}: {name}\n")
-        sys.stderr.write(f"({len(flagged)} theorem(s) flagged)\n")
+        report_flagged(flagged)
         sys.exit(1)
+
+    if by_property:
+        print_by_property(rows)
+        return
 
     write_outputs(rows)
     print(f"laws-inventory: {len(rows)} theorems tabulated, 0 flagged.")

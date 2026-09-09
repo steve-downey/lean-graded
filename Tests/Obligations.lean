@@ -9,11 +9,14 @@ namespace Tests
 open Graded List
 
 -- ---------------------------------------------------------------------
--- The three layers resolve for `Grade E`.
+-- All four classes resolve for `Grade E` — `IsCommPomonoid` and
+-- `IsIdemPomonoid` as independent siblings, `IsCanonicalPomonoid` as the
+-- bundle, per [obligation-layering]'s restructure.
 
 example : Pomonoid (Grade E) := inferInstance
 example : IsCommPomonoid (Grade E) := inferInstance
 example : IsIdemPomonoid (Grade E) := inferInstance
+example : IsCanonicalPomonoid (Grade E) := inferInstance
 
 -- `foldG_le`/`foldG_cons_ne_nil`/`joinAllG_perm`, instantiated at `Grade E`.
 
@@ -33,9 +36,11 @@ example (gs gs' : List (Grade E)) (h : gs ~ gs') : joinAllG gs = joinAllG gs' :=
 example : foldG ({E.parse} : Grade E) [1, 2, 3] = ({E.parse} : Grade E) := by decide
 
 -- ---------------------------------------------------------------------
--- The `Nat` layers resolve, and `IsIdemPomonoid Nat` deliberately does not
--- (no `example : IsIdemPomonoid Nat := inferInstance` exists in this file,
--- because none should typecheck).
+-- The `Nat` layers resolve, and neither `IsIdemPomonoid Nat` nor
+-- `IsCanonicalPomonoid Nat` does (no `example : IsIdemPomonoid Nat :=
+-- inferInstance` or `IsCanonicalPomonoid` analogue exists in this file,
+-- because neither should typecheck) — `Nat` is commutative but not
+-- idempotent, so it inhabits `IsCommPomonoid` alone, never the bundle.
 
 example : Pomonoid Nat := inferInstance
 example : IsCommPomonoid Nat := inferInstance
