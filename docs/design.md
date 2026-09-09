@@ -764,6 +764,97 @@ the container's length, which generic code over `error_set` cannot do).
 Filled by [traverse-list](../tmp/plan/step-traverse-list.md) (`List`) and
 [traverse-tuple](../tmp/plan/step-traverse-tuple.md) (fixed-size, below).
 
+### The sufficient-grade layer
+
+**The fold disappeared. There is no `foldGradeK` anywhere in
+`Graded/Sufficient.lean`, and [sufficient-grade-traverse] never found a
+reason to write one.** `foldGrade` and `foldGrade_cons_ne_nil` exist to
+answer a question only worth asking when the return grade is *computed*
+by folding: does joining `g` into itself once per list element, for a
+length not known until runtime, ever exceed `g`? At a caller-nominated
+sufficient grade `k`, nothing folds — every element lands at `k` directly,
+via the same `hg : g ⊆ k` reused at every position:
+
+```lean
+def traverseK (hg : g ⊆ k) (f : α → Graded g β) : List α → Graded k (List β)
+  | []      => pureK []
+  | x :: xs => map2K hg (Grade.le_refl' k) (fun b bs => b :: bs) (f x) (traverseK hg f xs)
+```
+
+`traverseK_nil` and `traverseK_cons` (added by [obligation-layering] as a
+bounded probe) are both `rfl`. This step confirms the probe was not
+already the migration by building the analogues it explicitly deferred:
+
+| law (union-graded → sufficient-grade) | casts in statement (before → after) | proof lines (before → after) | property consumed |
+|---|---|---|---|
+| `traverse_cons` → `traverseK_cons` | 1 (`Grade.join_idem`) → 0 | 13 → 3 (`rfl`) | idempotent → none |
+| `traverse_map` → `traverseK_map` | 0 → 0 | 8 → 8 | idempotent (via `traverse_cons`, cancels) → none |
+| `traverse_fromEmpty` → `traverseK_fromEmpty` | 0 (statement); proof itself casts along `Grade.join_idem` → 0 | 10 → 7 | idempotent → none |
+| `traverse_cons_ok_ok` → `traverseK_cons_ok_ok` | 0 → 0 | 6 → 4 | idempotent (delegated) → none |
+| `traverse_cons_err_left` → `traverseK_cons_err_left` | proof transports a membership proof along `Grade.join_idem g` → 0 | 8 → 4 | idempotent → none |
+| `traverse_cons_ok_err` → `traverseK_cons_ok_err` | same as above → 0 | 8 → 5 | idempotent → none |
+| `traverse_length` → `traverseK_length` | 0 → 0 (both; the union-graded one inherits its casts from the three reduction lemmas above, not its own statement) | 24 → 22 | idempotent (via delegates) → none |
+| `traverse_nil` → `traverseK_nil_eq_fromEmpty` | 0 → 0 | 3 → 1 (`rfl`) | none → none |
+| (no union-graded counterpart) | — | `traverseK_irrel`: 1 (`rfl`) | — → none |
+
+Every "after" proof cites no property at all — not a cheaper property,
+none — confirming [obligation-layering]'s classification of
+`foldGrade_cons_ne_nil`, `traverse_cons`, `traverse_cons_err_left`,
+`traverse_cons_ok_err`, and `traverse_fromEmpty` as canonicalization: each
+one's idempotence citation was spent identifying two spellings of the
+*union-graded traversal's own* grade, never picking a value, and never a
+fact `traverseK` needs to compute anything at all.
+
+**Length-independence is not a theorem here, the way `foldGrade_cons_ne_nil`
+is one for `traverse` — it is a property of `traverseK`'s own signature.**
+`traverseK hg f : List α → Graded k (List β)` names the same output grade
+`k` for every list before a single theorem is stated about it. What
+survives as an actual theorem is the narrower, still-true fact `traverseK_length`
+states: an `.ok` result's *payload* has the input list's length — shape
+preservation, not grade preservation, exactly the distinction
+[traverse-tuple]'s own "shape preservation is by construction" note
+already drew for the fixed-size case.
+
+**`traverseK_irrel`** (`traverseK hg f xs = traverseK hg' f xs`, any two
+proofs of `g ⊆ k`) is `rfl` — the mirror of `bindK_irrel`, with only one
+witness to be irrelevant about, since `traverseK` reuses `Grade.le_refl' k`
+at every position for the accumulated tail rather than threading a second
+inclusion per element.
+
+**The ∅-grade case.** `traverseK_nil` (`traverseK hg f [] = pureK []`)
+already *is* the sufficient-grade analogue of `traverse_nil`, since
+`pureK` is `fromEmpty` by definition; `traverseK_nil_eq_fromEmpty` states
+it in `traverse_nil`'s own spelling. Where `traverse_nil` needed
+`fromEmpty_eq_ok` plus a proof-irrelevance argument between two different
+`⊆ ∅ → g`-shaped inclusions standing behind each side's `widen`, there is
+no fold here to be uniform with in the first place: `traverseK hg f []`
+never mentions `foldGrade_le`, so the whole thing is `rfl`.
+
+**`traverse_eq_traverseK`, the bridge** (tagged `BRIDGE`), instantiates
+`traverseK` at the *tightest* sufficient grade — `g` itself, along
+`Grade.le_refl' g` — and recovers `traverse`. This is the one place in
+this subsection idempotence still appears, and it appears for the same
+reason [obligation-layering] already found everywhere else: `traverse`'s
+own cons case computes through `Grade.join g g` and identifies it with
+`g`, and the bridge's induction has to go through that identification on
+the union-graded side to line the two traversals up. The idempotence is
+not reconciling `traverse` against `traverseK` — it is `traverse`
+reconciling two spellings of its *own* grade, exactly as `traverse_cons`
+already pays it, with `traverseK` sitting outside that reconciliation
+entirely (its own side of the bridge's induction step is `rfl`
+throughout).
+
+**Verdict, extending [sufficient-grade-bind]/[sufficient-grade-applicative]/[obligation-layering]
+to the last operational law standing.** The traversal leg is not merely
+cheaper at the sufficient grade, the way `bindK`/`apK` were: the function
+that existed to compute the exact grade, and the theorem that existed to
+prove that computation exact, have no analogue to be cheap or expensive.
+Every remaining idempotence citation in the model
+([obligations](#obligations)'s table) is now confirmed, leg by leg, to be
+about a grade's spelling and never about a traversal, a bind, or an
+apply's *value* — [sufficient-grade-morphism] and
+[sufficient-grade-nested] are what is left to check this against.
+
 ### Tuple: the grade is computed once, at the type level
 
 `Graded/Tuple.lean` models the C++ `transpose(tuple<expected<A,
