@@ -494,6 +494,173 @@ theorem traverse_eq_traverseK (f : α → Graded g β) (xs : List α) :
               simp only [map2, map, ap_ok_ok, cast_ok, map2K, apK_ok_ok]
 
 -- ---------------------------------------------------------------------
+-- `flattenK`: the nested carrier at a sufficient grade. `flatten` is
+-- `bind` applied to the identity continuation (`flatten_eq_bind_id`,
+-- [compose](../docs/design.md#compose)), so `flattenK` is built the same
+-- way, on `bindK` directly rather than by a second pattern match on
+-- `Graded`'s constructors: `flattenK hg hh x := bindK hg hh x id`. This
+-- file's universe-`u` payloads (the same fix
+-- `Graded/Compose.lean`/`Graded/ComposeApp.lean` already need, for the
+-- same reason: `Graded h α` is a genuinely higher-universe payload than
+-- `α`, and `bindK`'s two payload type-variables share one universe) are
+-- local to this section.
+
+section ComposeK
+
+variable {α β γ : Type u}
+
+/-- Collapse a nested carrier to a single one, at any grade `k` known to
+    contain both the outer grade `g` (via `hg`) and the inner grade `h`
+    (via `hh`) — not necessarily their union. Built on `bindK`, at the
+    identity continuation, exactly as `flatten x = bind x id`
+    ([compose](../docs/design.md#compose)) says the union-graded operation
+    already is. -/
+def flattenK (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g (Graded h α)) : Graded k α :=
+  bindK hg hh x (fun y => y)
+
+theorem flattenK_ok (hg : g ⊆ k) (hh : h ⊆ k) (y : Graded h α) :
+    flattenK hg hh (Graded.ok y : Graded g (Graded h α)) = widen hh y :=
+  bindK_ok hg hh y (fun y => y)
+
+theorem flattenK_err (hg : g ⊆ k) (hh : h ⊆ k) (e : Err) (he : e ∈ g) :
+    flattenK hg hh (Graded.err e he : Graded g (Graded h α)) = Graded.err e (hg he) :=
+  bindK_err hg hh e he (fun y => y)
+
+/-- Naturality: mapping the inner payload before flattening agrees with
+    flattening then mapping outside — the analogue of `flatten_map`,
+    cast-free for the same reason every other law here is: both sides
+    already land in `Graded k β` before any grade is compared. -/
+theorem flattenK_map (hg : g ⊆ k) (hh : h ⊆ k) (f : α → β) (x : Graded g (Graded h α)) :
+    flattenK hg hh ((map (map f) x : Graded g (Graded h β))) = map f (flattenK hg hh x) := by
+  cases x with
+  | ok y =>
+    cases y with
+    | ok a => rfl
+    | err e he => rfl
+  | err e he => rfl
+
+/-- (unit) Wrapping an already-graded value with `pure` at the outer layer
+    and flattening at any sufficient `k` recovers the value, widened along
+    `hh` — the same fact `bindK_pure_left` already states, since
+    `flattenK`'s continuation *is* `bindK`'s identity continuation. No
+    `Grade.bot_join` anywhere: `Grade.bot_le k` is a hypothesis supplied
+    once, not a grade computed and then equated to another. -/
+theorem flattenK_pure_outer (hh : h ⊆ k) (y : Graded h α) :
+    flattenK (Grade.bot_le k) hh (pure y) = widen hh y :=
+  bindK_pure_left hh y (fun y => y)
+
+/-- (unit) Wrapping a graded value's payload with `pure` at the inner
+    layer and flattening at any sufficient `k` recovers the value, widened
+    along `hg` — the analogue of `flatten_pure_inner`, no `Grade.join_bot`
+    anywhere. -/
+theorem flattenK_pure_inner (hg : g ⊆ k) (x : Graded g α) :
+    flattenK hg (Grade.bot_le k) (map pure x) = widen hg x := by
+  cases x with
+  | ok a => rfl
+  | err e he => rfl
+
+/-- (associative) Flattening the outer two layers first, then the third,
+    or the inner two layers first (via `map flattenK`), then the outer,
+    agree — at a common `k` there is only one grade in sight, so both
+    sides land in `Graded k α` directly and `Grade.le_refl' k` (reused
+    twice, exactly as `bindK_assoc` reuses it) does the associativity
+    lemma's job. No `Grade.join_assoc` anywhere, unlike `flatten_flatten`. -/
+theorem flattenK_flattenK (hg : g ⊆ k) (hh : h ⊆ k) (hj : j ⊆ k)
+    (x : Graded g (Graded h (Graded j α))) :
+    flattenK (Grade.le_refl' k) hj (flattenK hg hh x) =
+      flattenK hg (Grade.le_refl' k) (map (flattenK hh hj) x) := by
+  cases x with
+  | ok y =>
+    cases y with
+    | ok z =>
+      cases z with
+      | ok a => rfl
+      | err e he => rfl
+    | err e he => rfl
+  | err e he => rfl
+
+/-- (order) Widening the outer layer before flattening agrees with
+    folding the widening into the inclusion proof `flattenK` already
+    threads, via `Grade.le_trans'` — the analogue of `flatten_widen_outer`,
+    and cheaper: no `Grade.join_mono` is needed, the same shape
+    `bindK_widen` already found. -/
+theorem flattenK_widen_outer (h₁ : g ⊆ g') (hg' : g' ⊆ k) (hh : h ⊆ k)
+    (x : Graded g (Graded h α)) :
+    flattenK hg' hh (widen h₁ x) = flattenK (Grade.le_trans' h₁ hg') hh x := by
+  cases x with
+  | ok y =>
+    cases y with
+    | ok a => rfl
+    | err e he => rfl
+  | err e he => rfl
+
+/-- (order) Widening the inner layer before flattening agrees with folding
+    the widening into the second inclusion proof, via `Grade.le_trans'` —
+    the analogue of `flatten_widen_inner`, same shape as
+    `flattenK_widen_outer` above, one coordinate over. -/
+theorem flattenK_widen_inner (h₂ : h ⊆ h') (hg : g ⊆ k) (hh' : h' ⊆ k)
+    (x : Graded g (Graded h α)) :
+    flattenK hg hh' ((map (widen h₂) x : Graded g (Graded h' α))) =
+      flattenK hg (Grade.le_trans' h₂ hh') x := by
+  cases x with
+  | ok y =>
+    cases y with
+    | ok a => rfl
+    | err e he => rfl
+  | err e he => rfl
+
+-- ---------------------------------------------------------------------
+-- `flattenK_comm`: the finding this leg exists to make for `flatten`.
+-- `flatten_comm` already needed no *value*-level hypothesis — `Graded g
+-- (Graded h α)` has at most one error by construction (three inhabited
+-- shapes, never two), so the "at most one side errs" condition `ap_flip`
+-- needs is vacuously true here and was never written down
+-- ([compose](../docs/design.md#compose)). What `flatten_comm` still paid
+-- was `cast (Grade.join_comm h g)`, to reconcile `flatten`'s grade `join g
+-- h` against the swapped `flatten (swap x)`'s grade `join h g` — two
+-- spellings of one union. At a common sufficient grade `k`, `flattenK hg
+-- hh x` and `flattenK hh hg (swap x)` already land in the *same* `Graded k
+-- α`, so there is no second spelling anywhere for `Grade.join_comm` to
+-- reconcile: the theorem below needs no hypothesis and no property at
+-- all, and is `rfl` in every case — not merely cast-free the way
+-- `apK_flip`/`Comp.apK_interchange` are, but with nothing left to prove
+-- beyond unfolding `swap`. This is not a vacuous law: `swap` genuinely
+-- rearranges which constructor `x` reduces through (`ok (err e he)`
+-- becomes a top-level `err e he` at a different grade index, and vice
+-- versa), and the theorem says the two sides still compute to the exact
+-- same error or the exact same payload.
+
+/-- Flattening agrees with flattening after swapping the two layers, at
+    any common sufficient grade `k` — unconditionally, and `rfl`: unlike
+    `flatten_comm`, there is no `Grade.join_comm` anywhere, because there
+    is no second expression for the same grade left to reconcile. -/
+theorem flattenK_comm (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g (Graded h α)) :
+    flattenK hg hh x = flattenK hh hg (swap x) := by
+  cases x with
+  | ok y =>
+    cases y with
+    | ok a => rfl
+    | err e he => rfl
+  | err e he => rfl
+
+-- ---------------------------------------------------------------------
+-- Instantiating `flattenK` at the exact union `Grade.join g h`, along the
+-- same two inclusions `flatten` itself uses
+-- (`Grade.le_join_left`/`Grade.le_join_right`), recovers `flatten` — the
+-- nested-carrier mirror of `bind_eq_bindK`/`ap_eq_apK`/`traverse_eq_traverseK`.
+/-- BRIDGE -/
+theorem flatten_eq_flattenK (x : Graded g (Graded h α)) :
+    flatten x = flattenK (Grade.le_join_left g h) (Grade.le_join_right g h) x := by
+  cases x with
+  | ok y =>
+    cases y with
+    | ok a => rfl
+    | err e he => rfl
+  | err e he => rfl
+
+end ComposeK
+
+-- ---------------------------------------------------------------------
 -- `Comp.apK`: the composed applicative at a *pair* of sufficient grades.
 -- `Comp g h α` ([compose]) already generalises over any two grades, so no
 -- second carrier is needed — "sufficient" here means supplying `Comp`'s
@@ -552,6 +719,164 @@ theorem Comp.apK_interchange (hg : g ⊆ k1) (hh : h ⊆ k2) (u : Comp g h (α �
     cases F with
     | ok f' => rfl
     | err e he => rfl
+
+-- ---------------------------------------------------------------------
+-- `traverseCompK`: the composed traversal at a sufficient grade *pair*,
+-- built the same way `traverseK` was one layer down — through
+-- `Comp.map2K`/`Comp.pureK`, both landing directly at `(k1, k2)`, with no
+-- `Comp.traverseRaw`/`foldGrade` anywhere. Where `traverseComp` folds each
+-- component's grade once per list element and then widens the uniform
+-- result via `Comp.widenGH` along `Graded.foldGrade_le` (once per
+-- component), `traverseCompK` never folds at all: every element's image
+-- under `f` (at the fixed pair `(g, h)`) and the accumulated tail
+-- (already at `(k1, k2)`) combine directly, reusing `hg`/`hh` at every
+-- position exactly as `traverseK` reuses its own single `hg`.
+
+/-- `Comp`'s own `pureK`: both layers at any grade pair `(k1, k2)`
+    directly, nesting `Graded.pureK` inside itself — `Graded.pureK a :
+    Graded k2 α` is already `.ok a` regardless of `k2`
+    (`Graded.fromEmpty_eq_ok`), so wrapping it again at `k1` gives
+    `.ok (.ok a)` before any grade is inspected, the `Comp.pure` this leg
+    needs at a caller-chosen pair instead of `(⊥, ⊥)`. -/
+def Comp.pureK (a : α) : Comp k1 k2 α := Graded.pureK (Graded.pureK a)
+
+/-- `Comp`'s own `map2K`: `Comp.apK` after `Comp.map`, exactly as
+    `Comp.map2` is `Comp.ap` after `Comp.map`, and exactly as `map2K` is
+    `apK` after `map` one layer down. -/
+def Comp.map2K (hg : g ⊆ k1) (hg' : g' ⊆ k1) (hh : h ⊆ k2) (hh' : h' ⊆ k2)
+    (kfun : α → β → γ) (x : Comp g h α) (y : Comp g' h' β) : Comp k1 k2 γ :=
+  Comp.apK hg hg' hh hh' (Comp.map kfun x) y
+
+/-- The composed traversal at a sufficient grade pair `(k1, k2)`: a
+    uniform `f : α → Comp g h β` lifts to `List α → Comp k1 k2 (List β)`,
+    at the same grade pair regardless of the list's length — no fold,
+    the same shape `traverseK` already established one layer down. -/
+def traverseCompK (hg : g ⊆ k1) (hh : h ⊆ k2) (f : α → Comp g h β) :
+    List α → Comp k1 k2 (List β)
+  | []      => Comp.pureK []
+  | x :: xs => Comp.map2K hg (Grade.le_refl' k1) hh (Grade.le_refl' k2)
+      (· :: ·) (f x) (traverseCompK hg hh f xs)
+
+theorem traverseCompK_nil (hg : g ⊆ k1) (hh : h ⊆ k2) (f : α → Comp g h β) :
+    traverseCompK hg hh f ([] : List α) = Comp.pureK [] := rfl
+
+theorem traverseCompK_cons (hg : g ⊆ k1) (hh : h ⊆ k2) (f : α → Comp g h β) (x : α)
+    (xs : List α) :
+    traverseCompK hg hh f (x :: xs) =
+      Comp.map2K hg (Grade.le_refl' k1) hh (Grade.le_refl' k2)
+        (· :: ·) (f x) (traverseCompK hg hh f xs) := rfl
+
+/-- Which proof of `g ⊆ k1`/`h ⊆ k2` justifies `traverseCompK` doesn't
+    matter, only that one exists — the two-coordinate mirror of
+    `traverseK_irrel`. -/
+theorem traverseCompK_irrel (hg hg' : g ⊆ k1) (hh hh' : h ⊆ k2) (f : α → Comp g h β)
+    (xs : List α) :
+    traverseCompK hg hh f xs = traverseCompK hg' hh' f xs := rfl
+
+-- ---------------------------------------------------------------------
+-- `traverseCompK_eq`: the law [sufficient-grade-nested] exists to check.
+-- `traverseComp_eq` ([compose](../docs/design.md#compose)) holds
+-- *unconditionally* at the union-graded layer — no `flatten`, no
+-- hypothesis, consuming only `Grade.join_idem` (via `traverse_cons`, once
+-- per component) and no `Grade.join_comm` at all. At a sufficient grade
+-- pair there is no fold and hence no idempotence to pay in the first
+-- place (`traverseCompK_cons`, like `traverseK_cons`, is `rfl`): this
+-- theorem is the confirmation the step file asked for, not a new finding
+-- — the classical composition law, stated against the unflattened pair,
+-- survives cast-free at a sufficient grade exactly as it held
+-- unconditionally at the computed one. Had this analogue *failed*, that
+-- would have been a serious finding about the sufficient-grade design,
+-- since `traverseComp_eq` is the theorem that settled
+-- [graded-traversable-composition](../docs/design.md#graded-traversable-composition);
+-- it does not fail.
+theorem traverseCompK_eq (hg : g ⊆ k1) (hh : h ⊆ k2)
+    (f : α → Graded g β) (kf : β → Graded h γ) (xs : List α) :
+    traverseCompK hg hh (fun a => Graded.map kf (f a)) xs =
+      Graded.map (traverseK hh kf) (traverseK hg f xs) := by
+  induction xs with
+  | nil => rfl
+  | cons x xs' ih =>
+      rw [traverseCompK_cons, ih, traverseK_cons]
+      cases hfx : f x with
+      | err e he =>
+          simp only [Graded.map, Comp.map2K, Comp.apK, Comp.map, Graded.map2K, apK_err_left]
+      | ok a =>
+          cases hxs : traverseK hg f xs' with
+          | err e he =>
+              simp only [Graded.map, Comp.map2K, Comp.apK, Comp.map, Graded.map2K, apK_ok_err]
+          | ok l =>
+              simp only [Graded.map, Comp.map2K, Comp.apK, Comp.map, Graded.map2K, apK_ok_ok]
+              exact congrArg Graded.ok (traverseK_cons hh kf a l).symm
+
+-- ---------------------------------------------------------------------
+-- `Comp.grade_reassoc`'s analogue: unnecessary, and none is missing.
+-- `Comp.grade_reassoc` ([compose](../docs/design.md#compose)) exists
+-- purely to make `flatten_ap`'s cast typecheck — reassociating `(g ⊔ h) ⊔
+-- (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')`, a pure grade-level equation with
+-- no carrier in sight, needing both `Grade.join_assoc` and
+-- `Grade.join_comm`. `flatten_apK` below never introduces a `cast` at
+-- all: `flattenK`'s target and `apK`'s target are both the caller's own
+-- `k`, so there is no equation between two different expressions for the
+-- same grade anywhere in its statement for a reassociation lemma to be
+-- stated about. This is the same "no analogue, and none is missing"
+-- verdict [sufficient-grade-morphism] reached for `rename_cast`, one leg
+-- earlier — a fact that exists only to serve a `cast` disappears along
+-- with the `cast` it served.
+
+/-- `flatten` is an applicative morphism from the product-graded composite
+    to the union-graded carrier only under a one-sided condition
+    ([compose](../docs/design.md#compose)); `flattenK`/`Comp.apK` is the
+    same comparison at a common sufficient grade `k`, and the condition
+    survives unchanged — it is about which error a caller sees when
+    `ff`'s outer layer succeeds with a failing inner payload while `xx`'s
+    outer layer also fails, and no amount of grade nomination touches
+    that. What does dissolve is the grade side: both sides below already
+    land in `Graded k β`, so there is no `cast`, no `Comp.grade_reassoc`
+    analogue, and — since `flattenK`/`apK`/`Comp.apK` never compute a
+    `join` — no `Grade.join_comm` anywhere in the proof. -/
+theorem flatten_apK (hg : g ⊆ k1) (hg' : g' ⊆ k1) (hh : h ⊆ k2) (hh' : h' ⊆ k2)
+    (hk1 : k1 ⊆ k) (hk2 : k2 ⊆ k)
+    (ff : Comp g h (α → β)) (xx : Comp g' h' α)
+    (hcond : (∃ e he, ff = Graded.err e he) ∨ (∃ f', ff = Graded.ok (Graded.ok f')) ∨
+      (∃ X, xx = Graded.ok X)) :
+    flattenK hk1 hk2 (Comp.apK hg hg' hh hh' ff xx) =
+      apK (Grade.le_refl' k) (Grade.le_refl' k)
+        (flattenK (Grade.le_trans' hg hk1) (Grade.le_trans' hh hk2) ff)
+        (flattenK (Grade.le_trans' hg' hk1) (Grade.le_trans' hh' hk2) xx) := by
+  cases ff with
+  | err e he =>
+    cases xx with
+    | ok Y =>
+      cases Y with
+      | ok a =>
+        simp only [Comp.apK_err_left, flattenK_err, flattenK_ok, widen_ok, apK_err_left]
+      | err e' he' =>
+        simp only [Comp.apK_err_left, flattenK_err, flattenK_err, apK_err_left]
+    | err e' he' =>
+      simp only [Comp.apK_err_left, flattenK_err, flattenK_err, apK_err_left]
+  | ok F =>
+    cases xx with
+    | err e he =>
+      cases F with
+      | ok f' =>
+        simp only [Comp.apK_ok_err, flattenK_ok, flattenK_err, widen_ok, apK_ok_err]
+      | err e' he' =>
+        exfalso
+        rcases hcond with ⟨_, _, hff⟩ | ⟨_, hff⟩ | ⟨_, hxx⟩ <;> simp_all
+    | ok X =>
+      cases F with
+      | ok f' =>
+        cases X with
+        | ok a =>
+          simp only [Comp.apK_ok_ok, flattenK_ok, apK_ok_ok, widen_ok]
+        | err e he =>
+          simp only [Comp.apK_ok_ok, flattenK_ok, apK_ok_err, widen_ok, widen_err]
+      | err e he =>
+        cases X with
+        | ok a =>
+          simp only [Comp.apK_ok_ok, flattenK_ok, apK_err_left, widen_ok, widen_err]
+        | err e' he' =>
+          simp only [Comp.apK_ok_ok, flattenK_ok, apK_err_left, widen_err]
 
 end CompK
 

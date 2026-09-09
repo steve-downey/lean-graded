@@ -989,6 +989,78 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "flattenK_ok",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_err",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_map",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_pure_outer",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_pure_inner",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_flattenK",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_widen_outer",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_widen_inner",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_comm",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flatten_eq_flattenK",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "Comp.apK_ok_ok",
     "module": "Graded/Sufficient.lean",
     "properties": [],
@@ -1008,6 +1080,40 @@
   },
   {
     "theorem": "Comp.apK_interchange",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_nil",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_cons",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_irrel",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_eq",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flatten_apK",
     "module": "Graded/Sufficient.lean",
     "properties": [
       "order"
