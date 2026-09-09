@@ -213,6 +213,71 @@ def renderListK : Graded ({E.parse, E.range, E.io} : Grade E) (List Nat) → Str
         else Graded.ok (n + 1))
       [1, 2, 3]) = "err Examples.Validation.E.parse"
 
+-- `traverseK_irrel`: which proof of `g ⊆ k` justifies `traverseK`
+-- doesn't matter, the mirror of `bindK_irrel` above.
+example
+    (hg hg' : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (f : Nat → Graded ({E.parse} : Grade E) Nat) (xs : List Nat) :
+    traverseK hg f xs = traverseK hg' f xs :=
+  traverseK_irrel hg hg' f xs
+
+-- `traverseK_map`: reindexing before `traverseK` agrees with `traverseK`ing
+-- the reindexed function — no cast to cancel, unlike `traverse_map`.
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (f : Nat → Graded ({E.parse} : Grade E) Nat) (h : Nat → Nat) (xs : List Nat) :
+    traverseK hg f (xs.map h) = traverseK hg (f ∘ h) xs :=
+  traverseK_map hg f h xs
+
+#guard renderListK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (fun n => (Graded.ok (n + 1) : Graded ({E.parse} : Grade E) Nat))
+      ([1, 2, 3].map (· + 10))) =
+  renderListK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (fun n => (Graded.ok (n + 11) : Graded ({E.parse} : Grade E) Nat))
+      [1, 2, 3])
+
+-- `traverseK_fromEmpty`: the identity law, cast-free — unlike
+-- `traverse_fromEmpty`, which delegates to `traverse_cons`'s cast.
+example (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E)) (xs : List Nat) :
+    traverseK hg (fromEmpty : Nat → Graded ({E.parse} : Grade E) Nat) xs = fromEmpty xs :=
+  traverseK_fromEmpty hg xs
+
+#guard renderListK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (fromEmpty : Nat → Graded ({E.parse} : Grade E) Nat) [1, 2, 3]) =
+  renderListK (fromEmpty [1, 2, 3] : Graded ({E.parse, E.range, E.io} : Grade E) (List Nat))
+
+-- `traverseK_length`: shape preservation, at a `k` strictly larger than
+-- the element grade.
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (f : Nat → Graded ({E.parse} : Grade E) Nat) (xs : List Nat) (l : List Nat)
+    (h : traverseK hg f xs = Graded.ok l) :
+    l.length = xs.length :=
+  traverseK_length hg f xs l h
+
+#guard
+  (match (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (fun n => (Graded.ok (n + 1) : Graded ({E.parse} : Grade E) Nat))
+      [1, 2, 3]) with
+    | .ok l => l.length
+    | .err _ _ => 0) = 3
+
+-- `traverse_eq_traverseK`: the bridge — instantiating `traverseK` at the
+-- tightest sufficient grade `g` itself recovers `traverse`.
+example (f : Nat → Graded ({E.parse} : Grade E) Nat) (xs : List Nat) :
+    traverse f xs = traverseK (Grade.le_refl' ({E.parse} : Grade E)) f xs :=
+  traverse_eq_traverseK f xs
+
+#guard renderNats (traverse parseNat ["1", "2", "3"]) =
+  renderNats (traverseK (Grade.le_refl' ({E.parse} : Grade E)) parseNat ["1", "2", "3"])
+#guard renderNats (traverse parseNat ["1", "2", "x"]) =
+  renderNats (traverseK (Grade.le_refl' ({E.parse} : Grade E)) parseNat ["1", "2", "x"])
+#guard renderNats (traverse parseNat ([] : List String)) =
+  renderNats (traverseK (Grade.le_refl' ({E.parse} : Grade E)) parseNat ([] : List String))
+
 -- ---------------------------------------------------------------------
 -- `Comp.apK`: the two-coordinate composite at a sufficient grade *pair*,
 -- each strictly larger than its own component's join —

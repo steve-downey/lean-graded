@@ -232,10 +232,39 @@ ALLOWLIST = {
         "no join",
     "Comp.apK_ok_err": "structural: two-coordinate mirror of apK_ok_err, "
         "no join",
-    # --- obligation-layering (this step) ---------------------------------
+    # --- obligation-layering ----------------------------------------------
     "traverseK_nil": "structural: pureK's own nil-case reduction, no join "
         "in sight — the sufficient-grade mirror of traverse_nil's own "
         "un-costed shape",
+    # --- sufficient-grade-traverse (this step) -----------------------------
+    "traverseK_irrel": "structural: proof-irrelevance of the single "
+        "threaded inclusion witness, the mirror of bindK_irrel/widen_irrel "
+        "— traverseK has only one witness to be irrelevant about, since it "
+        "reuses Grade.le_refl' k at every position for the accumulated tail",
+    "traverseK_nil_eq_fromEmpty": "structural: definitional identity — "
+        "traverseK's nil case is pureK, and pureK is fromEmpty by "
+        "definition; no fold and no join in sight, unlike traverse_nil's "
+        "own widen/fromEmpty proof-irrelevance argument",
+    "traverseK_map": "delegates to traverseK_cons (structural, this step), "
+        "twice, by induction — no idempotence to cancel, unlike "
+        "traverse_map's delegation to traverse_cons (idempotent)",
+    "traverseK_fromEmpty": "delegates to traverseK_cons (structural, this "
+        "step) — cast-free throughout, unlike traverse_fromEmpty's "
+        "delegation to traverse_cons (idempotent)",
+    "traverseK_cons_ok_ok": "structural: traverseK_cons's own ok/ok case "
+        "reduction, no join — traverseK_cons itself carries no cast for "
+        "this to delegate a property from, unlike traverse_cons_ok_ok's "
+        "delegation to traverse_cons (idempotent)",
+    "traverseK_cons_err_left": "structural: reduction lemma for the "
+        "err-on-the-element-side case; traverseK's err branch short-"
+        "circuits without computing a join, so there is no idempotence to "
+        "restate here, unlike traverse_cons_err_left",
+    "traverseK_cons_ok_err": "structural: reduction lemma for the "
+        "err-on-the-tail-side case, same reasoning as traverseK_cons_err_left",
+    "traverseK_length": "delegates to the traverseK_cons_* reduction "
+        "lemmas above, all structural this step — the analogue of "
+        "traverse_length, but its delegates carry no idempotence to cite "
+        "since traverseK_cons pays none",
 }
 
 PROPERTY_TAG_RE = re.compile(

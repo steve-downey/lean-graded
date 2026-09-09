@@ -230,6 +230,45 @@ def renderNats : Graded ({E.parse} : Grade E) (List Nat) → String
   renderNats (fromEmpty [] : Graded ({E.parse} : Grade E) (List Nat))
 
 -- ---------------------------------------------------------------------
+-- `traverseK parseNat`: the sufficient-grade traversal ([sufficient-grade-
+-- traverse]), at a literal `k` strictly larger than `{E.parse}`, over the
+-- same three inputs `traverse parseNat` above uses. `traverse` itself is
+-- left untouched: this is a second view of the same operation, not a
+-- replacement for it.
+
+/-- Render a `traverseK parseNat` result at the wider literal grade
+    `{E.parse, E.range, E.io}` for `#eval`/`#guard`. -/
+def renderNatsK : Graded ({E.parse, E.range, E.io} : Grade E) (List Nat) → String
+  | .ok ns => s!"ok {ns}"
+  | .err e _ => s!"err {repr e}"
+
+#eval renderNatsK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) parseNat ["1", "2", "3"])    -- ok [1, 2, 3]
+#eval renderNatsK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) parseNat ["1", "2", "x"])    -- err E.parse
+#eval renderNatsK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) parseNat ([] : List String)) -- ok []
+
+-- `traverseK parseNat` renders identically to `traverse parseNat` on every
+-- input, at their own (different) grades — the sufficient-grade layer and
+-- the union-graded original are the same operation, viewed at a merely
+-- sufficient grade or the exact one, exactly as `validateK`/`validate`
+-- already showed for `bindK`/`bind` above.
+#guard renderNatsK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) parseNat ["1", "2", "3"]) = renderNats (traverse parseNat ["1", "2", "3"])
+#guard renderNatsK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) parseNat ["1", "2", "x"]) = renderNats (traverse parseNat ["1", "2", "x"])
+#guard renderNatsK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) parseNat ([] : List String)) =
+  renderNats (traverse parseNat ([] : List String))
+
+-- ---------------------------------------------------------------------
 -- `sequence`: a heterogeneous 3-tuple — `parseNat s` (`Nat`, grade
 -- `{E.parse}`), `checkRange n` (`Nat`, grade `{E.range}`), `logIt n`
 -- (`Unit`, grade `{E.io}`) — combined into one graded `HList [Nat, Nat,
