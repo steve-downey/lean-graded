@@ -265,6 +265,25 @@ ALLOWLIST = {
         "lemmas above, all structural this step — the analogue of "
         "traverse_length, but its delegates carry no idempotence to cite "
         "since traverseK_cons pays none",
+    # --- sufficient-grade-morphism ---------------------------------------
+    "rename_apK": "the sufficient-grade analogue of rename_ap, needing "
+        "only Grade.rename_mono (order-preservation) rather than "
+        "Grade.rename_join — rename_mono is not in this script's VOCAB "
+        "(only rename_join/rename_bot are), and that gap is the finding "
+        "this step exists to record: the naturality law needs monotonicity, "
+        "not the join-semilattice-homomorphism vocabulary the union-graded "
+        "layer's rename_ap cites",
+    "rename_map2K": "delegates to rename_apK and rename_map (structural), "
+        "same reasoning: needs Grade.rename_mono, not Grade.rename_join",
+    "traverseK_rename": "the sufficient-grade analogue of traverse_rename, "
+        "needing only Grade.rename_mono — traverse_rename itself cites no "
+        "VOCAB property either (its cast cancels by proof irrelevance, not "
+        "a pomonoid law), and traverseK_rename needs strictly less: no "
+        "cast to cancel at all, since traverseK never computes a join",
+    "constHomK_not_gmap_bot": "refutes a GradedHom field for the "
+        "counter-instance: a Finset non-membership fact (e₀ ∉ ∅), not a "
+        "pomonoid property citation — the absence of a VOCAB mention here "
+        "is exactly what the theorem is about, not an oversight",
 }
 
 PROPERTY_TAG_RE = re.compile(

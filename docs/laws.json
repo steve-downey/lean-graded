@@ -1015,6 +1015,38 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "rename_apK",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_map2K",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_rename",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "GradedHom.gmap_mono",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "constHomK_not_gmap_bot",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "foldGrade_nil",
     "module": "Graded/Traverse.lean",
     "properties": [],

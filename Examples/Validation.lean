@@ -387,6 +387,19 @@ def renderCoarse : Graded (Grade.rename coarsen ({E.parse, E.range} : Grade E)) 
 #guard renderCoarse (rename coarsen (validate "9999")) = "err Examples.Validation.E'.bad"
 
 -- ---------------------------------------------------------------------
+-- `renameHomK`: the same coarsening, packaged as a `GradedHomK` (a
+-- monotone grade morphism, `docs/design.md#morphisms`) rather than called
+-- as the bare `rename` function. `(renameHomK coarsen).hom` *is* `rename
+-- coarsen` — the sufficient-grade structure reuses the identical carrier
+-- function `renameHom` does, only the obligation attached to `gmap`
+-- differs (`gmap_mono` here, `gmap_join`/`gmap_bot` there) — so every
+-- render below renders identically to `renderCoarse (rename coarsen _)`
+-- above, not merely equal to it.
+#guard renderCoarse ((renameHomK coarsen).hom (validate "42")) = "ok 42"
+#guard renderCoarse ((renameHomK coarsen).hom (validate "abc")) = "err Examples.Validation.E'.bad"
+#guard renderCoarse ((renameHomK coarsen).hom (validate "9999")) = "err Examples.Validation.E'.bad"
+
+-- ---------------------------------------------------------------------
 -- `traverseComp`: the two-stage pipeline run through the composed
 -- applicative *without* flattening — `parseNat` supplies the outer layer,
 -- `checkRange` (lifted via `map`) the inner. This is the structure

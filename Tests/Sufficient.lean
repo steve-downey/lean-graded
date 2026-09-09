@@ -322,4 +322,84 @@ def renderCompK :
       (Graded.ok (Graded.err E.range (by decide)) : Comp _ _ (Nat → Nat))
       (Graded.ok (Graded.ok 5) : Comp _ _ Nat)) = "ok (err Examples.Validation.E.range)"
 
+-- ---------------------------------------------------------------------
+-- `GradedHomK`/`renameHomK`: the morphism leg. `renameHomK coarsen`
+-- typechecks at `E → E'`, with the same `gmap`/`hom` as `renameHom
+-- coarsen` — the field `renameHomK coarsen |>.gmap` is `Grade.rename
+-- coarsen`, computed exactly as `renameHom coarsen |>.gmap` is.
+
+example : (renameHomK coarsen).gmap ({E.parse, E.range} : Grade E) = ({E'.bad} : Grade E') := rfl
+
+#guard renderCoarse ((renameHomK coarsen).hom (validate "42")) = "ok 42"
+#guard renderCoarse ((renameHomK coarsen).hom (validate "abc")) = "err Examples.Validation.E'.bad"
+#guard renderCoarse ((renameHomK coarsen).hom (validate "9999")) = "err Examples.Validation.E'.bad"
+
+-- `hom_pureK`, `rfl` at the concrete instance: renaming `pureK` changes
+-- nothing about the payload.
+example (n : Nat) :
+    (renameHomK coarsen).hom (pureK n : Graded ({E.parse} : Grade E) Nat) =
+      (pureK n : Graded ({E'.bad} : Grade E') Nat) :=
+  (renameHomK coarsen).hom_pureK n
+
+-- `hom_bindK`, exercised through `renameHomK` at grades wider than
+-- `{E.parse}`/`{E.range}`'s own union, the same "no cast to write down"
+-- shape `bindK` itself demonstrates above.
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (x : Graded ({E.parse} : Grade E) Nat) (f : Nat → Graded ({E.range} : Grade E) Nat) :
+    (renameHomK coarsen).hom (bindK hg hh x f) =
+      bindK ((renameHomK coarsen).gmap_mono hg) ((renameHomK coarsen).gmap_mono hh)
+        ((renameHomK coarsen).hom x) (fun a => (renameHomK coarsen).hom (f a)) :=
+  (renameHomK coarsen).hom_bindK hg hh x f
+
+-- `rename_apK`/`rename_map2K`/`traverseK_rename`: naturality of `rename`
+-- against the sufficient-grade applicative and traversal, cast-free.
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (f' : Nat → Nat) (a : Nat) :
+    rename coarsen (apK hg hh (Graded.ok f' : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.ok a : Graded ({E.range} : Grade E) Nat)) =
+      apK (Grade.rename_mono coarsen hg) (Grade.rename_mono coarsen hh)
+        (rename coarsen (Graded.ok f')) (rename coarsen (Graded.ok a)) :=
+  rename_apK coarsen hg hh (Graded.ok f') (Graded.ok a)
+
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (f : Nat → Graded ({E.parse} : Grade E) Nat) (xs : List Nat) :
+    rename coarsen (traverseK hg f xs) =
+      traverseK (Grade.rename_mono coarsen hg) (rename coarsen ∘ f) xs :=
+  traverseK_rename coarsen hg f xs
+
+#guard renderListK
+    (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (fun n => (Graded.ok (n + 1) : Graded ({E.parse} : Grade E) Nat))
+      [1, 2, 3]) = "ok [2, 3, 4]"
+
+-- ---------------------------------------------------------------------
+-- `GradedHom.gmap_mono`: the one direction the two structures share —
+-- `renameHom`'s `gmap` is monotone because `renameHomK`'s already is, and
+-- both compute the same `Grade.rename_mono`.
+example (hgh : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) :
+    (renameHom coarsen).gmap ({E.parse} : Grade E) ⊆
+      (renameHom coarsen).gmap ({E.parse, E.range} : Grade E) :=
+  GradedHom.gmap_mono (renameHom coarsen) hgh
+
+-- ---------------------------------------------------------------------
+-- `constHomK`: the counter-instance. Its `gmap` is monotone (every
+-- `GradedHomK` field resolves, `#guard`ed below to compute) but is not a
+-- join-semilattice homomorphism — `constHomK_not_gmap_bot` refutes the
+-- one field a `GradedHom` would additionally require.
+
+#guard (constHomK (Err := E) (g₀ := ({E'.bad} : Grade E')) E'.bad (by decide)).hom
+    (Graded.ok (5 : Nat) : Graded ({E.parse} : Grade E) Nat) = Graded.ok 5
+
+#guard (constHomK (Err := E) (g₀ := ({E'.bad} : Grade E')) E'.bad (by decide)).hom
+    (Graded.err E.parse (by decide) : Graded ({E.parse} : Grade E) Nat) =
+  Graded.err E'.bad (by decide)
+
+example : (fun (_ : Grade E) => ({E'.bad} : Grade E')) (Grade.bot : Grade E) ≠
+    (Grade.bot : Grade E') :=
+  constHomK_not_gmap_bot (Err := E) (e₀ := E'.bad) (g₀ := ({E'.bad} : Grade E')) (by decide)
+
 end Tests
