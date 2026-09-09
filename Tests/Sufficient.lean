@@ -279,6 +279,127 @@ example (f : Nat → Graded ({E.parse} : Grade E) Nat) (xs : List Nat) :
   renderNats (traverseK (Grade.le_refl' ({E.parse} : Grade E)) parseNat ([] : List String))
 
 -- ---------------------------------------------------------------------
+-- `flattenK`: the nested carrier at a sufficient grade.
+
+example
+    (hg : ({E.io} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (hh : ({E.parse} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (y : Graded ({E.parse} : Grade E) Nat) :
+    flattenK hg hh (Graded.ok y : Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat)) =
+      widen hh y :=
+  flattenK_ok hg hh y
+
+example
+    (hg : ({E.io} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (hh : ({E.parse} : Grade E) ⊆ ({E.io, E.parse} : Grade E)) :
+    flattenK hg hh
+        (Graded.err E.io (by decide) :
+          Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat)) =
+      Graded.err E.io (by decide) :=
+  flattenK_err hg hh E.io (by decide)
+
+-- `flattenK_map`: naturality, cast-free.
+example
+    (hg : ({E.io} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (hh : ({E.parse} : Grade E) ⊆ ({E.io, E.parse} : Grade E)) (f : Nat → Nat)
+    (x : Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat)) :
+    flattenK hg hh ((Graded.map (Graded.map f) x :
+        Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat))) =
+      Graded.map f (flattenK hg hh x) :=
+  flattenK_map hg hh f x
+
+-- `flattenK_pure_outer`/`flattenK_pure_inner`: the two unit laws, cast-free.
+example (hh : ({E.parse} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (y : Graded ({E.parse} : Grade E) Nat) :
+    flattenK (Grade.bot_le ({E.io, E.parse} : Grade E)) hh (Graded.pure y) = widen hh y :=
+  flattenK_pure_outer hh y
+
+example (hg : ({E.io} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (x : Graded ({E.io} : Grade E) Nat) :
+    flattenK hg (Grade.bot_le ({E.io, E.parse} : Grade E)) (Graded.map Graded.pure x) =
+      widen hg x :=
+  flattenK_pure_inner hg x
+
+-- `flattenK_flattenK`: associativity, cast-free — both sides already land
+-- in `Graded k Nat`, so `Grade.le_refl' k` (reused twice) replaces
+-- `Grade.join_assoc`.
+example
+    (hg : ({E.io} : Grade E) ⊆ ({E.io, E.parse, E.range} : Grade E))
+    (hh : ({E.parse} : Grade E) ⊆ ({E.io, E.parse, E.range} : Grade E))
+    (hj : ({E.range} : Grade E) ⊆ ({E.io, E.parse, E.range} : Grade E))
+    (x : Graded ({E.io} : Grade E)
+      (Graded ({E.parse} : Grade E) (Graded ({E.range} : Grade E) Nat))) :
+    flattenK (Grade.le_refl' _) hj (flattenK hg hh x) =
+      flattenK hg (Grade.le_refl' _) (Graded.map (flattenK hh hj) x) :=
+  flattenK_flattenK hg hh hj x
+
+-- `flattenK_widen_outer`/`flattenK_widen_inner`: the order laws, via
+-- `Grade.le_trans'` instead of `Grade.join_mono`.
+example
+    (h₁ : ({E.io} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (hg' : ({E.io, E.parse} : Grade E) ⊆ ({E.io, E.parse, E.range} : Grade E))
+    (hh : ({E.parse} : Grade E) ⊆ ({E.io, E.parse, E.range} : Grade E))
+    (x : Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat)) :
+    flattenK hg' hh (widen h₁ x) = flattenK (Grade.le_trans' h₁ hg') hh x :=
+  flattenK_widen_outer h₁ hg' hh x
+
+example
+    (h₂ : ({E.parse} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (hg : ({E.io} : Grade E) ⊆ ({E.io, E.parse, E.range} : Grade E))
+    (hh' : ({E.io, E.parse} : Grade E) ⊆ ({E.io, E.parse, E.range} : Grade E))
+    (x : Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat)) :
+    flattenK hg hh' ((Graded.map (widen h₂) x :
+        Graded ({E.io} : Grade E) (Graded ({E.io, E.parse} : Grade E) Nat))) =
+      flattenK hg (Grade.le_trans' h₂ hh') x :=
+  flattenK_widen_inner h₂ hg hh' x
+
+-- `flattenK_comm`: the finding this leg exists to make — no
+-- `Grade.join_comm`, and `rfl` rather than merely cast-free.
+example
+    (hg : ({E.io} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (hh : ({E.parse} : Grade E) ⊆ ({E.io, E.parse} : Grade E))
+    (x : Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat)) :
+    flattenK hg hh x = flattenK hh hg (swap x) :=
+  flattenK_comm hg hh x
+
+-- `flatten_eq_flattenK`: instantiating `flattenK` at the exact union
+-- recovers `flatten`.
+example (x : Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat)) :
+    flatten x = flattenK (Grade.le_join_left _ _) (Grade.le_join_right _ _) x :=
+  flatten_eq_flattenK x
+
+-- The substantive case `flatten` cannot express: `flattenK` at a `k`
+-- strictly larger than `Grade.join {E.io} {E.parse}` — no cast, the same
+-- shape as `renderK` above for `bindK`. `lookup`/`renderLookup`
+-- ([Examples.Validation]) already `#guard` this consumer directly; these
+-- exercise `flattenK` on inputs `lookup` itself cannot produce (an outer
+-- I/O success wrapping an inner *unparsed* failure at a grade wider than
+-- either layer needs).
+def renderFlattenK : Graded ({E.io, E.parse, E.range} : Grade E) Nat → String
+  | .ok n => s!"ok {n}"
+  | .err e _ => s!"err {repr e}"
+
+#guard renderFlattenK
+    (flattenK (g := ({E.io} : Grade E)) (h := ({E.parse} : Grade E))
+      (k := ({E.io, E.parse, E.range} : Grade E)) (by decide) (by decide)
+      (Graded.ok (Graded.ok 7) :
+        Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat))) = "ok 7"
+
+#guard renderFlattenK
+    (flattenK (g := ({E.io} : Grade E)) (h := ({E.parse} : Grade E))
+      (k := ({E.io, E.parse, E.range} : Grade E)) (by decide) (by decide)
+      (Graded.ok (Graded.err E.parse (by decide)) :
+        Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat))) =
+  "err Examples.Validation.E.parse"
+
+#guard renderFlattenK
+    (flattenK (g := ({E.io} : Grade E)) (h := ({E.parse} : Grade E))
+      (k := ({E.io, E.parse, E.range} : Grade E)) (by decide) (by decide)
+      (Graded.err E.io (by decide) :
+        Graded ({E.io} : Grade E) (Graded ({E.parse} : Grade E) Nat))) =
+  "err Examples.Validation.E.io"
+
+-- ---------------------------------------------------------------------
 -- `Comp.apK`: the two-coordinate composite at a sufficient grade *pair*,
 -- each strictly larger than its own component's join —
 -- `{E.parse, E.range}` widened to `{E.parse, E.range, E.io}` in the
@@ -321,6 +442,129 @@ def renderCompK :
       (by decide) (by decide) (by decide) (by decide)
       (Graded.ok (Graded.err E.range (by decide)) : Comp _ _ (Nat → Nat))
       (Graded.ok (Graded.ok 5) : Comp _ _ Nat)) = "ok (err Examples.Validation.E.range)"
+
+-- ---------------------------------------------------------------------
+-- `traverseCompK`: the composed traversal at a sufficient grade pair —
+-- the same two-coordinate mirror `Comp.apK` above already exercises, now
+-- over a list.
+
+def renderComposedK :
+    Comp ({E.parse, E.range, E.io} : Grade E) ({E.parse, E.range, E.io} : Grade E) (List Nat) →
+      String
+  | .ok (.ok ns) => s!"ok (ok {ns})"
+  | .ok (.err e _) => s!"ok (err {repr e})"
+  | .err e _ => s!"err {repr e}"
+
+#guard renderComposedK
+    (traverseCompK (g := ({E.parse} : Grade E)) (h := ({E.range} : Grade E))
+      (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (by decide)
+      (fun s => Graded.map checkRange (parseNat s)) ["1", "2", "3"]) = "ok (ok [1, 2, 3])"
+
+#guard renderComposedK
+    (traverseCompK (g := ({E.parse} : Grade E)) (h := ({E.range} : Grade E))
+      (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (by decide)
+      (fun s => Graded.map checkRange (parseNat s)) ["1", "9999", "3"]) =
+  "ok (err Examples.Validation.E.range)"
+
+#guard renderComposedK
+    (traverseCompK (g := ({E.parse} : Grade E)) (h := ({E.range} : Grade E))
+      (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (by decide)
+      (fun s => Graded.map checkRange (parseNat s)) ["1", "x", "3"]) =
+  "err Examples.Validation.E.parse"
+
+-- `traverseCompK_eq`: the confirmation the step file asked for —
+-- `traverseComp_eq` held unconditionally at the union-graded layer, and
+-- its sufficient-grade analogue holds too, cast-free, with no idempotence
+-- to pay in the first place (`traverseCompK_cons` is `rfl`, unlike
+-- `Comp.traverseComp_cons`).
+example
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E)) (xs : List String) :
+    traverseCompK hg hh (fun s => Graded.map checkRange (parseNat s)) xs =
+      Graded.map (traverseK hh checkRange) (traverseK hg parseNat xs) :=
+  traverseCompK_eq hg hh parseNat checkRange xs
+
+#guard renderComposedK
+    (traverseCompK (g := ({E.parse} : Grade E)) (h := ({E.range} : Grade E))
+      (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+      (by decide) (by decide)
+      (fun s => Graded.map checkRange (parseNat s)) ["1", "9999", "3"]) =
+  renderComposedK
+    (Graded.map (traverseK (g := ({E.range} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+        (by decide) checkRange)
+      (traverseK (g := ({E.parse} : Grade E)) (k := ({E.parse, E.range, E.io} : Grade E))
+        (by decide) parseNat ["1", "9999", "3"]))
+
+-- ---------------------------------------------------------------------
+-- `flatten_apK`: the value-side hypothesis survives grade nomination.
+-- `bothFailFF`/`bothFailXX` are exactly the excluded shape — `ff` outer
+-- succeeds with a failing *inner* payload, while `xx`'s outer layer also
+-- fails — chosen with `ff`'s inner grade (`{E.io}`) and `xx`'s outer
+-- grade (`{E.range}`) disjoint, so the two sides below render as visibly
+-- *different* errors, not just different proof terms of the same one.
+
+def bothFailFF : Comp ({E.parse} : Grade E) ({E.io} : Grade E) (Nat → Nat) :=
+  Graded.ok (Graded.err E.io (by decide))
+
+def bothFailXX : Comp ({E.range} : Grade E) ({E.parse} : Grade E) Nat :=
+  Graded.err E.range (by decide)
+
+def renderFlattenApK : Graded ({E.parse, E.range, E.io} : Grade E) Nat → String
+  | .ok n => s!"ok {n}"
+  | .err e _ => s!"err {repr e}"
+
+-- Flatten-the-composite-first (`Comp.apK` then `flattenK`): `Comp.apK`
+-- never looks past `xx`'s outer failure to notice `ff`'s inner one, so
+-- this reports `xx`'s error.
+#guard renderFlattenApK
+    (flattenK (g := ({E.parse, E.range, E.io} : Grade E))
+        (h := ({E.parse, E.range, E.io} : Grade E))
+      (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide)
+      (Comp.apK (g := ({E.parse} : Grade E)) (g' := ({E.range} : Grade E))
+        (h := ({E.io} : Grade E)) (h' := ({E.parse} : Grade E))
+        (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+        (by decide) (by decide) (by decide) (by decide) bothFailFF bothFailXX)) =
+  "err Examples.Validation.E.range"
+
+-- Flatten-each-piece-first (`flattenK` then `apK`): flattening `ff` alone
+-- exposes its inner error immediately, and `apK`'s function-error-first
+-- priority then reports it instead.
+#guard renderFlattenApK
+    (apK (Grade.le_refl' ({E.parse, E.range, E.io} : Grade E))
+        (Grade.le_refl' ({E.parse, E.range, E.io} : Grade E))
+      (flattenK (g := ({E.parse} : Grade E)) (h := ({E.io} : Grade E))
+        (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide) bothFailFF)
+      (flattenK (g := ({E.range} : Grade E)) (h := ({E.parse} : Grade E))
+        (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide) bothFailXX)) =
+  "err Examples.Validation.E.io"
+
+-- The two sides disagree on the same inputs: `flatten_apK`'s hypothesis
+-- is not vacuous, at any sufficient grade — it excludes exactly this
+-- shape, and excluding it is load-bearing, not decorative.
+
+-- The theorem itself, exercised on a `hcond`-satisfying input (`xx`
+-- succeeds outright): both sides agree, and the `Prop`-irrelevant
+-- inclusion proofs elaborate at this concrete grade via `by decide`.
+example :
+    flattenK (g := ({E.parse, E.range, E.io} : Grade E)) (h := ({E.parse, E.range, E.io} : Grade E))
+        (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide)
+      (Comp.apK (g := ({E.parse} : Grade E)) (g' := ({E.range} : Grade E))
+        (h := ({E.io} : Grade E)) (h' := ({E.parse} : Grade E))
+        (k1 := ({E.parse, E.range, E.io} : Grade E)) (k2 := ({E.parse, E.range, E.io} : Grade E))
+        (by decide) (by decide) (by decide) (by decide) bothFailFF
+        (Graded.ok (Graded.ok 5) : Comp ({E.range} : Grade E) ({E.parse} : Grade E) Nat)) =
+      apK (Grade.le_refl' _) (Grade.le_refl' _)
+        (flattenK (g := ({E.parse} : Grade E)) (h := ({E.io} : Grade E))
+          (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide) bothFailFF)
+        (flattenK (g := ({E.range} : Grade E)) (h := ({E.parse} : Grade E))
+          (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide)
+          (Graded.ok (Graded.ok 5) : Comp ({E.range} : Grade E) ({E.parse} : Grade E) Nat)) :=
+  flatten_apK (by decide) (by decide) (by decide) (by decide) (by decide) (by decide)
+    bothFailFF (Graded.ok (Graded.ok 5) : Comp ({E.range} : Grade E) ({E.parse} : Grade E) Nat)
+    (Or.inr (Or.inr ⟨Graded.ok 5, rfl⟩))
 
 -- ---------------------------------------------------------------------
 -- `GradedHomK`/`renameHomK`: the morphism leg. `renameHomK coarsen`

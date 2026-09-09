@@ -344,6 +344,25 @@ def renderLookup : Graded ({E.io, E.parse} : Grade E) Nat → String
 #guard renderLookup (flatten (lookup "abc")) = "err Examples.Validation.E.parse"
 
 -- ---------------------------------------------------------------------
+-- `flattenK`: the same `lookup` consumer, rerun through the
+-- sufficient-grade collapse instead of `flatten`'s computed union. Both
+-- inclusion proofs close by `decide` at this concrete grade, and
+-- `renderLookup` renders every input identically to the `flatten` version
+-- above — this is a second view of `lookup`'s own collapse, not a
+-- replacement for it. `lookup` itself is left untouched.
+#guard renderLookup
+    (flattenK (g := ({E.io} : Grade E)) (h := ({E.parse} : Grade E))
+      (k := ({E.io, E.parse} : Grade E)) (by decide) (by decide) (lookup "42")) = "ok 42"
+#guard renderLookup
+    (flattenK (g := ({E.io} : Grade E)) (h := ({E.parse} : Grade E))
+      (k := ({E.io, E.parse} : Grade E)) (by decide) (by decide) (lookup "")) =
+  "err Examples.Validation.E.io"
+#guard renderLookup
+    (flattenK (g := ({E.io} : Grade E)) (h := ({E.parse} : Grade E))
+      (k := ({E.io, E.parse} : Grade E)) (by decide) (by decide) (lookup "abc")) =
+  "err Examples.Validation.E.parse"
+
+-- ---------------------------------------------------------------------
 -- `rename`: coarsening `error_set<parse, range>` down to a single error
 -- kind, the C++ `transform_error`-style operation this step gives laws
 -- to. `coarsen` sends *both* `E.parse` and `E.range` to the same target

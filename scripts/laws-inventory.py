@@ -284,6 +284,36 @@ ALLOWLIST = {
         "counter-instance: a Finset non-membership fact (e₀ ∉ ∅), not a "
         "pomonoid property citation — the absence of a VOCAB mention here "
         "is exactly what the theorem is about, not an oversight",
+    # --- sufficient-grade-nested (this step) -------------------------------
+    "flattenK_ok": "structural: flattenK's own ok-case reduction, "
+        "delegates to bindK_ok (documented as such at flattenK's own "
+        "definition site), same footing as bindK_ok itself",
+    "flattenK_err": "structural: flattenK's own err-case reduction, "
+        "delegates to bindK_err, same footing as bindK_err itself",
+    "flattenK_map": "structural: naturality in the payload, no join — "
+        "the sufficient-grade mirror of flatten_map, which is itself "
+        "on this list for the same reason",
+    "flattenK_comm": "structural, and this is the finding, not an "
+        "oversight: flatten_comm needs Grade.join_comm to reconcile "
+        "flatten's grade join g h against the swapped flatten (swap x)'s "
+        "join h g; at a common sufficient grade both flattenK hg hh x and "
+        "flattenK hh hg (swap x) already land in the same Graded k α, so "
+        "there is no second spelling of the grade left to relate — the "
+        "proof is a plain case split, no property, no cast, rfl in every "
+        "branch",
+    "traverseCompK_nil": "structural: Comp.pureK's own nil-case reduction "
+        "(nested pureK, no join) — the two-coordinate mirror of "
+        "traverseK_nil",
+    "traverseCompK_irrel": "structural: proof-irrelevance of the two "
+        "threaded inclusion witnesses (one per component), the "
+        "two-coordinate mirror of traverseK_irrel",
+    "traverseCompK_eq": "delegates to apK_ok_ok/apK_err_left/apK_ok_err "
+        "(all structural, this list) via traverseCompK_cons/traverseK_cons "
+        "— traverseComp_eq's own union-graded proof needed only "
+        "Grade.join_idem (via traverse_cons, itself delegated), and "
+        "traverseCompK_cons carries no cast to delegate a property from in "
+        "the first place, so there is strictly less here, not the same "
+        "amount moved",
 }
 
 PROPERTY_TAG_RE = re.compile(

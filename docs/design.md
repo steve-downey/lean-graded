@@ -1280,6 +1280,159 @@ collapse is proved lossy by `flatten_ap`'s own failing case.
   true) are now settled, and they are not in tension because they are
   statements about different structures.
 
+### The sufficient-grade layer (added 2026-09-08)
+
+The last of three legs, and the one `flatten`'s own purpose puts to the
+sharpest test: every earlier operation was migrated by letting the caller
+nominate the result grade, which removed grade *arithmetic* entirely —
+but `flatten`'s whole job **is** grade arithmetic, collapsing two layers
+into one. `flattenK (hg : g ⊆ k) (hh : h ⊆ k) : Graded g (Graded h α) →
+Graded k α` does not remove the operation; it removes the obligation to
+name the union specifically. Built on `bindK` directly — `flattenK hg hh
+x := bindK hg hh x (fun y => y)` — exactly mirroring `flatten_eq_bind_id`
+(`flatten x = bind x id`) one layer up, in the same local `Type u`
+universe section [compose](#compose)'s own wrinkle already required for
+`flatten`/`Comp` (a nested payload `Graded h α` needs the same universe as
+`α` for `bindK`'s shared type-variable to unify).
+
+**Every law restates cast-free, citing only `bindK`'s own laws or
+`Grade.le_refl'`/`Grade.le_trans'` in place of `bindK`'s unit/assoc/order
+lemmas — the same "order replaces unit/associative" shift every earlier
+leg found, now at the nested carrier:**
+
+| law (union-graded → sufficient-grade) | casts (before → after) | property consumed |
+|---|---|---|
+| `flatten_map` → `flattenK_map` | 0 → 0 | none → none |
+| `flatten_pure_outer` → `flattenK_pure_outer` | 1 (`Grade.bot_join`) → 0 | unit → order (`bindK_pure_left`, literally) |
+| `flatten_pure_inner` → `flattenK_pure_inner` | 1 (`Grade.join_bot`) → 0 | unit → none |
+| `flatten_flatten` → `flattenK_flattenK` | 1 (`Grade.join_assoc`) → 0 | associative → order (`Grade.le_refl' k`, twice) |
+| `flatten_widen_outer`/`_inner` → `flattenK_widen_outer`/`_inner` | 0 → 0 | order (`join_mono`) → order (`le_trans'`) |
+| `flatten_comm` → `flattenK_comm` | 1 (`Grade.join_comm`) → **0, and `rfl`** | commutative → **none** |
+
+**`flatten_comm` has an analogue, and it did not disappear — it dissolved
+into `rfl`, which is a different and stronger result than merely
+cast-free.** The question, as the step file posed it: at a common
+sufficient grade, is there anything left to say about swapping the two
+layers? There is, and it is `rfl` in every case: `flattenK hg hh x =
+flattenK hh hg (swap x)`, proved by the same three-case split
+`flatten_comm` itself used, with no `cast` and no hypothesis. This is not
+vacuous — `swap` genuinely rearranges which constructor `x` reduces
+through (an `ok (err e he)` becomes a top-level `err e he` at a different
+index, and vice versa), and the theorem says the two sides still compute
+to the same error or the same payload; the two sides are syntactically
+different expressions before evaluation, and `rfl` is Lean confirming
+they compute to the same value, not evidence they were the same
+expression all along. What `flattenK_comm` needed to check was never a
+value question — `Graded g (Graded h α)` already has at most one error by
+construction ([compose](#compose)'s own note on `flatten_comm`), so the
+"at most one side errs" condition never applied here — it was entirely
+the grade-spelling question `Grade.join_comm` answers for `flatten`
+(`join g h` vs. `join h g`), and at a common `k` there is no second
+spelling of the grade left to reconcile. So `flatten_comm`'s analogue is
+the sharpest instance yet of the pattern every leg has found: an
+obligation with an order half and an algebra half, where the order half
+dissolves at a sufficient grade — except here there never was an algebra
+half to begin with, so the whole obligation dissolves, down to `rfl`.
+
+`flatten_eq_flattenK` (tagged `/-- BRIDGE -/`) instantiates `flattenK` at
+the exact union `Grade.join g h`, along the same two inclusions `flatten`
+itself uses, and recovers `flatten` — `rfl` in every constructor case,
+the fourth genuine bridge in this file (an *operation* recovered at a
+computed grade, the same shape as `bind_eq_bindK`/`ap_eq_apK`/
+`traverse_eq_traverseK`, unlike the morphism leg's one-directional
+`GradedHom.gmap_mono`, which bridges two *structures* instead — see
+[sufficient-grade-morphism]'s handoff for why that distinction matters).
+
+**`Comp`'s own layer: `Comp.pureK`, `Comp.map2K`, and `traverseCompK`,
+built through `Comp.apK` exactly as `traverseK` is built through `apK` —
+no fold, every element landing at the caller's pair `(k1, k2)` directly.**
+`traverseCompK_eq`, the sufficient-grade analogue of `traverseComp_eq`, is
+the theorem this step's brief singled out as the one whose *failure*
+would be a serious finding: `traverseComp_eq` is what closed
+[graded-traversable-composition](#graded-traversable-composition), and if
+its sufficient-grade form broke, that would cast doubt on the whole
+migration's claim to be grade-neutral. **It holds, cast-free, and this is
+a confirmation, not a new result** — `traverseCompK_cons` (like
+`traverseK_cons`) carries no cast in the first place, so there is no
+idempotence to pay where `Comp.traverseComp_cons` pays
+`Grade.join_idem` once per component; the proof needed nothing beyond
+`apK_ok_ok`/`apK_err_left`/`apK_ok_err` and their `Comp`-level mirrors,
+already established by [sufficient-grade-applicative].
+
+**`Comp.grade_reassoc`'s analogue: unnecessary, and none is missing —
+this is the sentence the whole leg was aimed at.**
+`Comp.grade_reassoc` exists purely to make `flatten_ap`'s `cast`
+typecheck: reassociating `(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔
+h')`, needing both `Grade.join_assoc` and `Grade.join_comm` — one of the
+six theorems in the whole model that consume `Grade.join_comm`, and (per
+[obligation-layering]'s classification, `#obligations`) the one standing
+in an *operational* position: it is consumed inside `flatten_ap`, a
+theorem that compares what two carrier-level operations actually compute
+for a value, not merely a claim that two grade-spellings agree. `flatten_
+apK` (the sufficient-grade analogue, below) never introduces a `cast` at
+all — `flattenK`'s target and `apK`'s target are both the caller's own
+`k`, so there is no equation between two expressions for the same grade
+anywhere in the statement for a reassociation lemma to be *about*. A fact
+that exists only to serve a `cast` disappears along with the `cast` it
+served, the same "no analogue, and none is missing" verdict
+[sufficient-grade-morphism] reached for `rename_cast` one leg earlier.
+**With `Comp.grade_reassoc` gone from the sufficient-grade layer and
+`flattenK_comm` needing no `join_comm` either, the sufficient-grade layer
+now contains zero operational citations of `Grade.join_comm` — the model's
+only remaining commutativity citations are the six union-graded ones
+(`ap_flip`, `flatten_comm`, `Comp.grade_reassoc`, `joinAll_perm`,
+`join_mem_eq`, `joinAllG_perm`, all canonicalization per
+[obligation-layering]'s table) plus the defining axiom itself. No
+operational law, at either layer, needs commutativity to compute
+anything for a value.** This is the sentence
+[cast-burden-migration-scope](#cast-burden-migration-scope) closes on,
+and what P3200's companion paper can now state without qualification.
+
+**`flatten_apK`: the value-side hypothesis survives, unchanged, and the
+grade side is what dissolves — confirmed, not merely expected.**
+
+```lean
+theorem flatten_apK (hg : g ⊆ k1) (hg' : g' ⊆ k1) (hh : h ⊆ k2) (hh' : h' ⊆ k2)
+    (hk1 : k1 ⊆ k) (hk2 : k2 ⊆ k)
+    (ff : Comp g h (α → β)) (xx : Comp g' h' α)
+    (hcond : (∃ e he, ff = Graded.err e he) ∨ (∃ f', ff = Graded.ok (Graded.ok f')) ∨
+      (∃ X, xx = Graded.ok X)) :
+    flattenK hk1 hk2 (Comp.apK hg hg' hh hh' ff xx) =
+      apK (Grade.le_refl' k) (Grade.le_refl' k)
+        (flattenK (Grade.le_trans' hg hk1) (Grade.le_trans' hh hk2) ff)
+        (flattenK (Grade.le_trans' hg' hk1) (Grade.le_trans' hh' hk2) xx)
+```
+
+`hcond` is the *identical* three-way disjunction `flatten_ap` needs — "`ff`
+outer-fails, or `ff` succeeds all the way through, or `xx`'s outer layer
+succeeds" — verbatim, not a weakened or re-derived version of it. No
+amount of grade nomination touches it, because it is about which
+*error* a caller sees when `Comp.apK`'s own short-circuit order (outer-`ff`,
+outer-`xx`, inner-`ff`, inner-`xx`) disagrees with flatten-then-`apK`'s
+order (outer-`ff`, inner-`ff` exposed immediately, outer-`xx`) — a fact
+about the two operations' priority, not about which grade anything lands
+in. Both `cast`s the union-graded `flatten_ap` pays (`Comp.grade_reassoc`,
+consuming `join_assoc`+`join_comm`) are simply absent; `hcond` is
+unchanged, word for word.
+
+**The both-fail check this step's brief asked for, made concrete.**
+`Tests/Sufficient.lean`'s `bothFailFF`/`bothFailXX` instantiate exactly
+the excluded shape — `ff : Comp {E.parse} {E.io} (Nat → Nat) := ok (err
+E.io _)` (outer succeeds, inner fails) and `xx : Comp {E.range} {E.parse}
+Nat := err E.range _` (outer fails) — with `ff`'s inner grade and `xx`'s
+outer grade chosen *disjoint* so the two sides render as visibly
+different errors, not merely different proof terms of the same one.
+Flattening the composite first (`Comp.apK` then `flattenK`) reports
+`E.range` (`Comp.apK` never looks past `xx`'s outer failure to notice
+`ff`'s inner one); flattening each piece first (`flattenK` then `apK`)
+reports `E.io` (flattening `ff` alone exposes its inner error
+immediately, and `apK`'s function-error-first priority then favours it).
+The two sides genuinely disagree, at a *common* sufficient grade, exactly
+where `hcond` excludes them from being compared — confirming the
+statement is not vacuous: the theorem is not "two equal expressions with
+the grade machinery stripped off," it is a real claim that holds only on
+`hcond`'s cases and fails outside them, checked, not assumed.
+
 ## morphisms
 
 `Graded/Morphism.lean` answers the question `traverse`'s naturality law
@@ -2155,6 +2308,34 @@ real use for `traverse` that the current model cannot express, which
 would argue for the stronger requirement. Neither exists yet; the `Nat`
 instance is a demonstration, not a use case anyone wants `traverse` on.
 
+**Checked, and still not settled: [sufficient-grade-traverse] did not
+produce case (b).** `Graded/Sufficient.lean`'s `traverseK` is built
+entirely on the concrete `Graded g α`/`Grade Err` carrier
+([carrier](#carrier)), never on `Graded/Obligations.lean`'s abstract `G
+: Type u` `[Pomonoid G]` framework where the `Nat` counter-instance
+lives — the two layers of this codebase (the sufficient-grade migration,
+and the generic obligations hierarchy) never meet. So `traverseK`'s own
+headline finding (no `foldGrade`, no idempotence citation anywhere,
+[traverse](#traverse)'s sufficient-grade subsection) is a fact about
+writing `traverse` against a *caller-nominated* grade at the concrete,
+already-canonical `Grade Err` instance — it neither confirms nor refutes
+whether an abstract non-lattice `Pomonoid` could support a `traverse` the
+current model cannot express, because no such abstract grade was ever
+asked to. This is consistent with the weaker reading being adequate (a
+caller-nominated grade seems to need nothing algebraic at all, not even
+at the concrete instance), but "consistent with" is not "the concrete
+case that settles it" — that would need `traverseK`'s recursion pattern
+generalized to run over an arbitrary `[Pomonoid G]` carrier and then
+instantiated at `Nat`, which this leg's declared scope (`Graded/
+Sufficient.lean`, an extension of the concrete layer, not the abstract
+one) does not include and did not attempt. **Remains OPEN**, narrowed
+only by this additional negative check: three sufficient-grade legs
+[sufficient-grade-bind]/[sufficient-grade-applicative]/[sufficient-grade-
+traverse] have now all built exclusively on the concrete carrier, so the
+abstract question is exactly as open as [obligation-layering] left it,
+and answering it would still need a dedicated instance, not a byproduct
+of the migration.
+
 **Log.**
 
 - 2026-09-08 — [grade-obligations] excluded `join_le` from `Pomonoid` to
@@ -2170,6 +2351,12 @@ instance is a demonstration, not a use case anyone wants `traverse` on.
   "must a grade's type promise canonical spelling for `traverse` to
   exist" — narrower, but not settled by the classification alone. See
   `#obligations`'s "the sharpest case" for the evidence.
+- 2026-09-08 — [sufficient-grade-nested] checked whether
+  [sufficient-grade-traverse] had produced the concrete non-lattice-
+  `Pomonoid`-with-working-`traverse` case that would settle option (b):
+  it had not, because the whole sufficient-grade migration builds on the
+  concrete `Grade Err` carrier, never the abstract `Pomonoid` framework
+  `Nat` lives in. Still OPEN.
 
 ### cast-burden-migration-scope
 
@@ -2177,49 +2364,90 @@ instance is a demonstration, not a use case anyone wants `traverse` on.
 cast-free layer: only `bind` and `ap`, or also `traverse`, `flatten`,
 `Comp` and `GradedHom`?
 
-**Status: OPEN**, and deliberately not planned yet.
+**Status: CLOSED.** All five remaining candidates named in the question
+got a sufficient-grade layer ([sufficient-grade-bind],
+[sufficient-grade-applicative], [sufficient-grade-traverse],
+[sufficient-grade-morphism], [sufficient-grade-nested]), and every one of
+them was worth doing on the evidence each leg measured — see the summary
+table below. The one structure never in scope, `Accum`, remains a
+separate, still-open question (its own row in the table says why).
 
-**Why it is not planned yet.** A brief for the remaining four structures
-written now would be guesswork, and this project already paid for exactly
-that once: [compose-flatten]'s brief named the right structure in its
-first sentence and then set the task against a different one, producing a
-true refutation of a question nobody had asked
-([graded-traversable-composition](#graded-traversable-composition)). The
-brief for this must be written from [sufficient-grade-bind]'s and
-[sufficient-grade-applicative]'s *measurements*, not from the expectation
-that the pattern generalizes.
+**What settled it.** The shape of the fix — two layers and a bridge, not
+a replacement — held across all five legs, with no exception: `bindK`,
+`apK`/`Comp.apK`, `traverseK`, `GradedHomK`, `flattenK`/`traverseCompK`
+each coexist with their union-graded counterpart, recovered from it at a
+computed grade by a `rfl`-or-near-`rfl` bridge
+(`bind_eq_bindK`/`ap_eq_apK`/`traverse_eq_traverseK`/`flatten_eq_flattenK`,
+all tagged `/-- BRIDGE -/`, plus `GradedHom.gmap_mono`'s narrower,
+one-directional structure bridge). No existing union-graded theorem
+changed; `Graded/Sufficient.lean` is purely additive, 57 theorems across
+five legs, and not one of their *statements* carries a `cast` — the
+entire sufficient-grade layer is cast-free, not merely "mostly."
 
-**What is already settled.** The shape of the fix is two layers and a
-bridge, not a replacement, because the casts faithfully record that the
-C++ `bind` computes the union grade
-([cpp-counterpart](#cpp-counterpart)). Verified before planning:
-`bind x f = bindK (le_join_left g h) (le_join_right g h) x f` closes by
-`rfl` in both constructor cases, so the layers coexist definitionally and
-no existing theorem has to change. The three monad laws state with no
-`cast` at all in the sufficient-grade form.
+**The threaded `⊆` obligations stayed free at every call site, across all
+five legs, confirming the standard the question set.**
+`bindK_irrel`/`traverseK_irrel`/`traverseCompK_irrel` (and the
+analogous fact for `apK`/`Comp.apK`, `Grade`'s `⊆` being a `Prop`
+throughout) are each `rfl`: which proof of an inclusion justifies a call
+does not matter, so nothing later has to track which one was used, and at
+a concrete grade every inclusion closes by `by decide`. No leg found a
+case where this broke down.
 
-**The measured burden, as of the integration review.** 39 of 146 theorems
-carry a `cast` in their statement (26%). By module: `Monad` 7/8,
-`Accum` 7/16, `ComposeApp` 6/13, `Morphism` 5/15, `Applicative` 5/11,
-`Compose` 4/8, `Traverse` 2/12, `Carrier` 2/5, `Widen` 1/6, and
-`Ungraded` **0/16** — at one fixed grade they vanish, which is what shows
-the burden is a grade-arithmetic cost rather than an inherent one.
+**The one finding this scope question was really watching for, confirmed
+at the very end.** `ap_flip` needs `Grade.join_comm` by construction
+(comparing `join g h` against `join h g`); [sufficient-grade-applicative]
+found `apK_flip` needs no property at all. This leg found the same is
+true one structure further in: `flatten_comm`'s analogue is not merely
+cast-free, it is `rfl` with no hypothesis, and `Comp.grade_reassoc` —
+the *last* commutativity citation sitting in an operational position
+(consumed by `flatten_ap`, a theorem about what two carrier-level
+operations compute, not merely a grade-spelling claim) — has **no
+analogue at all**, because `flatten_apK` never produces a `cast` for it
+to serve. **The sufficient-grade layer contains zero operational
+citations of `Grade.join_comm`.** Commutativity, on this evidence, was
+never a requirement of any operation in this model — only a cost of
+*computing a grade exactly as one canonical union* and then having to
+reconcile two different expressions for it. See
+[compose](#compose)'s sufficient-grade subsection for the derivation.
 
-**What would decide it.** Whether the threaded `g ⊆ k` obligations stay
-free at call sites. They are proof-irrelevant, so they should; if they do
-not, the sufficient-grade layer trades casts in statements for proof
-arguments at every use and is not worth extending. `GradedHom` is the
-sharpest case: its *fields* are cast-quantified, so it is either the
-biggest win or the place the design breaks.
+**The one place the value side did *not* dissolve, and should not have.**
+`flatten_apK` still carries the identical three-way disjunctive
+hypothesis `flatten_ap` needed — verbatim, not weakened or re-derived —
+because it is a claim about which *error a caller sees*, never about a
+grade. Checked, not assumed: `Tests/Sufficient.lean` constructs the
+excluded case concretely and confirms the two sides still render
+different errors. A law that had become unconditional here would have
+been the worst result in the run, not the best; it did not.
 
-**A finding to watch for, which would change more than the casts.**
-`ap_flip` needs `join_comm` by construction, comparing `join g h` against
-`join h g`. At a common `k` there is nothing to compare. If its analogue
-needs no commutativity, then commutativity was a cost of computing the
-grade *exactly* rather than a requirement of the applicative — which
-revises [grade-obligations]' layering, where commutativity is currently
-attributed to order-independence, and revises what P3200 must promise
-about `error_set`.
+**Summary: every structure in the model, cast-in-statement count before
+and after, and whether the sufficient-grade version is a strict
+improvement or a trade.** "Before" is the union-graded module's own count
+(unchanged — no operational module was edited); "after" is the count in
+the corresponding sufficient-grade laws, where one was built. `Graded/
+Sufficient.lean` holds 57 theorems in total, **0** with a `cast` in their
+statement.
+
+| structure | module (before) | casts before | sufficient-grade layer | casts after | strict improvement or trade |
+|---|---|---|---|---|---|
+| `bind` | `Monad` | 7/8 | `bindK` (3 laws + reduction lemmas + bridge) | 0 | **strict improvement** — unit/assoc replaced by order (`bindK_irrel`-free) |
+| `ap`/`map2`/`apFlipped` | `Applicative` | 5/11 | `apK`/`map2K`/`apFlippedK` (4 laws + `apK_flip` + bridge) | 0 | **strict improvement** — `apK_flip` needs *no property*, not merely no cast |
+| `Comp.ap` (applicative half) | `ComposeApp` | 6/13 (shared row, see below) | `Comp.apK` (+ `Comp.apK_interchange`) | 0 | **strict improvement** — `Comp.ap_interchange` alone carried 6 casts, the single largest per-theorem reduction in the model |
+| `traverse` | `Traverse` | 2/12 | `traverseK` (9 laws + bridge) | 0 | **strict improvement, sharpest case** — `foldGrade`/`foldGrade_cons_ne_nil` have *no analogue at all*: an entire proof obligation vanishes, not merely its cast |
+| `flatten`/`swap` | `Compose` | 4/8 | `flattenK` (9 laws + bridge, this leg) | 0 | **strict improvement, sharpest case** — `flatten_comm`'s analogue is `rfl` with no hypothesis at all, not merely cast-free |
+| `Comp`/`traverseComp` (composition half) | `ComposeApp` | (see `Comp.ap` row; `traverseComp_eq`/`flatten_ap`/`Comp.grade_reassoc` add 2 more casts) | `traverseCompK`/`traverseCompK_eq`/`flatten_apK` (this leg) | 0 | **strict improvement, with a caveat** — `Comp.grade_reassoc` has no analogue (unnecessary); `flatten_apK`'s three-way value hypothesis is carried over **unchanged**, since it is not a grade fact — the caller pays the same reasoning as before, just no cast |
+| `GradedHom` | `Morphism` | 5/15 (theorem statements); **field type also cast-quantified** (`hom_bind`'s own signature mentions `cast (gmap_join g h)`) | `GradedHomK` (`gmap_mono` alone, `renameHomK`, naturality laws) | 0, including in the field types | **strict improvement, different kind** — removes a cast from a *type's* well-formedness, not from a proof obligation; the caller-supplied `⊆` proofs are the same shape `bindK`/`apK` already needed, not a new cost |
+| `widen`/`cast` (`Carrier`/`Widen`) | `Carrier` 2/5, `Widen` 1/6 | — | none attempted | — | **not applicable** — these are the foundation the sufficient-grade layer is built *from* (`widen` already is the order-based, non-computing operation); there is nothing to migrate |
+| `Accum` (accumulating applicative) | `Accum` | 7/16 | none attempted | — | **out of scope, still open** — never named as a candidate; [applicative-accumulation] already found `Accum` needs its own carrier, so "sufficient grade" may not even be the same kind of question there |
+| `Ungraded` (fixed-grade comparison) | `Ungraded` | 0/16 | n/a — already cast-free at a fixed grade | — | **baseline**, not migrated: shows the cast burden is a grade-*arithmetic* cost, confirmed rather than removed |
+
+**What remains open, named explicitly rather than left implicit.**
+Whether `Accum`'s accumulating applicative admits a sufficient-grade
+layer at all is not answered here — it needs its own carrier
+([applicative-from-monad]'s "Accum" subsection), so extending this
+migration to it is a different-shaped question, not a fourth
+mechanical repetition of this one. If it is ever asked, the brief should
+be written from this table's measurements, the same discipline this
+question's own log applied to itself.
 
 **Log.**
 
@@ -2231,6 +2459,29 @@ about `error_set`.
   "replace `bind`" reading as modelling a design P3200 does not have.
   [sufficient-grade-bind] and [sufficient-grade-applicative] planned; the
   remaining four structures left to this question.
+- 2026-09-08 — [sufficient-grade-bind] and [sufficient-grade-applicative]
+  confirmed the layer strictly cheaper for `bind`/`ap`/`Comp.ap`, and
+  found `apK_flip` needs no commutativity at all, revising
+  [grade-obligations]'s account of where commutativity comes from.
+- 2026-09-08 — [obligation-layering] classified every `join_comm`/
+  `join_idem` consumer in the union-graded model and found none
+  operational — the classification [cast-burden-migration-scope] needed
+  before the remaining legs could be evaluated against it.
+- 2026-09-08 — [sufficient-grade-traverse] found the fold itself has no
+  analogue: `traverseK` needs no `foldGrade`/`join_idem` anywhere, the
+  sharpest reduction of the whole migration up to that point.
+- 2026-09-08 — [sufficient-grade-morphism] found `GradedHomK`'s cast
+  removal is a different *kind* from the others (a field type's own
+  well-formedness, not a proof obligation), and that the `GradedHom` →
+  `GradedHomK` bridge is genuinely one-directional and narrower than a
+  full structure map, unlike every operation-level bridge.
+- 2026-09-08 — [sufficient-grade-nested] (this leg) closed the question:
+  `flattenK_comm` needs no hypothesis and is `rfl`; `Comp.grade_reassoc`
+  has no analogue; the sufficient-grade layer's operational commutativity
+  citations are now zero; `flatten_apK`'s value-side hypothesis survives
+  unchanged, checked against a concrete both-fail case in
+  `Tests/Sufficient.lean` to confirm the statement is not vacuous. Wrote
+  the summary table above and closed the question.
 
 ## laws-inventory
 
