@@ -121,3 +121,13 @@ them to is a cost of one particular way of writing the return type,
 not a law of the operation.
 
 --SMD
+
+* Correction
+
+[Later: the "six casts" figure in this letter is wrong. =Comp.ap_interchange=
+carries two =Comp.castGH= applications in its statement, which expand to four
+underlying casts. The number came from counting every occurrence of the string
+in the theorem, proof included, and it propagated from an earlier review into
+several documents before anyone recounted. The point the letter makes is
+unaffected: whatever the number, the analogue carries none.]
+

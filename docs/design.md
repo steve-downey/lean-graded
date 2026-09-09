@@ -367,7 +367,7 @@ by [sufficient-grade-applicative]** (proof-line counts by
 sufficient-grade layer was strictly cheaper for `bind`: no casts, shorter
 proofs, and the threaded obligations are free by `bindK_irrel`.
 `Graded.Monad` had the worst cast ratio of any module (7/8); the
-applicative layer's worst offenders (`Comp.ap_interchange` at six casts
+applicative layer's worst offenders (`Comp.ap_interchange` at two `Comp.castGH` applications, four underlying casts
 in one statement, `GradedHom`'s cast-quantified fields) have more casts
 to remove, not fewer, and `⊆`-proof-irrelevance is a generic fact about
 `Finset`, not something specific to `bind` that might fail to
@@ -557,7 +557,7 @@ componentwise joins `Comp.ap` computes. `Comp.apK` is built through
 `map2K`/`apK` exactly as `Comp.ap` is built through
 `Graded.map2`/`Graded.ap`: outer combine at `k1`, with the *inner* `apK`
 (at `k2`) threaded through as the combining function. **The headline
-measurement**: `Comp.ap_interchange` carries six casts in its statement
+measurement**: `Comp.ap_interchange` carries two `Comp.castGH` applications in its statement, four underlying `Graded.cast`s
 (two `Comp.castGH` calls, each bundling two `Graded.cast`s, driven by
 `Grade.join_bot`/`Grade.bot_join` in each of the two components
 separately); `Comp.apK_interchange`, at a common sufficient grade pair,
@@ -1968,7 +1968,7 @@ expressions denote the same grade, or that a grade equals some fold.
 | `join_le` | `Obligations.lean` | idempotent, order | grade-boundedness — see below | never mentions a carrier value, `bind`, `ap`, `traverse`, `widen`, or `rename`; a `Pomonoid` inequality, not an equality of two spellings either |
 | `foldG_le` | `Obligations.lean` | order (mechanically — see below) | grade-boundedness, the sharpest case — see below | |
 
-**No operational counterexample.** Every one of the fourteen non-defining
+**No operational counterexample.** Every one of the fifteen non-defining
 rows is a claim about the grade itself — that two ways of writing it
 denote the same thing, that it equals some fold, or (the last two rows)
 that it is bounded by something. None is a claim about what `bind`,
@@ -2431,8 +2431,8 @@ statement.
 |---|---|---|---|---|---|
 | `bind` | `Monad` | 7/8 | `bindK` (3 laws + reduction lemmas + bridge) | 0 | **strict improvement** — unit/assoc replaced by order (`bindK_irrel`-free) |
 | `ap`/`map2`/`apFlipped` | `Applicative` | 5/11 | `apK`/`map2K`/`apFlippedK` (4 laws + `apK_flip` + bridge) | 0 | **strict improvement** — `apK_flip` needs *no property*, not merely no cast |
-| `Comp.ap` (applicative half) | `ComposeApp` | 6/13 (shared row, see below) | `Comp.apK` (+ `Comp.apK_interchange`) | 0 | **strict improvement** — `Comp.ap_interchange` alone carried 6 casts, the single largest per-theorem reduction in the model |
-| `traverse` | `Traverse` | 2/12 | `traverseK` (9 laws + bridge) | 0 | **strict improvement, sharpest case** — `foldGrade`/`foldGrade_cons_ne_nil` have *no analogue at all*: an entire proof obligation vanishes, not merely its cast |
+| `Comp.ap` (applicative half) | `ComposeApp` | 6/13 (shared row, see below) | `Comp.apK` (+ `Comp.apK_interchange`) | 0 | **strict improvement** — `Comp.ap_interchange` alone carried two `castGH` applications (four underlying casts), the single largest per-theorem reduction in the model |
+| `traverse` | `Traverse` | 1/12 | `traverseK` (9 laws + bridge) | 0 | **strict improvement, sharpest case** — `foldGrade`/`foldGrade_cons_ne_nil` have *no analogue at all*: an entire proof obligation vanishes, not merely its cast |
 | `flatten`/`swap` | `Compose` | 4/8 | `flattenK` (9 laws + bridge, this leg) | 0 | **strict improvement, sharpest case** — `flatten_comm`'s analogue is `rfl` with no hypothesis at all, not merely cast-free |
 | `Comp`/`traverseComp` (composition half) | `ComposeApp` | (see `Comp.ap` row; `traverseComp_eq`/`flatten_ap`/`Comp.grade_reassoc` add 2 more casts) | `traverseCompK`/`traverseCompK_eq`/`flatten_apK` (this leg) | 0 | **strict improvement, with a caveat** — `Comp.grade_reassoc` has no analogue (unnecessary); `flatten_apK`'s three-way value hypothesis is carried over **unchanged**, since it is not a grade fact — the caller pays the same reasoning as before, just no cast |
 | `GradedHom` | `Morphism` | 5/15 (theorem statements); **field type also cast-quantified** (`hom_bind`'s own signature mentions `cast (gmap_join g h)`) | `GradedHomK` (`gmap_mono` alone, `renameHomK`, naturality laws) | 0, including in the field types | **strict improvement, different kind** — removes a cast from a *type's* well-formedness, not from a proof obligation; the caller-supplied `⊆` proofs are the same shape `bindK`/`apK` already needed, not a new cost |
@@ -2485,7 +2485,7 @@ question's own log applied to itself.
 
 ## laws-inventory
 
-The table: [`docs/laws.md`](laws.md) (146 theorems, generated from
+The table: [`docs/laws.md`](laws.md) (203 theorems, generated from
 `Graded/*.lean` by `scripts/laws-inventory.py`; the same data as
 [`docs/laws.json`](laws.json)). `make laws` regenerates and diffs it, so it
 cannot drift from the proofs; run it again after touching any
@@ -2669,7 +2669,7 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
 - [#grade](#grade) — no Mathlib lattice instance is *declared* for
   `Grade`; note the correction there, since the original rationale
   claimed a protection an `abbrev` cannot give.
-- [#monad](#cast-burden-migration-scope) — **OPEN question**
+- [#monad](#cast-burden-migration-scope) — **CLOSED**
   `cast-burden-migration-scope`: how much of the model gains a cast-free
   sufficient-grade layer. Deliberately unplanned until the first two
   steps' measurements exist.
