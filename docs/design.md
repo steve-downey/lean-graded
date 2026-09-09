@@ -1328,12 +1328,22 @@ and `rename_map2` give the same fact for the applicative operations,
 proved directly from `ap`'s reduction lemmas rather than by unfolding
 through `bind`.
 
-**`GradedHom`: the general definition.** A graded monad morphism is a
-join-semilattice homomorphism on grades (`gmap_join`, `gmap_bot`)
-together with a carrier-level family, natural at every grade and payload
-type, that commutes with `bind`/`pure` up to that homomorphism
-(`hom_bind`, `hom_pure`). `renameHom` packages `Grade.rename`/`rename` as
-the one instance the C++ design actually uses.
+**`GradedHom`: the union-graded definition — not, it turns out, the
+operational obligation.** A graded monad morphism at the union-graded
+layer is a join-semilattice homomorphism on grades (`gmap_join`,
+`gmap_bot`) together with a carrier-level family, natural at every grade
+and payload type, that commutes with `bind`/`pure` up to that
+homomorphism (`hom_bind`, `hom_pure`). `renameHom` packages
+`Grade.rename`/`rename` as the one instance the C++ design actually uses.
+`Grade.rename`'s homomorphism facts (`rename_join`, `rename_bot`) remain
+true and are still what `renameHom` is built from — but
+[sufficient-grade-morphism](../tmp/plan/step-sufficient-grade-morphism.md)
+(below) found that a morphism between graded designs does not *need* a
+homomorphism to be well-typed, only a monotone map. Read `GradedHom` as
+one sufficient instance of the weaker obligation, not as the definition
+of what a grade morphism must be — that account is revised in "The
+sufficient-grade layer" below, and the two do not stand as equals: only
+one is what `hom_bindK`'s type forces.
 
 > **Provisional.** `GradedHom` asks nothing of `gmap`/`hom` beyond the
 > above — no injectivity, no surjectivity. Every law in this file,
@@ -1380,6 +1390,106 @@ definitionally) together came to about a dozen lines, so both are in
 {E.parse, E.range} = {E'.bad}` computes via `#guard`, and renaming
 `validate`'s three outcomes collapses both failure kinds to the one
 target error while leaving the success case untouched.
+
+### The sufficient-grade layer (added 2026-09-08)
+
+Two prior steps ([sufficient-grade-bind], [sufficient-grade-traverse])
+each predicted this leg would need an amendment, because `GradedHom`'s
+casts sit in a *record's field types*, not a theorem statement:
+`hom_bind`'s own type mentions `cast (gmap_join g h)`, so the cast is
+load-bearing for the record to typecheck at all. Both predictions were
+wrong. `Graded/Sufficient.lean` states a second structure with no cast
+anywhere:
+
+```lean
+structure GradedHomK (Err Err' : Type u) [DecidableEq Err] [DecidableEq Err'] where
+  gmap : Grade Err → Grade Err'
+  gmap_mono : ∀ {g h : Grade Err}, g ⊆ h → gmap g ⊆ gmap h
+  hom : ∀ {g : Grade Err} {α : Type v}, Graded g α → Graded (gmap g) α
+  hom_bindK : ∀ {g h k : Grade Err} {α β : Type v} (hg : g ⊆ k) (hh : h ⊆ k)
+      (x : Graded g α) (f : α → Graded h β),
+      hom (bindK hg hh x f) = bindK (gmap_mono hg) (gmap_mono hh) (hom x) (fun a => hom (f a))
+  hom_pureK : ∀ {k : Grade Err} {α : Type v} (a : α),
+      hom (pureK a : Graded k α) = pureK a
+```
+
+`gmap_join`/`gmap_bot` — the *homomorphism* obligations — are gone as
+fields, replaced by the single monotonicity obligation `gmap_mono`. Both
+sides of `hom_bindK` land in `Graded (gmap k) β` for any `k` merely known
+to contain `g` and `h`, so there is nothing left to re-type: this is the
+same order-in, algebra-out pattern `bindK`, `apK` and `traverseK` each
+found one level down ([sufficient-grade-bind], [sufficient-grade-applicative],
+[sufficient-grade-traverse]), found one level up — at the level of what a
+*morphism between graded designs* must satisfy, which P3200 does not
+currently state at all.
+
+**`renameHomK`** packages the *same* underlying `gmap`/`hom` functions
+`renameHom` does (`Grade.rename φ` and `rename φ`) — only the obligation
+attached to `gmap` differs. `gmap_mono := Grade.rename_mono φ` and
+`hom_pureK := rfl` both check without incident (`pureK a` is `fromEmpty
+a` regardless of grade, and renaming an `ok` is `ok` regardless of grade,
+so both sides reduce to `Graded.ok a` before any grade is inspected).
+`hom_bindK`'s `ok` leaf needs `bindK_ok` to expose `widen hh (f a)`
+*before* `rename_widen` can fire — a case of the same shape earlier legs
+called out: a lambda binder in the field's own statement (`fun a => hom
+(f a)`) means the rewrite has to unfold `bindK` first, not case on `f a`
+first.
+
+**Naturality against `apK`/`map2K`/`traverseK`, cast-free.** `rename_apK`,
+`rename_map2K` and `traverseK_rename` are the sufficient-grade analogues
+of `rename_ap`/`rename_map2`/`traverse_rename`, needing only
+`Grade.rename_mono` — never `Grade.rename_join` — because `apK`/`traverseK`
+never compute a join for `rename` to distribute over. **`rename_cast` has
+no analogue here, and none is missing**: it exists at the union-graded
+layer only because that layer's own laws produce casts for `rename` to
+commute with; the sufficient-grade layer never produces one in the first
+place.
+
+**The bridge is one-directional, and even its one direction is
+narrower than it looks.** Bridging two *structures* is not the same as
+bridging two *operations* (`bind_eq_bindK`, `ap_eq_apK`,
+`traverse_eq_traverseK`, all `rfl` at a shared instantiation).
+`GradedHom.gmap_mono` derives `GradedHomK`'s `gmap_mono` obligation from
+`GradedHom`'s `gmap_join` field (`Grade.join_eq_right_of_le` collapses the
+homomorphism equation, `Grade.le_join_left` recovers the inclusion) — that
+is the only piece that transfers. There is no converse (a monotone `gmap`
+need not preserve `join`/`bot`: see the counter-instance below), which
+the step predicted. What is *not* obvious ahead of time: even the forward
+direction stops at `gmap_mono` alone. Lifting a full `GradedHom` into a
+full `GradedHomK` — reusing `H.hom` and filling in `hom_bindK` from
+`H.hom_bind` — would need `H.hom` to commute with `widen` at an arbitrary
+sufficient grade, and `widen` ([carrier](#carrier)) is a primitive of
+`Graded`, not something `bind`/`pure` define; `GradedHom`'s two fields say
+nothing about it. `renameHomK` only exists as a full structure because
+`rename` is a *concrete* function that happens to satisfy `rename_widen`
+as a separately proved fact — an abstract `GradedHom` carries no such
+guarantee.
+
+**The counter-instance: `constHomK`.** A monotone `gmap` that is not a
+join-semilattice homomorphism, with a working `hom` — the constant map
+`fun _ => g₀` to a fixed nonempty grade `g₀`, canonicalizing every `err`
+to one fixed witness `e₀ ∈ g₀` regardless of the actual error. It is
+trivially monotone (`g₀ ⊆ g₀`, true regardless of the input grades) and
+satisfies `gmap_join` unconditionally (`Grade.join g₀ g₀ = g₀` by
+idempotence — both sides are the literal grade `g₀`), but
+`constHomK_not_gmap_bot` refutes `gmap_bot`: `gmap Grade.bot = g₀ ≠
+Grade.bot`. So `constHomK`'s `gmap` cannot be completed into a `GradedHom`
+at all, while every `GradedHomK` field holds — the concrete witness that
+the weaker obligation genuinely admits more than the stronger one, in the
+way `Nat` did for [grade-obligations](#obligations). `hom_bindK` and
+`hom_pureK` hold because `constHom` throws away enough information (every
+`err` collapses to the same `e₀`) that neither side of either law has
+anything left to distinguish.
+
+**Revised conclusion.** [graded-morphism] established that `Finset.image`
+preserves union and ∅ unconditionally, for any `φ`, and concluded that is
+what a grade morphism must be. It does preserve them — `rename_join` and
+`rename_bot` are still true and still tagged `PROPERTY: homomorphism`.
+The *operational* obligation does not require it: `hom_bindK`'s type
+forces only monotonicity, and `constHomK` shows the gap is not vacuous.
+`GradedHom` is the union-graded design's own morphism (correct for what
+`bind`'s computed union needs); `GradedHomK` is what a morphism between
+graded designs must satisfy in general.
 
 ## representation
 

@@ -1,6 +1,7 @@
 import Graded.Monad
 import Graded.Applicative
 import Graded.ComposeApp
+import Graded.Morphism
 
 /-! The sufficient-grade layer, beside the union-graded one in
     `Graded.Monad`, not in place of it. `Graded.bind` computes the result
@@ -553,5 +554,221 @@ theorem Comp.apK_interchange (hg : g ⊆ k1) (hh : h ⊆ k2) (u : Comp g h (α �
     | err e he => rfl
 
 end CompK
+
+-- ---------------------------------------------------------------------
+-- `GradedHomK`: grade morphisms at a sufficient grade. `GradedHom`
+-- ([morphisms](../docs/design.md#morphisms)) packages a grade map that is
+-- a join-semilattice homomorphism (`gmap_join`, `gmap_bot`), because its
+-- `hom_bind` law is stated against `Graded.bind`'s *computed* union grade
+-- and needs a cast (`gmap_join g h`) to make both sides of `hom_bind`
+-- land in the same type. At a caller-chosen sufficient grade `k` there is
+-- nothing to compute: `hom_bindK`'s two sides both land in `Graded (gmap
+-- k) β` for any `k` merely known to contain `g` and `h`, so the
+-- obligation that makes the record typecheck at all drops from
+-- "join-semilattice homomorphism" to plain monotonicity (`gmap_mono`) —
+-- the same order-in, algebra-out pattern `bindK`, `apK` and `traverseK`
+-- each found one level down, now found one level up: at the level of what
+-- a *morphism between graded designs* must satisfy, which P3200 does not
+-- currently state at all.
+
+section Morphism
+
+variable {Err' : Type u} [DecidableEq Err']
+
+/-- A graded monad morphism at a sufficient grade: a *monotone* map on
+    grades (`gmap_mono`), together with a carrier-level family, natural at
+    every grade and payload type, that commutes with `bindK`/`pureK`
+    outright — no cast anywhere. `gmap_mono` sends `hg : g ⊆ k` and
+    `hh : h ⊆ k` to proofs of `gmap g ⊆ gmap k` and `gmap h ⊆ gmap k`, so
+    both sides of `hom_bindK` land in `Graded (gmap k) β` directly: there
+    is no second expression for that grade anywhere for a homomorphism law
+    to be needed to identify, the same fact `bindK_irrel`/`traverseK_irrel`
+    already rest on. This *replaces* `GradedHom`'s `gmap_join`/`gmap_bot`
+    fields, it does not sit beside them — a `GradedHomK` is not a
+    `GradedHom` with extra fields, it is a different, strictly weaker
+    obligation on the same shape of data. -/
+structure GradedHomK (Err Err' : Type u) [DecidableEq Err] [DecidableEq Err'] where
+  gmap : Grade Err → Grade Err'
+  gmap_mono : ∀ {g h : Grade Err}, g ⊆ h → gmap g ⊆ gmap h
+  hom : ∀ {g : Grade Err} {α : Type v}, Graded g α → Graded (gmap g) α
+  hom_bindK : ∀ {g h k : Grade Err} {α β : Type v} (hg : g ⊆ k) (hh : h ⊆ k)
+      (x : Graded g α) (f : α → Graded h β),
+      hom (bindK hg hh x f) = bindK (gmap_mono hg) (gmap_mono hh) (hom x) (fun a => hom (f a))
+  hom_pureK : ∀ {k : Grade Err} {α : Type v} (a : α),
+      hom (pureK a : Graded k α) = pureK a
+
+/-- The one instance the C++ design uses, at the sufficient-grade layer:
+    renaming, with the *same* underlying `gmap`/`hom` functions
+    `renameHom` packages at the union-graded layer — only the obligation
+    each structure asks of them differs. `hom_pureK` is `rfl`: `pureK a`
+    is `fromEmpty a` regardless of grade, and `rename` of an `ok` is `ok`
+    regardless of grade, so both sides reduce to `Graded.ok a` before any
+    grade is even inspected. `hom_bindK`'s `ok` leaf needs `bindK_ok` to
+    turn `bindK hg hh (Graded.ok a) f` into `widen hh (f a)` *before*
+    `rename_widen` can fire — `rename_widen` talks about `rename φ (widen
+    _ _)`, not about the unreduced `bindK`, so the rewrite has to happen in
+    that order. -/
+def renameHomK (φ : Err → Err') : GradedHomK Err Err' where
+  gmap := Grade.rename φ
+  gmap_mono := Grade.rename_mono φ
+  hom := rename φ
+  hom_bindK := by
+    intro g h k α β hg hh x f
+    cases x with
+    | ok a =>
+        rw [bindK_ok, rename_ok, bindK_ok, rename_widen]
+    | err e he =>
+        simp only [bindK_err, rename_err]
+  hom_pureK := fun _ => rfl
+
+-- ---------------------------------------------------------------------
+-- Naturality of `rename` against `apK`/`map2K`/`traverseK`, cast-free —
+-- the sufficient-grade analogues of `rename_ap`/`rename_map2`/
+-- `traverse_rename`, one level up. Unlike those three, which each need
+-- `Grade.rename_join` to transport a *computed* union grade, `rename_apK`
+-- needs only `Grade.rename_mono`: `apK`'s target grade `k` is a bound the
+-- caller supplies, not a join `rename` has to distribute over, so there is
+-- no equation between two different expressions for the same grade
+-- anywhere in these three statements.
+--
+-- `rename_cast` ([morphisms](../docs/design.md#morphisms)) has **no
+-- analogue here, and none is missing** — it exists at the union-graded
+-- layer only because that layer's own laws produce `cast`s for `rename`
+-- to commute with; the sufficient-grade layer never produces one in the
+-- first place, so there is nothing for a `rename`/`cast` commutation
+-- lemma to be stated about.
+
+theorem rename_apK (φ : Err → Err') (hg : g ⊆ k) (hh : h ⊆ k)
+    (f : Graded g (α → β)) (x : Graded h α) :
+    rename φ (apK hg hh f x) =
+      apK (Grade.rename_mono φ hg) (Grade.rename_mono φ hh) (rename φ f) (rename φ x) := by
+  cases f with
+  | ok f' =>
+      cases x with
+      | ok a => rw [apK_ok_ok, rename_ok, rename_ok, rename_ok, apK_ok_ok]
+      | err e he => rw [apK_ok_err, rename_err, rename_ok, rename_err, apK_ok_err]
+  | err e he => rw [apK_err_left, rename_err, rename_err, apK_err_left]
+
+theorem rename_map2K (φ : Err → Err') (hg : g ⊆ k) (hh : h ⊆ k)
+    (kk : α → β → γ) (x : Graded g α) (y : Graded h β) :
+    rename φ (map2K hg hh kk x y) =
+      map2K (Grade.rename_mono φ hg) (Grade.rename_mono φ hh) kk (rename φ x) (rename φ y) := by
+  unfold map2K
+  rw [rename_apK, rename_map]
+
+theorem traverseK_rename (φ : Err → Err') (hg : g ⊆ k) (f : α → Graded g β) (xs : List α) :
+    rename φ (traverseK hg f xs) = traverseK (Grade.rename_mono φ hg) (rename φ ∘ f) xs := by
+  induction xs with
+  | nil => rfl
+  | cons x xs ih =>
+      simp only [traverseK_cons, rename_map2K, Function.comp_apply, ih]
+
+-- ---------------------------------------------------------------------
+-- The bridge between `GradedHom` and `GradedHomK`. Bridging two
+-- *structures* is not the same as bridging two operations
+-- (`bind_eq_bindK`, `ap_eq_apK`): those instantiate one operation's
+-- sufficient grade at the other's computed one and get `rfl`.
+-- `GradedHom`/`GradedHomK` are two different obligations on the same
+-- shape of data, and only one direction goes through.
+--
+-- **Forward: a `GradedHom`'s `gmap` is always monotone.** `gmap_join g h`
+-- says `gmap (Grade.join g h) = Grade.join (gmap g) (gmap h)`; given
+-- `hgh : g ⊆ h`, `Grade.join_eq_right_of_le hgh` collapses the left side
+-- to `gmap h`, and `Grade.le_join_left` on the right recovers `gmap g ⊆
+-- gmap h`. This is genuinely the only piece that transfers: it derives
+-- `GradedHomK`'s `gmap_mono` field from `GradedHom`'s `gmap_join` field,
+-- using nothing about `hom` at all.
+--
+-- **No converse, and no full structure map either — both for the same
+-- reason.** A monotone `gmap` need not preserve `join`/`bot` (the
+-- counter-instance below is exactly such a `gmap`), so `GradedHomK →
+-- GradedHom` is impossible in general, as the step predicted. What is
+-- *not* obvious ahead of time: even the forward direction stops at
+-- `gmap_mono` alone. Lifting a full `GradedHom` into a full `GradedHomK`
+-- (same `gmap`, same `hom`, reusing `H.hom_bind`/`H.hom_pure` to fill in
+-- `hom_bindK`/`hom_pureK`) would need `H.hom` to commute with `widen` at
+-- an arbitrary sufficient grade `k`, not merely at the one exact union
+-- grade `hom_bind` is stated at — and `widen` ([subsumption](../docs/design.md#carrier))
+-- is a primitive of `Graded`, not something `bind`/`pure` define, so
+-- `GradedHom`'s two fields (`hom_bind`, `hom_pure`) say nothing about how
+-- `hom` treats it. `renameHomK` above only exists because `rename`
+-- (a *concrete* function, not an abstract `hom`) happens to satisfy
+-- `rename_widen` as a separately proved fact. So the bridge is not just
+-- one-directional between the two structures; even its one working
+-- direction carries only `gmap`'s obligation, not `hom`'s.
+theorem GradedHom.gmap_mono (H : GradedHom Err Err') {g h : Grade Err} (hgh : g ⊆ h) :
+    H.gmap g ⊆ H.gmap h := by
+  have hj := H.gmap_join g h
+  rw [Grade.join_eq_right_of_le hgh] at hj
+  rw [hj]
+  exact Grade.le_join_left _ _
+
+-- ---------------------------------------------------------------------
+-- The counter-instance: a monotone `gmap` that is not a join-semilattice
+-- homomorphism, with a working `hom` satisfying every `GradedHomK` field —
+-- the concrete witness that the weaker obligation genuinely admits more
+-- than the stronger one, in the way `Nat` did for
+-- [grade-obligations](../docs/design.md#obligations). `constHomK g₀ e₀
+-- he₀` sends *every* grade to the fixed nonempty grade `g₀`, and every
+-- carrier to `ok`/`err e₀` according to its own shape, discarding the
+-- actual error entirely. It is trivially monotone (`gmap g ⊆ gmap h` is
+-- `g₀ ⊆ g₀`, true regardless of `g`, `h`) and it satisfies `gmap_join`
+-- unconditionally (`Grade.join g₀ g₀ = g₀` by idempotence, so both sides
+-- of `gmap_join` are the literal grade `g₀`) — but it refutes `gmap_bot`
+-- whenever `g₀ ≠ Grade.bot`, since `gmap Grade.bot = g₀ ≠ Grade.bot`.
+-- So `constHomK`'s `gmap` cannot be completed into a `GradedHom` at all
+-- ([grade-obligations]'s `Nat` played the same role one layer down: a
+-- concrete inhabitant of the weaker class that refutes a specific field
+-- of the stronger one), while `hom_bindK`/`hom_pureK` hold outright,
+-- because `hom` throws away enough information that neither side of
+-- either law has anything left to distinguish.
+
+section CounterInstance
+
+variable {e₀ : Err'} {g₀ : Grade Err'}
+
+/-- The carrier-level half of the counter-instance: collapse every `ok` to
+    itself and every `err` to the one fixed witness `e₀`, regardless of
+    the source grade or the actual error carried. -/
+def constHom (e₀ : Err') (he₀ : e₀ ∈ g₀) {g : Grade Err} {α : Type v} :
+    Graded g α → Graded g₀ α
+  | .ok a => .ok a
+  | .err _ _ => .err e₀ he₀
+
+/-- The constant-grade morphism: every source grade maps to the fixed
+    `g₀`, and `constHom` is the carrier family. Instantiates every
+    `GradedHomK` field with `rfl`, because `constHom` never inspects `g`,
+    `h`, `k`, or the threaded `⊆` proofs — only whether its argument is
+    `ok` or `err`. -/
+def constHomK (e₀ : Err') (he₀ : e₀ ∈ g₀) : GradedHomK Err Err' where
+  gmap := fun _ => g₀
+  gmap_mono := fun _ => Grade.le_refl' g₀
+  hom := constHom e₀ he₀
+  hom_bindK := by
+    intro g h k α β hg hh x f
+    cases x with
+    | ok a =>
+        cases hfa : f a with
+        | ok b => simp only [bindK_ok, hfa, widen_ok, constHom]
+        | err e he => simp only [bindK_ok, hfa, widen_err, constHom]
+    | err e he => simp only [bindK_err, constHom]
+  hom_pureK := fun _ => rfl
+
+/-- `constHomK`'s `gmap` cannot be completed into a `GradedHom`: it fails
+    the `gmap_bot` field a `GradedHom` would require, whenever the target
+    grade `g₀` is nonempty. This is the refutation half of the
+    counter-instance — `gmap_mono` alone (which `constHomK` does satisfy)
+    is not enough to build a `GradedHom`, confirming the bridge above has
+    no converse. -/
+theorem constHomK_not_gmap_bot (he₀ : e₀ ∈ g₀) :
+    (fun (_ : Grade Err) => g₀) (Grade.bot : Grade Err) ≠ (Grade.bot : Grade Err') := by
+  intro h
+  have h' : g₀ = (Grade.bot : Grade Err') := h
+  rw [h'] at he₀
+  exact absurd he₀ (Finset.notMem_empty e₀)
+
+end CounterInstance
+
+end Morphism
 
 end Graded
