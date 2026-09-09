@@ -161,7 +161,7 @@ was established, because that fact is compile-time and already erased.
 > [#monad](#monad) for the detail. Standing at the time, revisited below.
 >
 > **Integration review, 2026-09-08:** the burden had outgrown this
-> verdict once the composite layers were counted — 39 of 146 theorems
+> verdict once the composite layers were counted: 38 of 146 theorems
 > (26%) carry a `cast`, `Comp.ap_interchange` carries six in one
 > statement, and `GradedHom`'s *fields* are cast-quantified.
 >
