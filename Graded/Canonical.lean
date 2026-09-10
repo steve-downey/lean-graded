@@ -19,6 +19,20 @@ import Mathlib.Data.Finset.Dedup
     it adds is a proof that a second, order-dependent spelling of the same
     data is interchangeable with the first, connected by `canonEquiv`.
 
+    **Where this module's evidence stops.** Everything below is a fact
+    about two Lean representations of one grade. None of it is evidence
+    about C++ types. `canonEquiv` is a bijection, not an alias identity;
+    `canon_perm` says two permutations *sort to the same representative*,
+    not that a compiler gives `error_set<A,B>` and `error_set<B,A>` one
+    `type_info`; and nothing here touches mangled names, ABI, or whether
+    two translation units agree on the normal form. Those are
+    `static_assert` and toolchain obligations, listed in
+    `docs/probe-harness.md`, and they are owned by the C++ implementation
+    — the division is deliberate: Lean owns the normal-form mathematics,
+    C++ owns type identity. Read a sentence here that mentions
+    `error_set` as naming the C++ construct being modelled, never as a
+    claim proved about it.
+
     **The finding this module exists to record** — call it
     `canon_requires_linear_order`; it is this paragraph, not a theorem,
     since there is no false statement to refute, only a hypothesis to
@@ -93,11 +107,22 @@ end Canon
 
 variable {Err : Type u} [LinearOrder Err]
 
-/-- The Lean statement of "`error_set<A,B>` and `error_set<B,A>` are the
-    same type": the quotient `Grade Err` (`Finset`) and its sorted
-    canonical representative `Canon Err` are in bijection, via sorting
-    (`Canon.ofFinset`) one way and forgetting the order
-    (`Canon.toFinset`) the other. -/
+/-- **A representation theorem, not C++ type identity.** The quotient
+    `Grade Err` (`Finset`) and its sorted canonical representative
+    `Canon Err` are in bijection, via sorting (`Canon.ofFinset`) one way
+    and forgetting the order (`Canon.toFinset`) the other: two Lean
+    spellings of one grade carry exactly the same data, and
+    `[LinearOrder Err]` is the extra datum the sorted spelling needs and
+    the quotient does not.
+
+    What it is *not*: the statement that `error_set<A,B>` and
+    `error_set<B,A>` are the same C++ type. Nothing here proves alias
+    identity, that any particular metaprogram computes this normal form,
+    mangling stability, or agreement across translation units — those are
+    `static_assert` obligations on the C++ side
+    (`docs/probe-harness.md`), and this model is silent on every one of
+    them. What Lean supplies is the mathematics such a normal form has to
+    implement, not evidence that a compiler implements it. -/
 def canonEquiv : Grade Err ≃ Canon Err where
   toFun := Canon.ofFinset
   invFun := Canon.toFinset
@@ -126,7 +151,9 @@ def union (c c' : Canon Err) : Canon Err := ofFinset (toFinset c ∪ toFinset c'
 def ofList (l : List Err) : Canon Err :=
   ofFinset (joinAll (l.map (fun e => ({e} : Grade Err))))
 
-/-- **The direct statement of "`error_set<A,B>` is `error_set<B,A>`"**:
+/-- **The normal-form fact under "`error_set<A,B>` is `error_set<B,A>`"**
+    — the mathematics, not the C++ type identity, which is a
+    `static_assert` this theorem does not discharge:
     two permutations of the same list of error kinds sort to the same
     canonical representative. Cites `joinAll_perm`
     (`Graded.Tuple`, [traverse-tuple]) rather than reproving

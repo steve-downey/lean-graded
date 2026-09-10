@@ -42,7 +42,12 @@ The grade is `error_set<Es...>`: a set of error *types*, ordered by
 inclusion, joined by union; ∅ is the unit. It is a nominal type, not a bare
 pack. Canonicalization is *type-level identity*: `error_set<A,B>` and
 `error_set<B,A>` are the same type, via a public alias delegating to a
-sorted detail carrier. An instance holds **one** error value, whose type is
+sorted detail carrier. That sentence states what the **C++ design
+intends**; it is not something this model proves. What Lean proves is the
+normal-form mathematics beneath it — see
+[representation](#representation), and its boundary note for the list of
+C++ claims (alias identity, mangling, cross-TU agreement) that remain
+`static_assert` obligations. An instance holds **one** error value, whose type is
 in the set; value equality is variant-style.
 
 The carrier at grade `Es` is `expected<T, error_set<Es...>>`; at grade ∅ it
@@ -716,12 +721,28 @@ and `foldGrade_cons_ne_nil`. That choice is itself the finding: the
 *definition* of `traverse` needs only the order — `foldGrade_le` bounds
 `foldGrade g []= ⊥` exactly as uniformly as any nonempty list, so the empty
 list needs no special case to define `traverse` at all — while the
-*precision* claim (the grade `g` isn't padding; every error kind the
-signature admits is genuinely reachable) is `foldGrade_cons_ne_nil`, and
+*annotation-normalization* claim (a nonempty traversal's stated grade is
+`g` on the nose, the grade the element function already carries, rather
+than a fold that grows with the list) is `foldGrade_cons_ne_nil`, and
 that is where idempotence is spent. Defining `traverse` the other way
 (`cast` along `foldGrade_cons_ne_nil`) would need idempotence just to
 typecheck the empty-list case, which has no elements to be idempotent
 over.
+
+**What `foldGrade_cons_ne_nil` does not say, stated because an earlier
+revision of this section said it did.** The theorem is about the
+*annotation*, not about behaviour. It does not establish that `g` is free
+of padding, and it does not establish that every error kind in `g` is
+reachable: `fun _ => .ok 0 : α → Graded {E.parse} Nat` never fails, and
+`foldGrade {E.parse} xs = {E.parse}` holds for every nonempty `xs`
+regardless. The grade is an upper bound the *signature* declares, and what
+this model proves of it is **soundness** — an error that comes out was
+admitted by the grade, which is `Graded.err`'s membership argument.
+**Completeness** — that each kind in `g` is produced by some input — is a
+property of the element function, not of the traversal; it is generally
+false, and it is stated nowhere in this development. A tightness claim
+about a C++ signature therefore has no support here, and should not cite
+this theorem.
 
 `traverse_cons (f : α → Graded g β) (x : α) (xs : List α) : traverse f (x
 :: xs) = cast (Grade.join_idem g) (map2 (· :: ·) (f x) (traverse f xs))`
@@ -1690,9 +1711,27 @@ predicate rather than two. Declared `abbrev`, matching `Grade`'s own
 - `Canon.ofList`/`canon_perm`: `ofList` sorts a `List Err` via the
   union-of-singletons fold `joinAll` (`docs/design.md#traverse`'s Tuple
   subsection), so that `canon_perm : gs ~ gs' → ofList gs = ofList gs'` —
-  **the direct statement of "`error_set<A,B>` is `error_set<B,A>`"** —
-  can cite `joinAll_perm` rather than reproving order-independence from
-  `List.Perm` directly.
+  **the normal-form fact underneath "`error_set<A,B>` is
+  `error_set<B,A>`"**, which is not the same as that C++ claim; see the
+  boundary note below — can cite `joinAll_perm` rather than reproving
+  order-independence from `List.Perm` directly.
+
+**The boundary this section stops at.** Everything above is a fact about
+two Lean representations of one grade, and none of it is evidence about
+C++ types. `canonEquiv` is a bijection between `Finset Err` and a sorted
+list, not an alias identity; `canon_perm` says two permutations *sort to
+the same representative*, not that a compiler gives `error_set<A,B>` and
+`error_set<B,A>` a single type; and nothing in this module touches
+mangled names, ABI, or whether two translation units agree on the normal
+form. `[LinearOrder Err]` records what a sorted normal form costs beyond
+a quotient — it does not name the order the C++ carrier actually sorts
+by, and Lean cannot check that the carrier sorts by a total order at all.
+Those are `static_assert` and toolchain obligations, enumerated in
+`docs/probe-harness.md`, and they belong to the C++ implementation. The
+division is deliberate and load-bearing: **Lean owns the normal-form
+mathematics; C++ owns type identity.** Where a sentence here mentions
+`error_set`, it names the construct being modelled — never a claim proved
+about it.
 
 > **`canon_requires_linear_order`.** Not a theorem — there is no false
 > statement to refute, only a hypothesis to record. `Grade Err :=
@@ -2047,6 +2086,23 @@ class IsCanonicalPomonoid (G : Type u) extends Pomonoid G where
   join_comm : ∀ a b, join a b = join b a
   join_idem : ∀ a, join a a = a
 ```
+
+**`Pomonoid`'s `le` is a preorder, and the name says otherwise.** The
+order fields are `le_refl'` and `le_trans'`; there is no `le_antisymm`.
+Every theorem in `Graded/Obligations.lean`, and every operational law
+that cites one, is therefore proved against a *preorder*, and the class
+name — and the prose that called it "the textbook partially ordered
+monoid" — claimed a property the definition never had. Corrected here and
+in the module docstring, prose only: the fields are unchanged, because
+the proofs show sequencing needs reflexivity and transitivity and nothing
+else, and adding antisymmetry to the operational obligation would charge
+every monad, applicative, traversal and morphism law for a property none
+of them uses. The rename, and an antisymmetry mixin, wait on a grade that
+*separates* the two — both instances here (`Finset` under `⊆`, `Nat`
+under `≤`) are antisymmetric, so a mixin both satisfy would discriminate
+nothing. [grade-join-strength](#grade-join-strength) already records what
+the missing field would buy: `join_le` plus antisymmetry proves
+`join_idem`.
 
 `IsCommPomonoid` and `IsIdemPomonoid` no longer nest — the classification
 above is *why*: `foldG_le`/`foldG_cons_ne_nil` cite `join_idem` alone,

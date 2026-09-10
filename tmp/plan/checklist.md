@@ -34,3 +34,12 @@ measured verdict; the remainder is the open question
 - [x] 23. [sufficient-grade-morphism](step-sufficient-grade-morphism.md) — the morphism leg; a grade morphism need only be monotone, not a homomorphism; the bridge from `GradedHom` is one-directional and stops at `gmap_mono` alone, since `hom` is never asked to commute with `widen`; built the monotone-but-not-homomorphism counter-instance
 - [x] 24. [sufficient-grade-nested](step-sufficient-grade-nested.md) — the nested carriers; `flattenK`'s swap law is `rfl` with no hypothesis at all; `Comp.grade_reassoc` has no analogue (unnecessary) — the sufficient-grade layer now cites `Grade.join_comm` nowhere operationally; `flatten_apK`'s value-side hypothesis survives unchanged, checked against a concrete both-fail case; **closes** [cast-burden-migration-scope](../../docs/design.md#cast-burden-migration-scope)
 - [x] 25. [migration-review](MIGRATION-REVIEW.md) — additive claim holds (0/57 casts, axioms clean, `flatten_apK` non-vacuous); built the `GradedHom → GradedHomK` lift in Lean and found it total under two hypotheses, so "records bridge differently" is retired; found the summary table summed to 39 not 38, `#laws-inventory` stale at 146, and the provisional index calling a closed question open; metrics promoted as `run: lean-model-2`
+
+Improvement run, planned 2026-09-09 from
+[lean-model-improvements](../../docs/plans/lean-model-improvements.md) and
+the counter-plan that reviews it,
+[lean-model-improvements-review](../../docs/plans/lean-model-improvements-review.md)
+§5, whose lettered tranches are ordered by evidence per unit of churn.
+Each tranche is gated on the previous one's green `make all`.
+
+- [x] 26. [truth-in-labelling](../../docs/plans/lean-model-improvements-review.md#tranche-a--truth-in-labelling-no-new-lean-content) — Tranche A: removed three claims the repository asserted and had not proved (`foldGrade_cons_ne_nil` read as reachability, `canonEquiv` read as C++ type identity, `Pomonoid` documented as a partial order when its fields are a preorder). Prose only: 203 theorems before and after, `docs/laws.json` byte-identical, no theorem statement touched. The `Pomonoid` rename and an antisymmetry mixin are deferred to [grade-join-strength](../../docs/design.md#grade-join-strength), which needs a grade that separates preorder from partial order before either discriminates anything

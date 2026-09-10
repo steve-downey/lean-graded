@@ -11,16 +11,16 @@ import Graded.Grade
     This module states the budget as four Lean classes: one operational,
     three independent mixins over it.
 
-    - `Pomonoid`          — associative join, a two-sided unit, a partial
-                            order with `bot` as its minimum, and
-                            monotonicity of `join` in the order. This is
-                            the textbook "partially ordered monoid": an
-                            `OrderedAddCommMonoid` without commutativity,
-                            restated multiplicatively. **This is the
-                            operational obligation** — every monad,
-                            applicative, traversal, subsumption and
-                            morphism law in `Graded/` needs at most this,
-                            per [obligation-layering]'s classification.
+    - `Pomonoid`          — associative join, a two-sided unit, a
+                            **preorder** with `bot` as its minimum, and
+                            monotonicity of `join` in the order. Not the
+                            textbook "partially ordered monoid", despite
+                            the name: see the misnomer note below.
+                            **This is the operational obligation** —
+                            every monad, applicative, traversal,
+                            subsumption and morphism law in `Graded/`
+                            needs at most this, per
+                            [obligation-layering]'s classification.
     - `IsCommPomonoid`     — `Pomonoid` plus `join_comm`, on its own.
     - `IsIdemPomonoid`     — `Pomonoid` plus `join_idem`, on its own (not
                             through `IsCommPomonoid`).
@@ -33,6 +33,25 @@ import Graded.Grade
                             conjunction (none does), but because that is
                             what `Grade Err` actually is, and what
                             `error_set` promises in C++.
+
+    **The misnomer, recorded rather than papered over.** `Pomonoid` names
+    a partially ordered monoid and does not define one. Its order fields
+    are `le_refl'` and `le_trans'`; there is no `le_antisymm`, so `le` is
+    a **preorder**, and every theorem below is proved against a preorder.
+    That is not an oversight to be fixed by adding a field: the proofs
+    demonstrate that sequencing needs reflexivity and transitivity and
+    nothing more, and adding antisymmetry to the operational obligation
+    would charge every monad, applicative, traversal and morphism law for
+    a property none of them uses — exactly what `docs/RULES.md`'s
+    hypothesis discipline forbids. The defect is in the *name* and in the
+    prose, and this revision fixes the prose only. The rename, and the
+    antisymmetry mixin that would give the word "partial" something to
+    mean, are deferred until there is a grade in the tree that separates
+    preorder from partial order — today both instances (`Finset` under
+    `⊆`, `Nat` under `≤`) have antisymmetric orders, so a mixin every
+    instance satisfies would discriminate nothing. See
+    `docs/design.md#grade-join-strength`, which already records the
+    consequence: `join_le` plus antisymmetry proves `join_idem`.
 
     `error_set`'s own two extra axioms (commutative, idempotent) are
     logically independent of each other, and this module now states them
@@ -92,8 +111,10 @@ import Graded.Grade
 
 namespace Graded
 
-/-- A partially ordered monoid: associative `join` with a two-sided unit
-    `bot`, a partial order `le` with `bot` as global minimum, and `join`
+/-- A **pre**ordered monoid, notwithstanding the name (see the module
+    docstring's misnomer note): associative `join` with a two-sided unit
+    `bot`, a *preorder* `le` — `le_refl'` and `le_trans'`, and no
+    antisymmetry field — with `bot` as global minimum, and `join`
     monotone in both arguments. Field names match the corresponding named
     lemmas in `Graded/Grade.lean` exactly, so a later grep sees one
     vocabulary rather than two. Deliberately *not* including `Grade`'s
