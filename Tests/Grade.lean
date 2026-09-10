@@ -51,4 +51,16 @@ example (g : Graded.Grade E) : (bot : Graded.Grade E) ⊆ g :=
 example (g h : Graded.Grade E) (hgh : g ⊆ h) : join g h = h :=
   join_eq_right_of_le hgh
 
+-- ---------------------------------------------------------------------
+-- `le_antisymm`: added by [grade-join-strength], the order property that
+-- separates a preorder from a partial order. Instantiated at a genuinely
+-- two-way inclusion between two *spellings* of the same grade, not at a
+-- reflexive one: `{parse, range}` and `{range, parse}` contain each other
+-- and are the same `Finset`, which is the fact `error_set`'s
+-- canonicalization is for.
+example : ({E.parse, E.range} : Graded.Grade E) = ({E.range, E.parse} : Graded.Grade E) :=
+  Graded.Grade.le_antisymm (by decide) (by decide)
+
+#guard (({E.parse, E.range} : Graded.Grade E) = ({E.range, E.parse} : Graded.Grade E))
+
 end Tests

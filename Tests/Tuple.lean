@@ -34,4 +34,16 @@ example (x : Graded ({E.parse} : Grade E) Nat)
     sequence (GList.cons x xs) = map2 HList.cons x (sequence xs) :=
   sequence_cons x xs
 
+-- ---------------------------------------------------------------------
+-- `join_mem_eq`: a grade already in the list is absorbed by the fold.
+-- Instantiated at a **three**-grade list with the member in the middle,
+-- so the proof has to walk past one element and absorb into a nonempty
+-- tail — a singleton list would hold for a fold that ignored its tail.
+example (hmem : ({E.range} : Grade E) ∈ [({E.parse} : Grade E), {E.range}, {E.io}]) :
+    Grade.join ({E.range} : Grade E) (joinAll [({E.parse} : Grade E), {E.range}, {E.io}])
+      = joinAll [({E.parse} : Grade E), {E.range}, {E.io}] :=
+  join_mem_eq hmem
+
+#guard joinAll [({E.parse} : Grade E), {E.range}, {E.io}] = {E.parse, E.range, E.io}
+
 end Tests

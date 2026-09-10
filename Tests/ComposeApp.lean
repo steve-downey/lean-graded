@@ -143,4 +143,44 @@ example (ff : Comp ({E.parse} : Grade E) ({E.range} : Grade E) (Nat → Nat)) :
           Comp ({E.io} : Grade E) ({E.parse} : Grade E) Nat))) :=
   flatten_ap ff (Graded.ok (Graded.ok 1)) (Or.inr (Or.inr ⟨Graded.ok 1, rfl⟩))
 
+-- ---------------------------------------------------------------------
+-- `Comp.traverseComp_cons`: the nested traversal's cons case, carrying
+-- the two `Grade.join_idem` collapses (outer and inner) that make its
+-- product grade land back where it started. Instantiated at two
+-- *different* grades for the two coordinates, so the pair of collapses
+-- is not one collapse counted twice.
+example (f : Nat → Comp ({E.parse} : Grade E) ({E.range} : Grade E) Nat)
+    (x : Nat) (xs : List Nat) :
+    traverseComp f (x :: xs)
+      = Comp.castGH (Grade.join_idem ({E.parse} : Grade E))
+          (Grade.join_idem ({E.range} : Grade E))
+          (Comp.map2 (· :: ·) (f x) (traverseComp f xs)) :=
+  Comp.traverseComp_cons f x xs
+
+-- ---------------------------------------------------------------------
+-- `Comp.ap`'s three reduction cases, at **four distinct grades** — two
+-- for the outer coordinate, two for the inner — so the outer union the
+-- error side lands in is a real union and the two membership sides
+-- (`le_join_left` for the function, `le_join_right` for the argument)
+-- are told apart.
+example (F : Graded ({E.range} : Grade E) (Nat → Nat)) (X : Graded ({E.io} : Grade E) Nat) :
+    Comp.ap (Graded.ok F : Comp ({E.parse} : Grade E) ({E.range} : Grade E) (Nat → Nat))
+        (Graded.ok X : Comp ({E.range} : Grade E) ({E.io} : Grade E) Nat)
+      = Graded.ok (Graded.ap F X) :=
+  Comp.ap_ok_ok F X
+
+example (he : E.parse ∈ ({E.parse} : Grade E))
+    (xx : Comp ({E.range} : Grade E) ({E.io} : Grade E) Nat) :
+    Comp.ap (Graded.err E.parse he
+        : Comp ({E.parse} : Grade E) ({E.range} : Grade E) (Nat → Nat)) xx
+      = Graded.err E.parse (Grade.le_join_left _ _ he) :=
+  Comp.ap_err_left E.parse he xx
+
+example (F : Graded ({E.range} : Grade E) (Nat → Nat))
+    (he : E.io ∈ ({E.io} : Grade E)) :
+    Comp.ap (Graded.ok F : Comp ({E.parse} : Grade E) ({E.range} : Grade E) (Nat → Nat))
+        (Graded.err E.io he : Comp ({E.io} : Grade E) ({E.range} : Grade E) Nat)
+      = Graded.err E.io (Grade.le_join_right _ _ he) :=
+  Comp.ap_ok_err F E.io he
+
 end Tests

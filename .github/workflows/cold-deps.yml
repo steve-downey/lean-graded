@@ -1,0 +1,46 @@
+name: Cold dependency resolution
+
+# `ci.yml` runs on every push with a warm Mathlib cache, which is the
+# right default and also means the lockfile is never actually exercised:
+# a manifest that had drifted, or a pinned revision that had been garbage
+# collected upstream, would keep passing there indefinitely. This job
+# resolves dependencies from a clean tree instead, and asserts the
+# manifest it produces is the one committed.
+#
+# It is deliberately *not* a from-source Mathlib build. What is tested
+# cold is resolution — that the lockfile is sufficient and its revisions
+# still exist. Compilation still uses the cache, because rebuilding
+# Mathlib weekly would cost hours to re-learn something the push CI
+# already checks every time.
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve dependencies with no cache and no .lake
+        run: |
+          rm -rf .lake
+          lake resolve-deps
+
+      - name: The committed lockfile is the one resolution produces
+        run: |
+          git diff --exit-code -- lake-manifest.json \
+            || { echo "cold-deps: lake-manifest.json drifted on a clean resolve"; exit 1; }
+
+      - name: Full check, cache warmed only after resolution
+        run: |
+          lake exe cache get
+          make all

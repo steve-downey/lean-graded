@@ -85,4 +85,31 @@ example : ¬ ∃ (bind : ∀ {g' h' : Grade E} {α β : Type},
           (bind f (fun f' => bind x (fun a => Accum.pure (f' a)))) = ap f x :=
   notMonad E.parse E.range
 
+-- ---------------------------------------------------------------------
+-- The transport lemmas and the list-equality lemma. Same fixture rule as
+-- `Tests/Monad.lean`: a nontrivial grade equality, not `g = g`.
+
+private theorem hUA :
+    Grade.join ({E.parse} : Grade E) {E.range} = ({E.parse, E.range} : Grade E) := by decide
+
+example (a : Nat) :
+    Accum.cast hUA (Accum.ok a : Accum (Grade.join ({E.parse} : Grade E) {E.range}) Nat)
+      = Accum.ok a :=
+  Accum.cast_ok hUA a
+
+example (hne : [E.parse] ≠ [])
+    (hmem : ∀ x ∈ [E.parse], x ∈ Grade.join ({E.parse} : Grade E) {E.range}) :
+    Accum.cast hUA
+        (Accum.errs [E.parse] hne hmem : Accum (Grade.join ({E.parse} : Grade E) {E.range}) Nat)
+      = Accum.errs [E.parse] hne (hUA ▸ hmem) :=
+  Accum.cast_errs hUA [E.parse] hne hmem
+
+-- Two error lists that are equal as lists, carrying *different* proofs:
+-- the theorem says the proofs cannot make the values differ.
+example (hne hne' : [E.parse, E.range] ≠ [])
+    (hmem hmem' : ∀ e ∈ [E.parse, E.range], e ∈ ({E.parse, E.range} : Grade E)) :
+    (Accum.errs [E.parse, E.range] hne hmem : Accum ({E.parse, E.range} : Grade E) Nat)
+      = Accum.errs [E.parse, E.range] hne' hmem' :=
+  Accum.errs_eq_of_list_eq rfl
+
 end Tests

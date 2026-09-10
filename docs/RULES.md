@@ -66,6 +66,53 @@ DecidableEq, Repr` unless the step says otherwise) and at least one `#guard`
 or `decide` that *computes*, so the definitions are known to reduce and not
 just typecheck.
 
+**This is enforced, not reviewed.** `make test-coverage` classifies every
+theorem and applies one rule per class:
+
+| class | detection | rule |
+|---|---|---|
+| counterexample | conclusion is a `¬` or `≠` | a test names it |
+| reduction | proof is `rfl` | its module's test file has a computing `#guard`/`decide` |
+| law | everything else | a test names it |
+
+"Names it" is checked against comment-stripped source and against the name
+*as declared*, dot-qualification included: prose mentioning a theorem does
+not count, an import does not count, and a theorem whose last name segment
+happens to match another theorem's does not count for that other one.
+
+Exemptions live in `scripts/coverage-exemptions.json`, an object mapping a
+theorem name to the reason it is exempt. Every entry is reviewed, and the
+file is meant to stay near-empty — it was introduced at
+[coverage-enforcement] with **zero** entries, and an entry is a finding
+about the theorem, not a way to quiet the check.
+
+**Fixtures are the labour, and they are the point.** A test that
+instantiates a theorem at a degenerate fixture passes the check above and
+proves nothing. So:
+
+- associativity and other cast-bearing laws use **three distinct nonempty
+  grades**, so the transport is real;
+- commutativity tests use **distinct nonempty grades on both sides**;
+- heterogeneous tuple tests carry at least **two distinct payload types
+  and two distinct grades**;
+- morphism cast tests use a **nontrivial grade equality**, never `g = g`,
+  and a **many-to-one** renaming, never the identity;
+- both-error tests use **distinguishable kinds**, so which error survived
+  is visible;
+- accumulating traversal tests include **zero, one, and several**
+  failures.
+
+None of that is mechanically checkable, which is exactly why it is written
+down here rather than left to the script.
+
+## Axioms
+
+`make nosorry` is a text grep: it cannot see an axiom reached through a
+dependency, nor a `sorry` in a declaration nothing references. `make
+axioms` runs `#print axioms` over every `law`-class declaration and asserts
+the transitive closure is a subset of `{propext, Classical.choice,
+Quot.sound}` — Lean's own three. Keep both; neither subsumes the other.
+
 ## Living doc
 
 `docs/design.md` is updated in place, by anchor. A step adds or revises the

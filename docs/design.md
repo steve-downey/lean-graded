@@ -2709,13 +2709,70 @@ question's own log applied to itself.
 
 ## laws-inventory
 
-The table: [`docs/laws.md`](laws.md) (203 theorems, generated from
-`Graded/*.lean` by `scripts/laws-inventory.py`; the same data as
+The table: [`docs/laws.md`](laws.md) (generated from `Graded/*.lean` by
+`scripts/laws-inventory.py`; the same data as
 [`docs/laws.json`](laws.json)). `make laws` regenerates and diffs it, so it
 cannot drift from the proofs; run it again after touching any
 `Graded/*.lean` file. The probe list for the C++ side is
 [`docs/probe-harness.md`](probe-harness.md): one equation per row that has
 a C++ law, against [cpp-counterpart](#cpp-counterpart)'s names.
+
+> **No count appears in this paragraph, deliberately.** It used to say
+> "203 theorems", which was true when written and wrong by the time
+> anyone read it. Prose counts in this document have been wrong often
+> enough to be a standing hazard; the generated table is the number, and
+> a sentence claiming one is a second source that will disagree with it.
+
+### coverage-enforcement
+
+`docs/RULES.md` has always required that every theorem of a step be
+instantiated in its test file. That was enforced by review, and review
+missed things: the audit at [truth-in-labelling] found 56 theorem names
+appearing nowhere in `Tests/` or `Examples/`, not even in a comment.
+[coverage-enforcement] made it mechanical — `make test-coverage`, in
+`make all` and therefore in CI, **alongside** `make letters` rather than
+in place of it.
+
+**Classified, not uniform.** One rule for every theorem would have meant
+writing dozens of exemptions on day one, almost all for `rfl` reduction
+lemmas — which are not untested, they are the equations every `#guard`
+computes *through*. A file of prose justifying them would teach the next
+contributor that the exemption file is where theorems go to be ignored.
+So the pass classifies (counterexample / reduction / law, in that
+priority) and applies one rule per class; `docs/RULES.md#tests` carries
+the table.
+
+The result was **zero exemptions**, not the twelve the plan budgeted for.
+Of the 38 declarations the classified pass found genuinely uncovered,
+every one got an `example` — that was the work of this step, and the
+fixture requirements were most of it.
+
+**Two things the check will not do.** It will not accept a name mentioned
+in prose, or reachable only through an import — coverage is a claim about
+code, so test sources are comment-stripped first. And it will not accept a
+name matched loosely: an early version credited a theorem when the *last
+segment* of its dotted name appeared anywhere, and promptly counted
+`Comp.ap_ok_ok` as covered by an example applying `Graded.ap_ok_ok`. Names
+are matched as declared. The residual weakness is the one
+`scripts/laws-inventory.py` documents for its own allow-list: two theorems
+declared under the same bare name in different namespaces are
+indistinguishable to a name-based check, and a mention credits both.
+
+**`make axioms` is a complement to `make nosorry`, not a replacement.**
+The grep cannot see an axiom reached through a dependency, nor a `sorry`
+in a declaration nothing references; `#print axioms` sees exactly the
+transitive closure. Both stay. Two prior reviews ran `#print axioms` by
+hand over 25 declarations and each reported `[propext, Classical.choice,
+Quot.sound]` and nothing else; this runs it over every `law`-class
+declaration on every build, so the sample stops being a sample.
+
+**Cold dependency resolution** is a separate scheduled workflow
+(`.github/workflows/cold-deps.yml`), weekly, not on every push. Push CI
+runs with a warm Mathlib cache, which is right and also means the lockfile
+is never exercised: a drifted manifest or a garbage-collected pinned
+revision would pass indefinitely. The scheduled job resolves from a clean
+tree and asserts the manifest it produces is the committed one. It is
+deliberately not a from-source Mathlib build.
 
 The verdicts below are written from that table, not from the plan's
 prediction of it. Where the two disagree, the table wins — this step's own

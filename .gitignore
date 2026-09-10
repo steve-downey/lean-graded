@@ -1,2 +1,5 @@
 /.lake
 /build.log
+
+# scripts/test-coverage.py imports laws-inventory.py to reuse its parse
+__pycache__/

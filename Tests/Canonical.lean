@@ -61,4 +61,25 @@ example (h : ([CE.range, CE.parse] : List CE) ~ [CE.parse, CE.range]) :
 #guard canonEquiv (Grade.join ({CE.parse} : Grade CE) ({CE.range} : Grade CE)) =
   Canon.union (canonEquiv ({CE.parse} : Grade CE)) (canonEquiv ({CE.range} : Grade CE))
 
+-- ---------------------------------------------------------------------
+-- The round-trips and the union transport, at **two distinct nonempty
+-- grades** written in the order the sort has to fix — `{range, parse}`
+-- sorts to `[parse, range]`, so a `canonEquiv` that ignored its
+-- `LinearOrder` would fail these rather than pass them.
+
+example (s : Finset CE) : Canon.toFinset (Canon.ofFinset s) = s :=
+  Canon.toFinset_ofFinset s
+
+example (c : Canon CE) : Canon.ofFinset (Canon.toFinset c) = c :=
+  Canon.ofFinset_toFinset c
+
+example : canonEquiv (Grade.join ({CE.range} : Grade CE) {CE.parse})
+    = Canon.union (canonEquiv ({CE.range} : Grade CE)) (canonEquiv ({CE.parse} : Grade CE)) :=
+  canonEquiv_union {CE.range} {CE.parse}
+
+#guard Canon.toFinset (Canon.ofFinset ({CE.range, CE.parse} : Grade CE))
+  = ({CE.range, CE.parse} : Grade CE)
+#guard (Canon.union (canonEquiv ({CE.range} : Grade CE))
+  (canonEquiv ({CE.parse} : Grade CE))).val = [CE.parse, CE.range]
+
 end Tests

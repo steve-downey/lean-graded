@@ -694,4 +694,80 @@ example : (fun (_ : Grade E) => ({E'.bad} : Grade E')) (Grade.bot : Grade E) ≠
     (Grade.bot : Grade E') :=
   constHomK_not_gmap_bot (Err := E) (e₀ := E'.bad) (g₀ := ({E'.bad} : Grade E')) (by decide)
 
+-- ---------------------------------------------------------------------
+-- `apK_comp`: the composition law at a sufficient grade, instantiated at
+-- **three distinct nonempty source grades** under one nominated grade
+-- containing all three. With a shared source grade the three inclusions
+-- would coincide and the law would not be exercised at the shape it is
+-- stated in.
+example (u : Graded ({E.parse} : Grade E) (Nat → Nat))
+    (v : Graded ({E.range} : Grade E) (Nat → Nat))
+    (w : Graded ({E.io} : Grade E) Nat)
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (hg' : ({E.range} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (hj : ({E.io} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E)) :
+    apK (Grade.le_refl' _) hj
+        (apK (Grade.le_refl' _) hg'
+          (apK (Grade.le_refl' _) hg
+            (pureK Function.comp
+              : Graded ({E.parse, E.range, E.io} : Grade E)
+                  ((Nat → Nat) → (Nat → Nat) → Nat → Nat)) u) v) w
+      = apK hg (Grade.le_refl' _) u (apK hg' hj v w) :=
+  apK_comp hg hg' hj u v w
+
+-- `rename_map2K`: naturality of renaming against the sufficient-grade
+-- `map2K`, at a genuinely many-to-one `coarsen` and two distinct source
+-- grades — an injective renaming or a shared grade would let a broken
+-- implementation through.
+example (x : Graded ({E.parse} : Grade E) Nat) (y : Graded ({E.range} : Grade E) Nat)
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) :
+    rename coarsen (map2K hg hh (· + ·) x y)
+      = map2K (Grade.rename_mono coarsen hg) (Grade.rename_mono coarsen hh) (· + ·)
+          (rename coarsen x) (rename coarsen y) :=
+  rename_map2K coarsen hg hh (· + ·) x y
+
+-- The three `traverseK_cons_*` case lemmas, with the head/tail premises
+-- discharged against concrete checks rather than assumed of a variable.
+
+/-- Succeeds on everything. -/
+private def okCheckK (n : Nat) : Graded ({E.parse} : Grade E) Nat := Graded.ok (n + 1)
+
+/-- Fails on everything. -/
+private def badCheckK (_ : Nat) : Graded ({E.parse} : Grade E) Nat :=
+  Graded.err E.parse (by decide)
+
+/-- Succeeds on the head, fails on a `0` further down. -/
+private def mixedCheckK (n : Nat) : Graded ({E.parse} : Grade E) Nat :=
+  if n = 0 then Graded.err E.parse (by decide) else Graded.ok (n + 1)
+
+private theorem hgK : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E) := by decide
+
+example (hxs : traverseK hgK okCheckK [2, 3] = Graded.ok [3, 4]) :
+    traverseK hgK okCheckK (1 :: [2, 3]) = Graded.ok (2 :: [3, 4]) :=
+  traverseK_cons_ok_ok hgK okCheckK 1 [2, 3] 2 [3, 4] rfl hxs
+
+example : traverseK hgK badCheckK (1 :: [2, 3]) = Graded.err E.parse (hgK (by decide)) :=
+  traverseK_cons_err_left hgK badCheckK 1 [2, 3] E.parse (by decide) rfl
+
+example (he : E.parse ∈ ({E.parse, E.range, E.io} : Grade E))
+    (hxs : traverseK hgK mixedCheckK [0, 3] = Graded.err E.parse he) :
+    traverseK hgK mixedCheckK (1 :: [0, 3]) = Graded.err E.parse he :=
+  traverseK_cons_ok_err hgK mixedCheckK 1 [0, 3] 2 E.parse he rfl hxs
+
+#guard renderListK (traverseK hgK okCheckK [1, 2, 3]) = "ok [2, 3, 4]"
+#guard renderListK (traverseK hgK mixedCheckK [1, 0, 3])
+  = "err Examples.Validation.E.parse"
+
+-- `Comp.apK_interchange`: the interchange law for the nested carrier at a
+-- pair of nominated grades, instantiated at two *different* nominated
+-- grades so the outer and inner coordinates are not the same bound.
+example (u : Comp ({E.parse} : Grade E) ({E.range} : Grade E) (Nat → Nat)) (a : Nat)
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.io} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.range, E.io} : Grade E)) :
+    Comp.apK hg (Grade.bot_le _) hh (Grade.bot_le _) u (Comp.pure a)
+      = Comp.apK (Grade.bot_le _) hg (Grade.bot_le _) hh
+          (Comp.pure (fun f => f a) : Comp Grade.bot Grade.bot ((Nat → Nat) → Nat)) u :=
+  Comp.apK_interchange hg hh u a
+
 end Tests

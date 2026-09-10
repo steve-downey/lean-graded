@@ -100,4 +100,14 @@ example (x : Accum ({E.parse} : Grade E) Nat) :
 #guard renderCoarse (rename coarsen (validate "42")) = "ok 42"
 #guard renderCoarse (rename coarsen (validate "abc")) = "err Examples.Validation.E'.bad"
 
+-- ---------------------------------------------------------------------
+-- `mem_rename`: membership transports along the grade map. Instantiated
+-- at `coarsen`, which is genuinely many-to-one, so this is not the
+-- identity renaming wearing a hat.
+example (he : E.parse ∈ ({E.parse, E.range} : Grade E)) :
+    coarsen E.parse ∈ Grade.rename coarsen ({E.parse, E.range} : Grade E) :=
+  Grade.mem_rename he
+
+#guard Grade.rename coarsen ({E.parse, E.range} : Grade E) = {coarsen E.parse, coarsen E.range}
+
 end Tests

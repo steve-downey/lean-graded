@@ -1,0 +1,113 @@
+#+TITLE: Letter 27: Thirty-eight theorems nobody had ever run
+#+DATE: 2026-09-10
+#+CATEGORY: lean-transpose
+#+STEP: coverage-enforcement
+#+SERIES_PREV: morphism-bridge
+
+Steve,
+
+* What I set out to do
+
+The rules for this project have said from the beginning that every
+theorem in a step gets an example in that step's test file, instantiated
+at a concrete error type, plus something that actually computes. It's a
+good rule. I wrote it, I believed I was following it, and a name-check a
+few letters back found dozens of theorem names that appear nowhere in the
+test files at all. Not in an example, not in a =#guard=, not even in a
+comment.
+
+That's the ordinary way a review rule fails. It isn't that anyone
+disagreed with it. It's that "did you test all of them" is a question
+nobody can answer by looking, and so the answer drifts.
+
+So: make it mechanical, and then work the backlog to green.
+
+* What the checker refused
+
+Two refusals, and the second one was mine.
+
+The first: the obvious design is one rule for every theorem, an example
+that applies it, with a file of exemptions for whatever doesn't fit. I
+tried the shape on paper and it needs about fifty exemptions on day one,
+almost all for lemmas of this kind:
+
+#+begin_src lean
+theorem foldGrade_nil (g : Grade Err) : foldGrade g [] = Grade.bot := rfl
+#+end_src
+
+That says how a definition computes on the empty list, and its proof is
+=rfl=, meaning the two sides are already the same thing. It isn't
+untested. It's the equation that every computing check in its module runs
+*through*. Writing a paragraph excusing fifty of those produces a file
+nobody reads, and teaches whoever comes next that the exemption file is
+where theorems go to be quietly ignored.
+
+So the checker classifies instead. A theorem whose conclusion is a
+negation is a counterexample and needs a test naming it. A theorem proved
+by =rfl= is a reduction rule and is covered if its module's tests compute
+anything at all. Everything else is a law and needs a test naming it.
+Three classes, one rule each, assigned by machine.
+
+The second refusal was the checker catching me cheating without meaning
+to. Some theorems are declared with a dotted name, like the nested
+carrier's =Comp.ap_ok_ok=, and I let the check accept a match on just the
+last part of the name, reasoning that a test file might have opened the
+namespace. It ran green. Then I looked at what it had accepted, and it
+had marked =Comp.ap_ok_ok= as covered because an example somewhere
+applies =ap_ok_ok=, which is a different theorem about a different
+carrier that happens to end in the same eight characters.
+
+Over-crediting is the one failure this whole thing exists to prevent. I
+took the fallback out and four more theorems went red, which is what
+should have happened the first time.
+
+* What changed
+
+Thirty-eight theorems needed an example and now have one. That was the
+work; the script was an afternoon and the examples were the rest of it.
+
+The exemption file has zero entries in it. I had budgeted for a dozen and
+expected to argue with myself about several. It turned out that once the
+reduction lemmas were classified instead of excused, every remaining
+theorem simply deserved a test, and writing thirty-eight of those is
+tedious but never contentious.
+
+The part I'd defend hardest is the part no script can check. An example
+that instantiates a theorem at a degenerate fixture passes the check and
+proves nothing at all. A cast test where the two grades are the same
+grade will pass against a broken cast. A both-errors test using the same
+error kind twice can't tell you which error survived. So the rules file
+now says: three distinct nonempty grades for the transports, a
+many-to-one renaming and not the identity, distinguishable kinds when
+two things can fail, zero and one and several failures for the
+accumulating traversal. Those are judgement, written down where the next
+person will see them, because the alternative is a green check over
+tests that don't test anything.
+
+I also added a second check, over the same theorems, that asks what each
+proof rests on. The grep for =sorry= that has been in the build all along
+is a text search: it cannot see a gap reached through something else, and
+it cannot see one in a declaration nothing mentions. Lean will tell you
+the full transitive answer if you ask, and now the build asks, for all
+hundred and seventy-one of them. Three axioms, the ones Lean's own logic
+uses, and nothing else.
+
+* Back in C++
+
+The transferable part isn't about proof assistants.
+
+If your test suite's completeness is a claim somebody makes in review,
+it's a claim that decays. Not through disagreement, through attrition:
+one merge at a time, each one locally reasonable. The fix is to make the
+claim checkable and then let the check be annoying, because a check that
+never fails isn't measuring anything.
+
+And the second half matters as much as the first. A coverage number will
+happily report a suite where every assertion is =EXPECT_TRUE(true)= in a
+trench coat. My cast tests would have passed with both grades the same. A
+mechanical check tells you a test *exists*; whether it discriminates is
+still a person's judgement, and the useful thing to do with that
+judgement is write it down next to the rule, so the next person inherits
+it rather than rediscovering it.
+
+--SMD

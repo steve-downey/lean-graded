@@ -1,5 +1,5 @@
-.PHONY: verify nosorry letters laws all
-all: verify nosorry letters laws
+.PHONY: verify nosorry letters laws test-coverage axioms all
+all: verify nosorry letters laws test-coverage axioms
 verify:
 	lake build > build.log 2>&1 || { tail -n 20 build.log; exit 1; }
 	@tail -n 20 build.log
@@ -21,3 +21,7 @@ laws:
 	@python3 scripts/laws-inventory.py
 	@git diff --exit-code -- docs/laws.md docs/laws.json || \
 	  { echo "laws: docs/laws.md/docs/laws.json are stale — commit the regenerated output"; exit 1; }
+test-coverage:
+	@python3 scripts/test-coverage.py
+axioms:
+	@python3 scripts/axioms-check.py

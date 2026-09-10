@@ -88,4 +88,44 @@ def bothErrX : Graded ({E.range} : Grade E) Nat :=
 -- genuinely disagree on which error a caller sees, whenever both sides
 -- would have failed.
 
+-- ---------------------------------------------------------------------
+-- The six reduction lemmas for `ap`/`apFlipped`, at two **distinct
+-- nonempty** grades so the union is a real one and the two membership
+-- sides (`le_join_left` for the function, `le_join_right` for the
+-- argument) are distinguishable. At one shared grade they would coincide
+-- and the lemmas would not say which side an error came from.
+
+example (f : Nat → Nat) (a : Nat) :
+    ap (Graded.ok f : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.ok a : Graded ({E.range} : Grade E) Nat) = Graded.ok (f a) :=
+  ap_ok_ok f a
+
+example (he : E.parse ∈ ({E.parse} : Grade E)) (x : Graded ({E.range} : Grade E) Nat) :
+    ap (Graded.err E.parse he : Graded ({E.parse} : Grade E) (Nat → Nat)) x
+      = Graded.err E.parse (Grade.le_join_left _ _ he) :=
+  ap_err_left E.parse he x
+
+example (f : Nat → Nat) (he : E.range ∈ ({E.range} : Grade E)) :
+    ap (Graded.ok f : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.err E.range he : Graded ({E.range} : Grade E) Nat)
+      = Graded.err E.range (Grade.le_join_right _ _ he) :=
+  ap_ok_err f E.range he
+
+example (f : Nat → Nat) (a : Nat) :
+    apFlipped (Graded.ok f : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.ok a : Graded ({E.range} : Grade E) Nat) = Graded.ok (f a) :=
+  apFlipped_ok_ok f a
+
+example (f : Graded ({E.parse} : Grade E) (Nat → Nat))
+    (he : E.range ∈ ({E.range} : Grade E)) :
+    apFlipped f (Graded.err E.range he : Graded ({E.range} : Grade E) Nat)
+      = Graded.err E.range (Grade.le_join_left _ _ he) :=
+  apFlipped_err_right f E.range he
+
+example (a : Nat) (he : E.parse ∈ ({E.parse} : Grade E)) :
+    apFlipped (Graded.err E.parse he : Graded ({E.parse} : Grade E) (Nat → Nat))
+        (Graded.ok a : Graded ({E.range} : Grade E) Nat)
+      = Graded.err E.parse (Grade.le_join_right _ _ he) :=
+  apFlipped_ok_err a E.parse he
+
 end Tests
