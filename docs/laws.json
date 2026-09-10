@@ -1,5 +1,43 @@
 [
   {
+    "theorem": "widen_ok",
+    "module": "Graded/Accum.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_errs",
+    "module": "Graded/Accum.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_widen",
+    "module": "Graded/Accum.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_map",
+    "module": "Graded/Accum.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "map_id",
+    "module": "Graded/Accum.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "map_comp",
+    "module": "Graded/Accum.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "ap_ok_ok",
     "module": "Graded/Accum.lean",
     "properties": [],
@@ -145,6 +183,38 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "apK_pure_id",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_pure_pure",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_interchange",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_comp",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "traverseK_nil",
     "module": "Graded/AccumTraverse.lean",
     "properties": [],
@@ -196,6 +266,12 @@
   },
   {
     "theorem": "toGraded_pureK",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_widen",
     "module": "Graded/AccumTraverse.lean",
     "properties": [],
     "cpp": "\u2014"
@@ -528,6 +604,70 @@
     "module": "Graded/ComposeApp.lean",
     "properties": [],
     "cpp": "flatten(apply(ff, xx)) == apply(flatten(ff), flatten(xx))  // one-sided condition only"
+  },
+  {
+    "theorem": "map_pureK",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_nil",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_cons",
+    "module": "Graded/EffectK.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_map",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_pureK",
+    "module": "Graded/EffectK.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_eq_traverseK",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_eq_accum_traverseK",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "app_pureK",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "app_traverseGK",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_traverseK_generic",
+    "module": "Graded/EffectK.lean",
+    "properties": [],
+    "cpp": "\u2014"
   },
   {
     "theorem": "join_assoc",

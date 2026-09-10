@@ -112,4 +112,36 @@ example (hne hne' : [E.parse, E.range] ≠ [])
       = Accum.errs [E.parse, E.range] hne' hmem' :=
   Accum.errs_eq_of_list_eq rfl
 
+-- `widen`, added by [abstract-effects]: the subsumption conversion the
+-- accumulating carrier had gone without. Its reduction lemmas and the
+-- functor laws over it live here; `toGraded_widen` is in
+-- `Tests/AccumTraverse.lean`, beside the module that proves it.
+example (h : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (a : Nat) :
+    (Accum.widen h (Accum.ok a) : Accum ({E.parse, E.range} : Grade E) Nat) = Accum.ok a :=
+  Accum.widen_ok h a
+
+example (h : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hne : [E.parse] ≠ []) (hmem : ∀ e ∈ [E.parse], e ∈ ({E.parse} : Grade E)) :
+    (Accum.widen h (Accum.errs [E.parse] hne hmem)
+        : Accum ({E.parse, E.range} : Grade E) Nat)
+      = Accum.errs [E.parse] hne (fun e he => h (hmem e he)) :=
+  Accum.widen_errs h [E.parse] hne hmem
+
+example (h₁ : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (h₂ : ({E.parse, E.range} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (x : Accum ({E.parse} : Grade E) Nat) :
+    Accum.widen h₂ (Accum.widen h₁ x) = Accum.widen (Grade.le_trans' h₁ h₂) x :=
+  Accum.widen_widen h₁ h₂ x
+
+example (h : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (f : Nat → Nat)
+    (x : Accum ({E.parse} : Grade E) Nat) :
+    Accum.widen h (Accum.map f x) = Accum.map f (Accum.widen h x) :=
+  Accum.widen_map h f x
+
+example (x : Accum ({E.parse} : Grade E) Nat) : Accum.map id x = x := Accum.map_id x
+
+example (f : Nat → Nat) (h : Nat → Nat) (x : Accum ({E.parse} : Grade E) Nat) :
+    Accum.map (h ∘ f) x = Accum.map h (Accum.map f x) :=
+  Accum.map_comp f h x
+
 end Tests

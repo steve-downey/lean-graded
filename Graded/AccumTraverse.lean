@@ -124,6 +124,57 @@ theorem ap_eq_apK (f : Accum g (α → β)) (x : Accum h α) :
     | errs es2 hne2 hmem2 => rfl
 
 -- ---------------------------------------------------------------------
+-- The four applicative laws at a sufficient grade. `Graded.Accum` has had
+-- these at the *union* grade since [applicative-accumulation], each
+-- carrying a `cast`; these are the cast-free analogues, and the model
+-- lacked them until [abstract-effects] asked the carrier to be a graded
+-- applicative in general.
+
+theorem apK_pure_id (hh : h ⊆ k) (x : Accum h α) :
+    apK (Grade.le_refl' k) hh (pureK (@id α) : Accum k (α → α)) x = widen hh x := by
+  cases x <;> rfl
+
+theorem apK_pure_pure (f : α → β) (a : α) :
+    apK (Grade.le_refl' k) (Grade.le_refl' k) (pureK f : Accum k (α → β)) (pureK a)
+      = (pureK (f a) : Accum k β) := rfl
+
+theorem apK_interchange (hg : g ⊆ k) (u : Accum g (α → β)) (a : α) :
+    apK hg (Grade.le_refl' k) u (pureK a : Accum k α)
+      = apK (Grade.le_refl' k) hg (pureK (fun f => f a) : Accum k ((α → β) → β)) u := by
+  cases u <;> rfl
+
+/-- (composition) **The one law here that is not `rfl`**, and the
+    difference is the whole character of the accumulating carrier. For the
+    short-circuiting `Graded`, `apK_comp` is a case split ending in `rfl`
+    at every leaf: at most one error survives, so both sides carry the
+    same one. Here every failing side contributes, and the two groupings
+    accumulate `(eu ++ ev) ++ ew` against `eu ++ (ev ++ ew)`. Those are
+    equal by `List.append_assoc` and not by computation, so the proof has
+    to say so — through `errs_eq_of_list_eq`, since the two `errs` values
+    also carry different membership proofs, which proof irrelevance makes
+    irrelevant but does not make syntactically equal.
+
+    Read against the short-circuiting version, this is where "the
+    applicative is identical to the monad" stops being true: composition
+    holds for both carriers, and only one of them gets it for free. -/
+theorem apK_comp (hg : g ⊆ k) (hg' : g' ⊆ k) (hj : j ⊆ k)
+    (u : Accum g (β → γ)) (v : Accum g' (α → β)) (w : Accum j α) :
+    apK (Grade.le_refl' k) hj (apK (Grade.le_refl' k) hg'
+        (apK (Grade.le_refl' k) hg (pureK Function.comp : Accum k ((β → γ) → (α → β) → α → γ)) u)
+        v) w
+      = apK hg (Grade.le_refl' k) u (apK hg' hj v w) := by
+  cases u with
+  | ok u' =>
+      cases v with
+      | ok v' => cases w <;> rfl
+      | errs ev hnev hmemv => cases w <;> [rfl; exact errs_eq_of_list_eq rfl]
+  | errs eu hneu hmemu =>
+      cases v with
+      | ok v' => cases w <;> [rfl; exact errs_eq_of_list_eq rfl]
+      | errs ev hnev hmemv =>
+          cases w <;> exact errs_eq_of_list_eq (by simp [List.append_assoc])
+
+-- ---------------------------------------------------------------------
 -- The traversal itself, shaped exactly like `Graded.traverseK`: one
 -- inclusion `hg`, reused at every element, with `Grade.le_refl' k` for
 -- the already-accumulated tail.
@@ -210,6 +261,14 @@ theorem traverseK_ok (hg : g ⊆ k) (f : α → Accum g β) (fo : α → β)
 
 theorem toGraded_pureK (a : α) : toGraded (pureK a : Accum k α) = Graded.pureK a := by
   rw [Graded.pureK, fromEmpty_eq_ok]; rfl
+
+theorem toGraded_widen (h : g ⊆ k) (x : Accum g α) :
+    toGraded (widen h x) = Graded.widen h (toGraded x) := by
+  cases x with
+  | ok a => rfl
+  | errs es hne hmem => cases es with
+    | nil => exact absurd rfl hne
+    | cons e es' => rfl
 
 theorem toGraded_map (f : α → β) (x : Accum g α) :
     toGraded (map f x) = Graded.map f (toGraded x) := by

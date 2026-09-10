@@ -15,3 +15,4 @@ import Graded.Morphism
 import Graded.Canonical
 import Graded.Ungraded
 import Graded.Obligations
+import Graded.EffectK

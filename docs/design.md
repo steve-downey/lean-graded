@@ -2707,6 +2707,152 @@ question's own log applied to itself.
   `Tests/Sufficient.lean` to confirm the statement is not vacuous. Wrote
   the summary table above and closed the question.
 
+## abstract-operational-classes
+
+**The question this section answers.** `Graded/Obligations.lean` states
+what a grade must be. Until [abstract-effects] it was consumed by
+nothing: four grades inhabited `PreorderedGradeMonoid`, no carrier module
+imported it, and `grep -rl PreorderedGradeMonoid --include=*.lean`
+returned exactly that file and its tests. The abstraction and the model
+did not touch. `Graded/EffectK.lean` connects them.
+
+**Why the sufficient-grade layer and not the union-graded one.** Its laws
+compare terms in the same type: at a caller-nominated `k`, both sides of
+every law already live in `M k β`, so there is no grade equation for a
+`cast` to carry and nothing to hide behind a transport. The union-graded
+operations are the derived conveniences, which is the direction
+`bind_eq_bindK`/`ap_eq_apK` already run.
+
+### The shape
+
+Three data classes and three law classes. `GradedFunctorK` carries `map`,
+`widen` and `pure`; `GradedMonadK` and `GradedApplicativeK` take
+`[GradedFunctorK G M]` as an instance **parameter**, not by `extends`. A
+carrier with both — `Graded` is one — therefore has *one* `pure` and one
+route to the functor, rather than two of each needing a coherence law.
+That is the same parameterised-mixin shape
+[`docs/RULES.md#amendments`](RULES.md#amendments) records for the grade
+algebra, applied one level up.
+
+`pureK` is derived once, as `pure` widened from `bot`. A primitive
+`pureK` at every grade would let its behaviour depend on the nominated
+grade, and would need exactly the coherence law the derivation avoids.
+`map_pure` (at `bot`) is the only `map`/`pure` coherence a carrier
+supplies; `map_pureK` carries it to every grade through `widen_map`.
+
+**`widen_irrel` is free, and no law states it.** Which proof of `le g k`
+is supplied cannot affect `widen h x`, because `le g k` is a `Prop` and
+Lean's proof irrelevance is definitional. The concrete
+`widen_irrel`/`bindK_irrel`/`traverseK_irrel` are `rfl` for that reason,
+and the same holds of a carrier nobody has inspected.
+
+### What it connects
+
+| carrier | functor | monad | applicative | lawful |
+|---|---|---|---|---|
+| `Graded` | yes | yes | yes | all three |
+| `Accum` | yes | **no** | yes | functor + applicative |
+| `Comp` (product-graded) | yes | no | yes | none yet |
+
+`Accum` having no `GradedMonadK` instance is checked, not asserted:
+instance synthesis for it fails, and `Accum.notMonad` is the reason. That
+absence is why `GradedApplicativeK` is its own class taking the functor
+as a parameter, rather than a consequence derived from a monad.
+
+`Comp` fits a one-grade interface only because a *pair* of grades is now
+itself a grade: `Graded.instPreorderedGradeMonoidProd` is componentwise,
+and `instLubGradeProd` says the product of two least-upper-bound grades
+is one. That is the product-graded composite of [compose-applicative]
+restated as an instance rather than as a special case.
+
+`Comp`'s law instances are **absent, deliberately**. It has `map_id`,
+`map_comp`, the `apK` reduction lemmas and `apK_interchange`, but
+`widen_widen`, `widen_map`, `map_pure`, `apK_pure_id`, `apK_pure_pure`
+and `apK_comp` do not exist for it at the sufficient grade. Inventing six
+lemmas to fill a `Lawful` instance is a different piece of work from
+connecting the abstraction, and `traverseGK` needs only the data classes,
+so it instantiates regardless. What is missing is laws *about* it.
+
+**A universe note.** `Graded.Comp` is declared `(α : Type u) : Type u`
+with `u` the error type's universe, so the composite exists only where
+payload and error sit at the same level. That collapse predates this
+step; it is why `CompP` cannot be stated at an independent payload
+universe the way `Graded` and `Accum` can, and it is the first place the
+"universe and typeclass complexity" risk the plan named has actually
+bitten.
+
+### List traversal, defined once
+
+`traverseGK` is the traversal, over any `GradedApplicativeK`. The two
+concrete traversals *are* it: `traverseGK_eq_traverseK` and
+`traverseGK_eq_accum_traverseK`, each an induction closing by `rfl`,
+because `traverseK`'s cons case is `map2K` and `map2K` is `apK` after
+`map`. As at [sufficient-grade-traverse] there is no fold, so
+length-independence is a property of the signature — which matters more
+here, since the abstract `G` is only a *preordered* grade monoid and has
+no idempotence to spend.
+
+`traverseGK_map` (source fusion) needs no law at all. `traverseGK_pureK`
+(identity) is the first theorem whose proof spends the law classes.
+
+**`ApplicativeTransformationK` is where the abstraction pays.** A
+transformation between graded applicatives over one grade, commuting
+with `map`, `pure`, `widen` and `apK` — the `widen` field being the one
+an ordinary applicative transformation lacks, needed for the same reason
+`GradedHom.hom_widen` is ([morphisms](#morphisms)): subsumption is a
+primitive the other operations do not define. `app_traverseGK` proves
+traversal naturality once. `Accum.toGraded` is an instance, and
+[accum-traverse]'s `toGraded_traverseK` — proved there by its own
+induction — comes back as `toGraded_traverseK_generic`, the generic law
+at that instance. The induction did not have to be written twice, and
+error renaming and representation changes can join as further instances
+rather than further theorem families.
+
+### grade-abstraction-payoff
+
+**Question.** Does abstracting the grade and the carrier buy more than it
+costs, at this size?
+
+**Status: CLOSED by [abstract-effects] — it pays, on both halves of the
+criterion the plan set.** The criterion was: stop if the abstract laws
+for `Graded` need more `simp` scaffolding than the concrete ones they
+replace, or if `Tests/` elaboration slows by more than roughly a third.
+
+*Scaffolding: zero.* All 29 instance fields across the eight instances
+are bare citations of theorems already proved and tested in their own
+modules — no tactic block, no `simp` set, nothing re-derived. That was
+the outcome to watch for: a field needing its own proof would have been
+evidence the abstraction had drifted from what the model establishes.
+
+*Elaboration: under the threshold.* A clean `Tests/` rebuild went from
+7.71s wall / 40.78s user to 8.96s / 48.24s — **+16% wall, +18% user**,
+against a threshold of +33%. Those are *minima* of repeated runs, not
+means: the machine carried an unrelated CPU-bound build for part of the
+measurement window (load average 10 to 23), which inflates means badly
+and leaves the minimum as the only figure worth quoting. Method and
+per-run numbers are in `metrics/fanout-runs.jsonl`. No pre-existing
+`Tests/` module imports the abstract layer, so the existing suite is
+unchanged by construction and the whole delta is the new
+`Tests/EffectK.lean`.
+
+**What the criterion does *not* cover, and where to re-check it.** These
+measurements are of an *additive* layer. The cost that would matter is
+migration — re-pointing the concrete development at the abstract classes,
+which is Tranche G's work. That is when existing modules would start
+elaborating through class projections instead of concrete definitions,
+and it is the point at which this question should be asked again rather
+than assumed settled. Closing it here means "the layer is worth having",
+not "re-pointing is free."
+
+**Log.**
+
+- 2026-09-10 — [abstract-effects] connected the grade algebra to the
+  carriers, measured both halves of the criterion, and closed the
+  question. Two gaps in the *model* surfaced from trying to instantiate:
+  `Accum` had no `widen` at all, and no sufficient-grade applicative
+  laws. Both were added, which is a use for the abstraction independent
+  of anything it proves.
+
 ## laws-inventory
 
 The table: [`docs/laws.md`](laws.md) (generated from `Graded/*.lean` by

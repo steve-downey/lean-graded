@@ -1,0 +1,124 @@
+#+TITLE: Letter 28: The interface found two holes in the thing it abstracted
+#+DATE: 2026-09-10
+#+CATEGORY: lean-transpose
+#+STEP: abstract-effects
+#+SERIES_PREV: coverage-enforcement
+
+Steve,
+
+* What I set out to do
+
+Fourteen letters ago I wrote down what a grade has to be: a join, a unit,
+an order, monotonicity. Four different grades satisfy it. And then I
+never used it for anything. Every operation in this model is written
+against the concrete error set, and the module stating what a grade must
+be sits off to one side, imported by nothing except its own tests.
+
+That's a bad shape. An obligation nobody discharges is a wish. So the job
+was to write the operational interfaces over an abstract grade and an
+abstract carrier, and make the two things I already have be instances of
+them.
+
+I went in expecting the abstraction to be the deliverable and the
+instances to be paperwork. It came out the other way round.
+
+* What the checker refused
+
+The trap I want to record cost me an hour and would have cost more if
+Lean were less strict.
+
+I stated the laws inside the same namespace the concrete carrier lives
+in, and wrote them using the short names, on the reasoning that opening
+the interface would bring its operations into scope:
+
+#+begin_src lean
+open GradedFunctorK in
+class LawfulGradedFunctorK ... where
+  map_id : ∀ {g α} (x : M g α), map id x = x
+#+end_src
+
+The =open= does not displace a name already visible. =map= kept resolving
+to the concrete =map=, the one for the error-set carrier. So the law I
+thought I was stating about an arbitrary carrier was quietly a law about
+one particular carrier, and it only failed because the variable =x= had
+the abstract type and the concrete =map= would not accept it. Had the
+types been closer it would have compiled and been useless: a generic law
+that silently isn't. Every projection is written out in full now.
+
+The second refusal was about universes. The nested carrier, the one
+holding an expected inside an expected, is declared so its payload type
+must sit at the same level as its error type. I had never hit that,
+because nothing before asked the nested carrier to satisfy the same
+interface as the flat one. Asking a general question of a specific thing
+is how you find out what it quietly assumed.
+
+* What changed
+
+There are three interfaces: mapping and widening and =pure=; sequencing;
+and applying. The second two take the first as a parameter instead of
+inheriting from it, so a carrier that is both a monad and an applicative
+has one =pure= and not two needing to be reconciled. =pure= at an
+arbitrary grade is derived once, by widening from the empty grade,
+instead of being a field that could behave differently at each grade.
+
+The instances are the part I want to point at. Every single field is the
+name of a theorem that already existed, cited and no more than that. Not one
+of them needed a proof written for it. That's the outcome I was watching
+for, because a field that needed its own argument would have meant the
+interface had drifted away from what the model actually proves, and I
+would have been abstracting something I'd made up.
+
+But the interesting part is what the instances *couldn't* be filled in
+with. The accumulating carrier has no widening conversion. It never had
+one. No law in its module needed it, because its combining operation
+builds its membership proofs directly from the union instead of by
+widening, so nothing asked. Fifteen steps, a full set of applicative
+laws, a projection proved to be a morphism, and the subsumption
+conversion simply absent. The interface asked, and there it was. It had
+no cast-free applicative laws either, so those went in, and one of them
+is not free the way its short-circuiting counterpart is: with three
+things able to fail, the two groupings of the composition law accumulate
+the same errors in a different grouping, and closing that needs list
+associativity where the short-circuiting version just computes.
+
+The payoff came at traversal. I defined list traversal once, over any
+graded applicative, and both existing traversals turn out to be it. Then
+I defined transformations between graded applicatives and proved
+naturality of traversal once, generically. The theorem from Letter 25 —
+that taking the first error of an accumulated traversal is the same as
+short-circuiting from the start — is now that generic law applied to one
+transformation. I had proved it by induction. It didn't need its own
+induction. Renaming errors and changing representation can join it as
+further instances.
+
+And the nested carrier fits, but only after making a *pair* of grades be
+a grade, componentwise. That's a satisfying place to land. The composite
+was never a special case; it was the same interface over a product.
+
+* Back in C++
+
+Write the concept, then try to make your existing types model it. What
+you learn is not whether the concept is right. It's what your types
+can't do.
+
+I have had an accumulating error type in this model since early on, with
+a complete set of laws about how it combines independent failures, and it
+could not widen. A value at a small error set could not be viewed as a
+value at a larger one. That is the most basic thing a graded type does,
+it is the conversion the compiler inserts for you at call boundaries, and
+the type didn't have it. Nothing had noticed, because every theorem I'd
+written happened to be about combining rather than converting.
+
+A concept is a checklist that doesn't know what you were focused on.
+That's its value, and it's a different value from the one usually
+claimed for it. The generic algorithm you write afterwards is a bonus.
+The audit is the point.
+
+The other thing worth carrying: the accumulating type models the
+applicative concept and provably does not model the monad one, and that
+is a statement you can write down and check, not a caveat in a
+comment. When two of your types support "combine two of these" but only
+one supports "and then do something with the result", saying so in the
+type system beats hoping the doc gets read.
+
+--SMD

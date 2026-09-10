@@ -520,6 +520,42 @@ theorem nat_not_idem : ¬ ∀ a : Nat, a + a = a := by
   simp at this
 
 -- ---------------------------------------------------------------------
+-- Products. The grade algebra is closed under pairs, componentwise —
+-- which is what makes `Graded.Comp`'s *product-graded* composite
+-- ([compose-applicative]) a graded carrier over a single grade rather
+-- than a special case needing two of everything. Stated here rather than
+-- beside `Comp` because it is a fact about grades, not about carriers.
+
+/-- The componentwise product of two grades. Every field is the two
+    underlying fields side by side; nothing is chosen. -/
+instance instPreorderedGradeMonoidProd (G : Type u) (H : Type u)
+    [PreorderedGradeMonoid G] [PreorderedGradeMonoid H] :
+    PreorderedGradeMonoid (G × H) where
+  join a b := (PreorderedGradeMonoid.join a.1 b.1, PreorderedGradeMonoid.join a.2 b.2)
+  bot := (PreorderedGradeMonoid.bot, PreorderedGradeMonoid.bot)
+  le a b := PreorderedGradeMonoid.le a.1 b.1 ∧ PreorderedGradeMonoid.le a.2 b.2
+  join_assoc a b c := by
+    simp only [Prod.mk.injEq]
+    exact ⟨PreorderedGradeMonoid.join_assoc _ _ _, PreorderedGradeMonoid.join_assoc _ _ _⟩
+  bot_join a := by
+    simp only [PreorderedGradeMonoid.bot_join]
+  join_bot a := by
+    simp only [PreorderedGradeMonoid.join_bot]
+  le_refl' a := ⟨PreorderedGradeMonoid.le_refl' _, PreorderedGradeMonoid.le_refl' _⟩
+  le_trans' h₁ h₂ :=
+    ⟨PreorderedGradeMonoid.le_trans' h₁.1 h₂.1, PreorderedGradeMonoid.le_trans' h₁.2 h₂.2⟩
+  bot_le a := ⟨PreorderedGradeMonoid.bot_le _, PreorderedGradeMonoid.bot_le _⟩
+  join_mono h₁ h₂ :=
+    ⟨PreorderedGradeMonoid.join_mono h₁.1 h₂.1, PreorderedGradeMonoid.join_mono h₁.2 h₂.2⟩
+
+/-- The product of two least-upper-bound grades is one: the bound is
+    taken componentwise, so nothing is lost. -/
+instance instLubGradeProd (G : Type u) (H : Type u)
+    [PreorderedGradeMonoid G] [PreorderedGradeMonoid H] [IsLubGrade G] [IsLubGrade H] :
+    IsLubGrade (G × H) where
+  join_le h₁ h₂ := ⟨IsLubGrade.join_le h₁.1 h₂.1, IsLubGrade.join_le h₁.2 h₂.2⟩
+
+-- ---------------------------------------------------------------------
 -- The second counter-instance: the pre-canonical pack. `error_set<Es...>`
 -- as the programmer wrote it, before the public alias delegates to its
 -- sorted, deduplicated detail carrier. This is the grade that separates

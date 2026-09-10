@@ -145,4 +145,38 @@ example (f : Nat → Nat → Nat) (x : Accum GK Nat) (y : Accum GK Nat) :
     toGraded (map2K hgk hgk f x y) = Graded.map2K hgk hgk f (toGraded x) (toGraded y) :=
   toGraded_map2K hgk hgk f x y
 
+-- `toGraded_widen`, and the four sufficient-grade applicative laws added
+-- by [abstract-effects]. `apK_comp` is instantiated at three distinct
+-- grades with all three sides able to fail, since that is the law whose
+-- proof needs `List.append_assoc` rather than reduction.
+
+example (x : Accum GK Nat) : toGraded (widen hgk x) = Graded.widen hgk (toGraded x) :=
+  toGraded_widen hgk x
+
+example (x : Accum GK Nat) :
+    apK (Grade.le_refl' KK) hgk (pureK (@id Nat) : Accum KK (Nat → Nat)) x
+      = widen hgk x :=
+  apK_pure_id hgk x
+
+example (f : Nat → Nat) (a : Nat) :
+    apK (Grade.le_refl' KK) (Grade.le_refl' KK) (pureK f : Accum KK (Nat → Nat)) (pureK a)
+      = (pureK (f a) : Accum KK Nat) :=
+  apK_pure_pure f a
+
+example (u : Accum GK (Nat → Nat)) (a : Nat) :
+    apK hgk (Grade.le_refl' KK) u (pureK a : Accum KK Nat)
+      = apK (Grade.le_refl' KK) hgk (pureK (fun f => f a) : Accum KK ((Nat → Nat) → Nat)) u :=
+  apK_interchange hgk u a
+
+example (u : Accum GK (Nat → Nat)) (v : Accum GK (Nat → Nat)) (w : Accum GK Nat) :
+    apK (Grade.le_refl' KK) hgk (apK (Grade.le_refl' KK) hgk
+        (apK (Grade.le_refl' KK) hgk
+          (pureK Function.comp : Accum KK ((Nat → Nat) → (Nat → Nat) → Nat → Nat)) u) v) w
+      = apK hgk (Grade.le_refl' KK) u (apK hgk hgk v w) :=
+  apK_comp hgk hgk hgk u v w
+
+-- The accumulating composition law, computed: all three sides fail, and
+-- both groupings give the same three errors in the same order.
+#guard renderT (traverseK hgk checkAccum [0, 200, 0]) = "errs [parse, range, parse]"
+
 end Tests.AccumTraverse

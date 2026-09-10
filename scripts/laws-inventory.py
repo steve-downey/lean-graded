@@ -336,6 +336,42 @@ ALLOWLIST = {
     "toGraded_traverseK": "structural: the list-order fact lifted through "
         "the induction, delegating to toGraded_map2K and toGraded_pureK; "
         "no grade is computed anywhere, so no property is spent",
+    # --- abstract-effects --------------------------------------------------
+    "widen_errs": "structural: Accum.widen's own errs-case reduction, rfl; "
+        "the membership proof it threads is the caller's inclusion, not a "
+        "named Grade lemma — same footing as widen_ok, which is tagged "
+        "only because widen_widen's neighbour mentions le_trans'",
+    "toGraded_widen": "structural: which element of the error list comes "
+        "first, transported along an inclusion — the same list-order fact "
+        "toGraded_ok/toGraded_grade' are allow-listed for, with no join",
+    "map_pureK": "structural at this layer: proved from the LawfulGraded"
+        "FunctorK fields widen_map and map_pure, which are class "
+        "projections over an abstract G, not Graded.Grade lemmas. There is "
+        "no pomonoid property to cite because the abstract carrier has no "
+        "Grade to have one",
+    "traverseGK_nil": "structural: definitional unfold, the generic mirror "
+        "of traverseK_nil",
+    "traverseGK_map": "structural: induction over traverseGK_cons, itself "
+        "rfl; the generic mirror of traverseK_map, which is allow-listed "
+        "for the same reason",
+    "traverseGK_eq_traverseK": "structural: a bridge between two spellings "
+        "of one recursion (traverseGK's apK-after-map cons case against "
+        "traverseK's map2K), closed by induction and rfl — no grade is "
+        "computed on either side",
+    "traverseGK_eq_accum_traverseK": "structural: the same bridge at the "
+        "accumulating carrier, same reasoning",
+    "app_pureK": "structural: app_pure carried up by app_widen, both "
+        "transformation fields; no grade arithmetic — the same two-step "
+        "map_pureK uses",
+    "app_traverseGK": "structural, and this is the finding rather than an "
+        "oversight: traversal naturality over an abstract graded "
+        "applicative consumes no pomonoid property whatever. The grade is "
+        "the caller's nominated k throughout, the transformation's fields "
+        "carry every step, and there is nothing for a join law to be "
+        "about. Its concrete instance (toGraded_traverseK) is allow-listed "
+        "for the matching reason one layer down",
+    "toGraded_traverseK_generic": "delegates to app_traverseGK and the two "
+        "traverseGK_eq_* bridges, all structural this step",
     # --- morphism-bridge ---------------------------------------------------
     "renameHomK_hom": "structural: `rfl`. GradedHom.toGradedHomK reuses "
         "H.hom unchanged, so factoring renameHomK through the lift changed "

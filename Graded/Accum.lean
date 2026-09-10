@@ -43,6 +43,41 @@ def map (f : α → β) : Accum g α → Accum g β
   | .ok a => .ok (f a)
   | .errs es hne hmem => .errs es hne hmem
 
+/-- Subsumption for the accumulating carrier: every error keeps its
+    place in the list and gains membership in the larger grade. The
+    mirror of `Graded.widen` ([subsumption-widen]), and **it took until
+    [abstract-effects] for anyone to notice it was missing** — no law in
+    this module needed it, because `ap` builds its own membership proofs
+    from `Grade.le_join_left`/`le_join_right` rather than by widening,
+    and nothing else asked. The gap was invisible until the carrier was
+    asked to be a graded functor in general, which is a use for the
+    abstract layer independent of anything it proves. -/
+def widen (h : g ⊆ h') : Accum g α → Accum h' α
+  | .ok a => .ok a
+  | .errs es hne hmem => .errs es hne (fun e he => h (hmem e he))
+
+theorem widen_ok (h : g ⊆ h') (a : α) :
+    (widen h (Accum.ok a) : Accum h' α) = Accum.ok a := rfl
+
+theorem widen_errs (h : g ⊆ h') (es : List Err) (hne : es ≠ []) (hmem : ∀ e ∈ es, e ∈ g) :
+    (widen h (Accum.errs es hne hmem) : Accum h' α)
+      = Accum.errs es hne (fun e he => h (hmem e he)) := rfl
+
+theorem widen_widen (h₁ : g ⊆ g') (h₂ : g' ⊆ h') (x : Accum g α) :
+    widen h₂ (widen h₁ x) = widen (Grade.le_trans' h₁ h₂) x := by
+  cases x <;> rfl
+
+theorem widen_map (h : g ⊆ h') (f : α → β) (x : Accum g α) :
+    widen h (map f x) = map f (widen h x) := by
+  cases x <;> rfl
+
+theorem map_id (x : Accum g α) : map id x = x := by
+  cases x <;> rfl
+
+theorem map_comp (f : α → β) (h : β → γ) (x : Accum g α) :
+    map (h ∘ f) x = map h (map f x) := by
+  cases x <;> rfl
+
 /-- Sequence a graded function against a graded argument, *accumulating
     both* error lists when both sides fail — the one place this differs
     from `Graded.ap`, which can hold only one error and so must drop one
