@@ -136,11 +136,19 @@ def load_test_text() -> str:
 
 
 def module_computes(module: str) -> bool:
-    """Does this module's own test file contain something that reduces?"""
-    test_path = ROOT / "Tests" / Path(module).name
-    if not test_path.exists():
-        return False
-    return bool(COMPUTES_RE.search(strip_comments(test_path.read_text())))
+    """Does this module's own test file contain something that reduces?
+
+    Tries the exact mirror first (`Graded/Foo.lean` -> `Tests/Foo.lean`),
+    then the parent directory's name. [module-split] put six modules under
+    `Graded/Sufficient/`, whose tests all live in the one
+    `Tests/Sufficient.lean` rather than in a mirrored tree; without the
+    fallback every reduction lemma in them reads as uncovered."""
+    rel = Path(module).relative_to("Graded")
+    candidates = [ROOT / "Tests" / rel, ROOT / "Tests" / (rel.parent.name + ".lean")]
+    for test_path in candidates:
+        if test_path.exists() and COMPUTES_RE.search(strip_comments(test_path.read_text())):
+            return True
+    return False
 
 
 def named_in(name: str, text: str) -> bool:
@@ -167,8 +175,8 @@ def main() -> None:
 
     chunks = {}
     quals = {}
-    for path in sorted(GRADED_DIR.glob("*.lean")):
-        module = f"Graded/{path.name}"
+    for path in sorted(GRADED_DIR.rglob("*.lean")):
+        module = f"Graded/{path.relative_to(GRADED_DIR)}"
         quals[module] = qualified_names(path)
         for name, chunk in laws_inventory.theorem_chunks(path):
             chunks[(module, name)] = chunk

@@ -2996,6 +2996,121 @@ not "re-pointing is free."
   laws. Both were added, which is a use for the abstraction independent
   of anything it proves.
 
+## module-split
+
+**The question this section answers.** `Graded/Sufficient.lean` was
+eleven hundred lines carrying `bindK`, `apK`, `traverseK`, `flattenK`,
+`Comp.apK` and `GradedHomK` together, so importing sequencing at a
+nominated grade imported traversal, composition and the morphism records
+behind it. `Graded/Canonical.lean` imported the whole heterogeneous tuple
+development — `GList`, `sequence`, all of it — to reuse one grade fold
+and one permutation theorem.
+
+### What moved
+
+`Graded.Sufficient` is now a **re-export shim** over seven modules, so
+every existing import is unaffected and no theorem lost its name:
+
+| module | holds | imports beyond its predecessor |
+|---|---|---|
+| `.MonadK` | `bindK`, `pureK`, the monad laws | `Graded.Monad` only |
+| `.ApplicativeK` | `apK`, `map2K`, `apFlippedK` | `Graded.Applicative` |
+| `.TraversableK` | `traverseK` | `Graded.Traverse` |
+| `.ComposeK` | `flattenK` | `Graded.Compose` |
+| `.CompK` | `Comp.apK`, `traverseCompK` | `Graded.ComposeApp` |
+| `.TupleK` | `sequenceK` | `Graded.Tuple` |
+| `.MorphismK` | `GradedHomK`, the bridge | `Graded.Morphism` |
+
+`Graded.GradeFold` holds `joinAll` and its three laws, extracted from
+`Graded/Tuple.lean`. Nothing in it mentions a carrier. `Tuple` and
+`Canonical` both import it and neither imports the other.
+
+**The boundary is asserted, not asserted-about.** A file importing only
+`Graded.Sufficient.MonadK` resolves `bindK` and fails to resolve
+`traverseK`, `flattenK`, `GradedHomK` and `Comp.apK`; one importing only
+`Graded.Canonical` resolves `joinAll` and fails to resolve `GList` and
+`sequence`. That is the gate, and it is checked by compiling those two
+files rather than by reading imports.
+
+**The split is free.** Measured in heartbeats (see
+[how elaboration cost is measured](#grade-abstraction-payoff)): across
+the 16 `Tests/` modules whose source the split did not touch, elaboration
+work is **35985 before and 35985 after** — not approximately equal,
+identical. Moving declarations between files changes where they are, not
+what they cost.
+
+### sequenceK, and the bridge it does not have
+
+Heterogeneous sequencing was the one operation with no sufficient-grade
+sibling — the counter-plan's §3.7 caught what the outline missed.
+`Graded.sequenceK` closes it.
+
+The shape differs from `traverseK` in a way worth recording. Uniform list
+traversal has *one* source grade and reuses one inclusion at every
+position; a tuple's slots carry different grades, so the hypothesis is
+`∀ g ∈ gs, g ⊆ k` — a family of witnesses, one per slot. `sequenceK_irrel`
+is correspondingly stronger than `bindK_irrel`: what is irrelevant is a
+whole family.
+
+**There is no `sequence_eq_sequenceK`, and that is a recorded gap rather
+than an oversight.** Every other `K` operation has a bridge recovering
+the union-graded spelling at the computed grade. This one does not go
+through by the same induction: `sequence` recurses at `joinAll gs`,
+joining one slot at a time, so each recursive call sits at a *different,
+smaller* grade, while `sequenceK` recurses at the caller's `k`
+throughout. The induction hypothesis is about `sequenceK` at the wrong
+grade. Closing it needs an `apK`/`widen` commutation that `apK`'s
+`bindK`-derived definition does not give by `rfl`. Neither `traverseK`
+nor `flattenK` hits this, because neither recurses through a changing
+grade; it is specific to the case [traverse-tuple] called "where the
+grade is really computed".
+
+### The inventory grew a layer column
+
+[module-split]'s gate asks the law inventory to separate generic
+obligations from concrete ones, representation results from both, and the
+C++-probe obligations from all three. `docs/laws.md` now carries a
+`layer` column and a census:
+
+| layer | meaning |
+|---|---|
+| `generic` | stated over an abstract grade or carrier; no `Finset`, no `Graded`. What a *different* grade would have to meet. |
+| `representation` | about two spellings of one grade. See [representation](#representation)'s boundary note. |
+| `concrete` | about `Grade Err` and its carriers. The bulk. |
+
+The fourth distinction is orthogonal and already carried by the `C++ law`
+column: a row with an equation is a probe obligation the C++ side owes a
+`static_assert` for. A row can be both `concrete` and a probe. **No row is
+both `generic` and a probe**, which is itself worth being able to see at a
+glance.
+
+### The check that did not check
+
+Splitting one module into seven dropped **61 theorems out of 255** from
+the law inventory, and `make laws` reported `0 flagged` while it
+happened. `scripts/laws-inventory.py` globbed `Graded/*.lean`
+non-recursively, so `Graded/Sufficient/*.lean` was simply not there. A
+third of the inventory vanished and the check whose entire job is to
+notice things did not notice.
+
+Both scripts now walk the tree (`rglob`). `scripts/test-coverage.py`
+additionally learned to look for a nested module's tests one directory up
+(`Graded/Sufficient/MonadK.lean` is tested by `Tests/Sufficient.lean`,
+not by a mirrored file), because without that every reduction lemma in
+the split modules read as uncovered.
+
+The lesson is not about globs. A check that enumerates its own inputs can
+fail by enumerating fewer of them, and it fails *silently* and *green* —
+which is the worst way for a check to fail. `make laws` diffs its output
+against the committed copy, so the loss was visible as a large diff to a
+reader who looked; nothing failed. Worth remembering the next time this
+repository grows a directory.
+
+`make test-coverage`, by contrast, worked exactly as intended in the same
+session: moving the `joinAll` examples into `Tests/GradeFold.lean` took
+`Tests/Tuple.lean`'s only computing `#guard` with them, and the coverage
+check went red immediately.
+
 ## laws-inventory
 
 The table: [`docs/laws.md`](laws.md) (generated from `Graded/*.lean` by

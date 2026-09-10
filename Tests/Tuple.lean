@@ -1,30 +1,18 @@
 import Graded.Tuple
 import Examples.Validation
 
-/-! Examples instantiating every `Graded.Tuple` theorem at a concrete error
-    type, plus a `decide` that `joinAll` computes and is order-independent
-    — the concrete instance of `joinAll_perm` this codebase's `decide`
-    convention (`docs/RULES.md#tests`) asks for. -/
+/-! Examples instantiating every `Graded.Tuple` theorem at a concrete
+    error type, plus a `#guard` that heterogeneous `sequence` computes.
+
+    The `joinAll` examples moved to `Tests/GradeFold.lean` with the code,
+    at [module-split] — and took this file's only computing check with
+    them, which `make test-coverage` caught immediately. The replacement
+    below exercises `sequence` itself, which is what this module is
+    actually about. -/
 
 namespace Tests
 
 open Graded Examples.Validation List
-
--- `joinAll` computes, and is order-independent: folding `{E.parse}` then
--- `{E.range}` gives the same grade as folding them the other way round —
--- exactly the C++ `error_set<parse, range>` ≡ `error_set<range, parse>`
--- claim, here checked by `decide` rather than merely asserted.
-example : joinAll ([{E.parse}, {E.range}] : List (Grade E)) =
-    joinAll ([{E.range}, {E.parse}] : List (Grade E)) := by decide
-
-example (h : ([{E.parse}, {E.range}] : List (Grade E)) ~ [{E.range}, {E.parse}]) :
-    joinAll ([{E.parse}, {E.range}] : List (Grade E)) =
-      joinAll ([{E.range}, {E.parse}] : List (Grade E)) :=
-  joinAll_perm h
-
-example : joinAll (([{E.parse}, {E.parse}, {E.range}] : List (Grade E)).dedup) =
-    joinAll ([{E.parse}, {E.parse}, {E.range}] : List (Grade E)) :=
-  joinAll_dedup _
 
 example : sequence (Err := E) GList.nil = Graded.pure HList.nil :=
   sequence_nil
@@ -35,15 +23,22 @@ example (x : Graded ({E.parse} : Grade E) Nat)
   sequence_cons x xs
 
 -- ---------------------------------------------------------------------
--- `join_mem_eq`: a grade already in the list is absorbed by the fold.
--- Instantiated at a **three**-grade list with the member in the middle,
--- so the proof has to walk past one element and absorb into a nonempty
--- tail — a singleton list would hold for a fold that ignored its tail.
-example (hmem : ({E.range} : Grade E) ∈ [({E.parse} : Grade E), {E.range}, {E.io}]) :
-    Grade.join ({E.range} : Grade E) (joinAll [({E.parse} : Grade E), {E.range}, {E.io}])
-      = joinAll [({E.parse} : Grade E), {E.range}, {E.io}] :=
-  join_mem_eq hmem
+-- `sequence` computes, on a genuinely heterogeneous tuple: two distinct
+-- payload types (`Nat` and `String`) at two distinct grades, which is the
+-- fixture `docs/RULES.md#tests` asks for here — a homogeneous pair would
+-- pass against a `sequence` that ignored one index.
 
-#guard joinAll [({E.parse} : Grade E), {E.range}, {E.io}] = {E.parse, E.range, E.io}
+/-- A two-slot tuple: a `Nat` at `{parse}` and a `String` at `{range}`. -/
+def pairGL : GList ([{E.parse}, {E.range}] : List (Grade E)) [Nat, String] :=
+  GList.cons (Graded.ok 7) (GList.cons (Graded.ok "hi") GList.nil)
+
+def renderPairGL : Graded (joinAll ([{E.parse}, {E.range}] : List (Grade E)))
+    (HList [Nat, String]) → String
+  -- `HList` is a recursive `def` down to nested `Prod`, not an
+  -- inductive, so its `cons` is not a pattern; match the pair directly.
+  | .ok (n, s, _) => s!"ok ({n}, {s})"
+  | .err e _ => s!"err {repr e}"
+
+#guard renderPairGL (sequence pairGL) = "ok (7, hi)"
 
 end Tests

@@ -1,5 +1,7 @@
 import Graded.Prelude
 import Graded.Grade
+import Graded.GradeFold
+import Graded.Signature
 import Graded.Carrier
 import Graded.Widen
 import Graded.Monad

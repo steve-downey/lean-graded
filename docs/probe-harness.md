@@ -136,6 +136,18 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
+## `joinAll_perm` (Graded/GradeFold.lean)
+
+    error_set<Es...> == error_set<permutation of Es...>
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `joinAll_dedup` (Graded/GradeFold.lean)
+
+    error_set<Es..., duplicates removed> == error_set<Es...>
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
 ## `bind_pure_left` (Graded/Monad.lean)
 
     and_then(pure(x), f) == f(x)
@@ -241,18 +253,6 @@ check by example with std types; equality is `==` on the carrier after conversio
 ## `traverse_length` (Graded/Traverse.lean)
 
     traverse(f, xs).value().size() == xs.size()  // shape preservation
-
-check by example with std types; equality is `==` on the carrier after conversion.
-
-## `joinAll_perm` (Graded/Tuple.lean)
-
-    error_set<Es...> == error_set<permutation of Es...>
-
-check by example with std types; equality is `==` on the carrier after conversion.
-
-## `joinAll_dedup` (Graded/Tuple.lean)
-
-    error_set<Es..., duplicates removed> == error_set<Es...>
 
 check by example with std types; equality is `==` on the carrier after conversion.
 

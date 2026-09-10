@@ -1,4 +1,4 @@
-import Graded.Tuple
+import Graded.GradeFold
 import Mathlib.Data.Finset.Sort
 import Mathlib.Data.Finset.Dedup
 
@@ -144,7 +144,7 @@ def union (c c' : Canon Err) : Canon Err := ofFinset (toFinset c ∪ toFinset c'
 
 /-- Sort a list into its canonical representative: dedup and order,
     exactly what `Canon`'s property demands. Built from `joinAll`
-    (`Graded.Tuple`'s union-of-singletons fold) rather than
+    (`Graded.GradeFold`) rather than
     `List.toFinset` directly, so that `canon_perm` below can cite
     `joinAll_perm` — the tuple case's order-independence theorem — instead
     of reproving it. -/
@@ -156,7 +156,7 @@ def ofList (l : List Err) : Canon Err :=
     `static_assert` this theorem does not discharge:
     two permutations of the same list of error kinds sort to the same
     canonical representative. Cites `joinAll_perm`
-    (`Graded.Tuple`, [traverse-tuple]) rather than reproving
+    (`Graded.GradeFold`, [traverse-tuple]) rather than reproving
     order-independence from `List.Perm` directly — `joinAll_perm` already
     is that proof, for the union-of-singletons grade `ofList` folds. -/
 theorem canon_perm {gs gs' : List Err} (h : gs ~ gs') : ofList gs = ofList gs' :=
