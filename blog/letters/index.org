@@ -2,7 +2,7 @@
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 
-Twenty-five letters, written across one project: a Lean 4 model of the
+Twenty-seven letters, written across one project: a Lean 4 model of the
 grading design behind P3200 and beman.transpose, built one law at a time
 to find out exactly which property of a grade each law actually needs.
 Letter 16 called itself the close of the series; a review afterward found
@@ -40,3 +40,5 @@ the earlier letter says so in place rather than being quietly edited.
 - [[file:sufficient-grade-nested.org][Letter 22: Flatten still computes a grade, and commutativity finally ran out of places to hide]] (slug: sufficient-grade-nested)
 - [[file:truth-in-labelling.org][Letter 23: The three sentences nothing was checking]] (slug: truth-in-labelling)
 - [[file:grade-join-strength.org][Letter 24: The argument pack is a grade too, and it fails on purpose]] (slug: grade-join-strength)
+- [[file:accum-traverse.org][Letter 25: The carrier whose whole job I never asked it to do]] (slug: accum-traverse)
+- [[file:morphism-bridge.org][Letter 26: I checked it in Lean and still got it wrong]] (slug: morphism-bridge)

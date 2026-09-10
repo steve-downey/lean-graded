@@ -621,13 +621,61 @@ example
       [1, 2, 3]) = "ok [2, 3, 4]"
 
 -- ---------------------------------------------------------------------
--- `GradedHom.gmap_mono`: the one direction the two structures share —
--- `renameHom`'s `gmap` is monotone because `renameHomK`'s already is, and
--- both compute the same `Grade.rename_mono`.
+-- `GradedHom.gmap_mono`: the grade half of the bridge, derived from
+-- `gmap_join` alone.
 example (hgh : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) :
     (renameHom coarsen).gmap ({E.parse} : Grade E) ⊆
       (renameHom coarsen).gmap ({E.parse, E.range} : Grade E) :=
   GradedHom.gmap_mono (renameHom coarsen) hgh
+
+-- ---------------------------------------------------------------------
+-- `GradedHom.toGradedHomK`: the bridge in full, at a *nontrivial* pair of
+-- grades — `{E.parse}` strictly inside `{E.parse, E.range}`, and a
+-- `coarsen` that is genuinely many-to-one, so neither the inclusion nor
+-- the renaming is an identity in disguise.
+
+example : GradedHomK E E' := (renameHom coarsen).toGradedHomK
+
+-- The lift changes nothing about what the morphism does: same `gmap`,
+-- same `hom`, both by `rfl`.
+example (x : Graded ({E.parse} : Grade E) Nat) :
+    (renameHomK coarsen).hom x = rename coarsen x :=
+  renameHomK_hom coarsen x
+
+example : (renameHomK coarsen).gmap = Grade.rename coarsen := renameHomK_gmap coarsen
+
+example : (renameHomK coarsen).hom
+    (Graded.err E.parse (by decide) : Graded ({E.parse} : Grade E) Nat)
+      = rename coarsen (Graded.err E.parse (by decide)) := rfl
+
+-- `hom_ok` at a grade that is not `Grade.bot`, which is the case
+-- `hom_pure` does not state and `hom_widen` is what supplies.
+example (a : Nat) :
+    (renameHom coarsen).hom (Graded.ok a : Graded ({E.parse, E.range} : Grade E) Nat)
+      = Graded.ok a :=
+  GradedHom.hom_ok (renameHom coarsen) a
+
+-- `hom_widen`, the new field, at a real inclusion.
+example (h₁ : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (x : Graded ({E.parse} : Grade E) Nat) :
+    (renameHom coarsen).hom (widen h₁ x)
+      = widen (GradedHom.gmap_mono (renameHom coarsen) h₁) ((renameHom coarsen).hom x) :=
+  (renameHom coarsen).hom_widen h₁ _ x
+
+-- `bindK_eq_widen_bind`: the factorisation the lift runs through, at two
+-- distinct nonempty grades and a nominated grade above both.
+example (x : Graded ({E.parse} : Grade E) Nat)
+    (f : Nat → Graded ({E.range} : Grade E) Nat)
+    (hg : ({E.parse} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (hh : ({E.range} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E)) :
+    bindK hg hh x f = widen (Grade.join_le hg hh) (bind x f) :=
+  bindK_eq_widen_bind hg hh x f
+
+#guard renderK (bindK (g := ({E.parse} : Grade E)) (h := ({E.range} : Grade E))
+    (k := ({E.parse, E.range, E.io} : Grade E)) (by decide) (by decide)
+    (Graded.err E.parse (by decide))
+    (fun n => (Graded.ok n : Graded ({E.range} : Grade E) Nat)))
+  = "err Examples.Validation.E.parse"
 
 -- ---------------------------------------------------------------------
 -- `constHomK`: the counter-instance. Its `gmap` is monotone (every

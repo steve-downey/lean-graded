@@ -6,6 +6,7 @@ import Graded.Monad
 import Graded.Sufficient
 import Graded.Applicative
 import Graded.Accum
+import Graded.AccumTraverse
 import Graded.Traverse
 import Graded.Tuple
 import Graded.Compose

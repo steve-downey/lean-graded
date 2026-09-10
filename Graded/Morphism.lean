@@ -166,7 +166,19 @@ theorem rename_map2 (φ : Err → Err') (k : α → β → γ) (x : Graded g α)
 /-- A graded monad morphism: a map on grades that is a join-semilattice
     homomorphism (`gmap_join`, `gmap_bot`), together with a family on
     carriers, natural at every grade and payload type, that commutes with
-    `bind` and `pure` up to that homomorphism. This is the definition of
+    `bind`, `pure`, and the subsumption conversion `widen`.
+
+    **`hom_widen` was added by [morphism-bridge]**, and it is what makes
+    `GradedHom.toGradedHomK` (`Graded/Sufficient.lean`) total. `widen` is
+    a primitive of the carrier that `bind` and `pure` do not define, so
+    `hom_bind`/`hom_pure` say nothing about how `hom` treats it; without
+    this field the forward bridge to `GradedHomK` stops at `gmap_mono`,
+    carrying `gmap`'s obligation and none of `hom`'s. It takes the target
+    inclusion `h₂` as an argument rather than deriving it, because
+    `gmap_mono` is a theorem proved from `gmap_join` *after* this
+    structure exists — and it costs nothing to quantify over `h₂`, since
+    `widen_irrel` is `rfl`. Every morphism anyone can actually write has
+    this property; the point is that the record now says so. This is the definition of
     "graded morphism" the C++ design lacks — `renameHom` below packages
     `Grade.rename`/`rename` as the one instance the design actually uses.
 
@@ -187,6 +199,9 @@ structure GradedHom (Err : Type u) (Err' : Type u) [DecidableEq Err] [DecidableE
       cast (gmap_join g h) (hom (bind x f)) = bind (hom x) (fun a => hom (f a))
   hom_pure : ∀ {α : Type v} (a : α),
       cast gmap_bot (hom (pure a : Graded (Grade.bot : Grade Err) α)) = pure a
+  hom_widen : ∀ {g g' : Grade Err} {α : Type v} (h₁ : g ⊆ g')
+      (h₂ : gmap g ⊆ gmap g') (x : Graded g α),
+      hom (widen h₁ x) = widen h₂ (hom x)
 
 /-- The one instance of `GradedHom` the C++ design uses: renaming error
     kinds along `φ`. -/
@@ -197,6 +212,7 @@ def renameHom (φ : Err → Err') : GradedHom Err Err' where
   hom := rename φ
   hom_bind := rename_bind φ
   hom_pure := rename_pure φ
+  hom_widen := fun h₁ _h₂ x => rename_widen φ h₁ x
 
 -- ---------------------------------------------------------------------
 -- Naturality of `traverse` against `rename`: renaming after traversing

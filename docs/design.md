@@ -686,6 +686,66 @@ combined by `Accum.map2` into `validateTwoFields`. With both fields bad,
 [Examples.Validation.E.parse, Examples.Validation.E.range]"` — both
 errors present, the thing `Graded`'s carrier cannot show.
 
+### Accum: traversal, added by [accum-traverse]
+
+The accumulating carrier went fifteen steps without a traversal, which is
+conspicuous: collecting every independent failure is the only reason it
+exists, and a list of independent checks is where that happens. The gap
+is closed in `Graded/AccumTraverse.lean` — a separate module, because
+`Graded.Morphism` imports `Graded.Accum` and `Graded.Sufficient` imports
+`Graded.Morphism`, so `Graded/Accum.lean` cannot see `Graded.traverseK`
+without a cycle, and the commutation theorem below needs it.
+
+**At a nominated grade, not a fold.** `Accum.traverseK hg f` takes the
+caller's `k` and one proof `g ⊆ k`, reuses both at every position, and
+lands in `Accum k (List β)` for every list. Same shape as
+`Graded.traverseK` and the same consequence: length-independence is a
+property of the *signature*, not a theorem costing `Grade.join_idem`.
+
+**`Accum.apK` is primitive, and that is the point.** `Graded.apK` is
+defined through `bindK` — the applicative derived from the monad. This
+one cannot be: `Accum.notMonad` says there is no monad to derive it
+from, and the difference is entirely in the both-fail case, which
+sequencing cannot express. So `apK` matches on both arguments and
+concatenates, with each side's membership carried by the caller's own
+inclusion rather than by `Grade.le_join_left`/`le_join_right`. That is
+visible in the law inventory: `Accum.ap_ok_errs` is tagged `order`
+because `ap`'s definition inlines those two lemmas into its statement,
+and `Accum.apK_ok_errs` is tagged with nothing at all.
+
+**What comes out, and in what order.** `errsOf_traverseK` is the theorem
+the carrier exists for: the accumulated error list of a traversal is
+`xs.flatMap (fun x => errsOf (f x))` — every failing position
+contributes, in source order, exactly once. Zero failures give `[]`, one
+gives that position's list, `n` give all `n` concatenated left to right.
+It costs no pomonoid property whatever, being a claim about
+`List.append`: the grade is fixed at the caller's `k` throughout and
+never computed, so there is nothing for a join law to be about.
+`traverseK_ok` is the success half: an all-succeeding traversal is
+`List.map`.
+
+> **The order is part of the contract, not an artifact.** Because
+> `toGraded` takes the *first* error, left-to-right accumulation decides
+> which error a short-circuiting caller sees. `Tests/AccumTraverse.lean`
+> guards it both ways round: `[0, 5, 200]` accumulates
+> `[parse, range]` and `[200, 5, 0]` accumulates `[range, parse]`. An
+> unordered bag would be a *different carrier* with a different
+> projection policy, not this theorem with a weaker statement — the same
+> provisional note `Graded.Accum`'s own `List`-over-`Multiset` choice
+> already carries.
+
+**The payoff: `toGraded_traverseK`.** Accumulate every failure and then
+keep the first, or short-circuit at the first failure from the start —
+the same error, and on success the same list, with no side condition.
+`toGraded_grade'` already proved the projection is an unconditional
+applicative morphism; this lifts it through the list, by induction over
+`toGraded_map2K` and `toGraded_pureK`. It is the interoperability
+guarantee the C++ side gets for free: a validating `transpose` and a
+short-circuiting one agree on which error a caller sees, and they agree
+because the accumulating one appends left to right while the
+short-circuiting one keeps the leftmost — the same choice made twice,
+not a convention anyone has to maintain.
+
 ## traverse
 
 ### List: shape-independence is idempotence, spent precisely
@@ -1360,9 +1420,10 @@ the exact union `Grade.join g h`, along the same two inclusions `flatten`
 itself uses, and recovers `flatten` — `rfl` in every constructor case,
 the fourth genuine bridge in this file (an *operation* recovered at a
 computed grade, the same shape as `bind_eq_bindK`/`ap_eq_apK`/
-`traverse_eq_traverseK`, unlike the morphism leg's one-directional
-`GradedHom.gmap_mono`, which bridges two *structures* instead — see
-[sufficient-grade-morphism]'s handoff for why that distinction matters).
+`traverse_eq_traverseK`, unlike the morphism leg's
+`GradedHom.toGradedHomK`, which bridges two *structures* instead — see
+[morphisms](#morphisms) for why that distinction matters, and for the
+fifth bridge `bindK_eq_widen_bind`, which runs the other way).
 
 **`Comp`'s own layer: `Comp.pureK`, `Comp.map2K`, and `traverseCompK`,
 built through `Comp.apK` exactly as `traverseK` is built through `apK` —
@@ -1599,15 +1660,13 @@ currently state at all.
 
 **`renameHomK`** packages the *same* underlying `gmap`/`hom` functions
 `renameHom` does (`Grade.rename φ` and `rename φ`) — only the obligation
-attached to `gmap` differs. `gmap_mono := Grade.rename_mono φ` and
-`hom_pureK := rfl` both check without incident (`pureK a` is `fromEmpty
-a` regardless of grade, and renaming an `ok` is `ok` regardless of grade,
-so both sides reduce to `Graded.ok a` before any grade is inspected).
-`hom_bindK`'s `ok` leaf needs `bindK_ok` to expose `widen hh (f a)`
-*before* `rename_widen` can fire — a case of the same shape earlier legs
-called out: a lambda binder in the field's own statement (`fun a => hom
-(f a)`) means the rewrite has to unfold `bindK` first, not case on `f a`
-first.
+attached to `gmap` differs. It is **no longer built by hand**:
+[morphism-bridge] made `GradedHom.toGradedHomK` total, and `renameHomK`
+is now defined as `(renameHom φ).toGradedHomK`, with `renameHomK_hom`
+and `renameHomK_gmap` recording by `rfl` that the factoring changed no
+term. The hand-built version discharged `hom_bindK`'s `ok` leaf by
+exposing `widen hh (f a)` with `bindK_ok` before `rename_widen` could
+fire; the general lift needs no case split at all.
 
 **Naturality against `apK`/`map2K`/`traverseK`, cast-free.** `rename_apK`,
 `rename_map2K` and `traverseK_rename` are the sufficient-grade analogues
@@ -1619,25 +1678,48 @@ layer only because that layer's own laws produce casts for `rename` to
 commute with; the sufficient-grade layer never produces one in the first
 place.
 
-**The bridge is one-directional, and even its one direction is
-narrower than it looks.** Bridging two *structures* is not the same as
-bridging two *operations* (`bind_eq_bindK`, `ap_eq_apK`,
-`traverse_eq_traverseK`, all `rfl` at a shared instantiation).
-`GradedHom.gmap_mono` derives `GradedHomK`'s `gmap_mono` obligation from
-`GradedHom`'s `gmap_join` field (`Grade.join_eq_right_of_le` collapses the
-homomorphism equation, `Grade.le_join_left` recovers the inclusion) — that
-is the only piece that transfers. There is no converse (a monotone `gmap`
-need not preserve `join`/`bot`: see the counter-instance below), which
-the step predicted. What is *not* obvious ahead of time: even the forward
-direction stops at `gmap_mono` alone. Lifting a full `GradedHom` into a
-full `GradedHomK` — reusing `H.hom` and filling in `hom_bindK` from
-`H.hom_bind` — would need `H.hom` to commute with `widen` at an arbitrary
-sufficient grade, and `widen` ([carrier](#carrier)) is a primitive of
-`Graded`, not something `bind`/`pure` define; `GradedHom`'s two fields say
-nothing about it. `renameHomK` only exists as a full structure because
-`rename` is a *concrete* function that happens to satisfy `rename_widen`
-as a separately proved fact — an abstract `GradedHom` carries no such
-guarantee.
+**The bridge, corrected by [morphism-bridge].** Bridging two *structures*
+is not the same as bridging two *operations* (`bind_eq_bindK`,
+`ap_eq_apK`, `traverse_eq_traverseK`, all `rfl` at a shared
+instantiation). Two things are true, and an earlier revision of this
+section got the second one wrong.
+
+*There is no converse.* A monotone `gmap` need not preserve `join`/`bot`
+— see the counter-instance below — so `GradedHomK → GradedHom` is
+impossible in general. `constHomK_not_gmap_bot` is the standing witness,
+and this is unchanged.
+
+*The forward direction is total, and it costs one field.* This section
+used to say the forward direction stops at `gmap_mono`: that lifting a
+whole `GradedHom` would need `hom` to commute with `widen` at an
+arbitrary sufficient grade, that `widen` ([carrier](#carrier)) is a
+primitive `bind`/`pure` do not define, and that `renameHomK` therefore
+only existed because `rename` *happens* to satisfy `rename_widen`. The
+diagnosis was right; the conclusion did not follow. The obligation has to
+be stated, and stating it is one field — `GradedHom.hom_widen` — after
+which `GradedHom.toGradedHomK` discharges every `GradedHomK` field. It
+quantifies over the target inclusion rather than deriving it, since
+`gmap_mono` is a theorem proved after the structure exists and
+`widen_irrel` is `rfl`, so which proof is supplied cannot matter.
+`GradedHom.hom_ok` falls out along the way: `hom` preserves `ok` at every
+grade, not only at `Grade.bot` where `hom_pure` states it.
+
+*Why this was missed twice.* The proof route decides how many
+obligations you need. Discharging `hom_bindK` by case-splitting on the
+carrier exposes its `err` leaf at payload type `β` on one side and `α` on
+the other, which additionally requires `hom`'s action on errors to be
+natural in the payload — a second obligation, and the one
+[migration-review] recorded as necessary after checking the lift in Lean.
+It is not necessary. Going through `bindK_eq_widen_bind` never splits:
+both sides become a `widen` of `hom (bind x f)`, `hom_bind` rewrites
+underneath, and `widen_cast` absorbs the `cast (gmap_join g h)` the
+union-graded law carries. Payload naturality is a real property of
+carriers and it belongs to the payload-bearing work, not to this bridge.
+
+`bindK_eq_widen_bind` is itself new, and is a fourth bridge running the
+other way from the three above: those instantiate a sufficient grade at
+the computed union, this factors a sufficient-grade operation through the
+computed one.
 
 **The counter-instance: `constHomK`.** A monotone `gmap` that is not a
 join-semilattice homomorphism, with a working `hom` — the constant map
@@ -2509,8 +2591,10 @@ a replacement — held across all five legs, with no exception: `bindK`,
 each coexist with their union-graded counterpart, recovered from it at a
 computed grade by a `rfl`-or-near-`rfl` bridge
 (`bind_eq_bindK`/`ap_eq_apK`/`traverse_eq_traverseK`/`flatten_eq_flattenK`,
-all tagged `/-- BRIDGE -/`, plus `GradedHom.gmap_mono`'s narrower,
-one-directional structure bridge). No existing union-graded theorem
+all tagged `/-- BRIDGE -/`, plus the structure bridge
+`GradedHom.toGradedHomK` — one-directional, since a `GradedHomK` still
+cannot be completed into a `GradedHom`, but total in the direction it
+runs, as [morphism-bridge] established by adding `hom_widen`). No existing union-graded theorem
 changed; `Graded/Sufficient.lean` is purely additive, 57 theorems across
 five legs, and not one of their *statements* carries a `cast` — the
 entire sufficient-grade layer is cast-free, not merely "mostly."
@@ -2606,6 +2690,15 @@ question's own log applied to itself.
   well-formedness, not a proof obligation), and that the `GradedHom` →
   `GradedHomK` bridge is genuinely one-directional and narrower than a
   full structure map, unlike every operation-level bridge.
+- 2026-09-10 — [morphism-bridge] corrected the entry above. The
+  narrowness was a property of the proof route, not of the structures:
+  adding one field to `GradedHom` (`hom_widen`, stating that `hom`
+  commutes with subsumption, which `hom_bind`/`hom_pure` cannot say)
+  makes `GradedHom.toGradedHomK` total, and `renameHomK` now factors
+  through it. The payload-naturality obligation [migration-review] found
+  necessary is not: it is forced only by discharging `hom_bindK` with a
+  case split, which `bindK_eq_widen_bind` avoids. There is still no
+  converse.
 - 2026-09-08 — [sufficient-grade-nested] (this leg) closed the question:
   `flattenK_comm` needs no hypothesis and is `rfl`; `Comp.grade_reassoc`
   has no analogue; the sufficient-grade layer's operational commutativity

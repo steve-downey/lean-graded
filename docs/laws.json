@@ -113,6 +113,118 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "apK_ok_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_ok_errs",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_errs_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_errs_errs",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "ap_eq_apK",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_nil",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_cons",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_errs",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_apK",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_map",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_traverseK",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_pureK",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_map",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_apK",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_map2K",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_traverseK",
+    "module": "Graded/AccumTraverse.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "ap_ok_ok",
     "module": "Graded/Applicative.lean",
     "properties": [],
@@ -1205,11 +1317,39 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "bindK_eq_widen_bind",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "GradedHom.gmap_mono",
     "module": "Graded/Sufficient.lean",
     "properties": [
       "order"
     ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "GradedHom.hom_ok",
+    "module": "Graded/Sufficient.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "renameHomK_hom",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "renameHomK_gmap",
+    "module": "Graded/Sufficient.lean",
+    "properties": [],
     "cpp": "\u2014"
   },
   {

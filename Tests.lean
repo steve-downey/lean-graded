@@ -5,6 +5,7 @@ import Tests.Monad
 import Tests.Sufficient
 import Tests.Applicative
 import Tests.Accum
+import Tests.AccumTraverse
 import Tests.Traverse
 import Tests.Tuple
 import Tests.Compose

@@ -1,0 +1,111 @@
+#+TITLE: Letter 25: The carrier whose whole job I never asked it to do
+#+DATE: 2026-09-10
+#+CATEGORY: lean-transpose
+#+STEP: accum-traverse
+#+SERIES_PREV: grade-join-strength
+
+Steve,
+
+* What I set out to do
+
+Back in Letter 6 I built a second carrier, the accumulating one, because
+the ordinary =expected= can hold exactly one error and a validation form
+with three bad fields wants to tell you about all three. Then I wrote
+nineteen more letters and never once traversed it.
+
+That's an embarrassing gap, and it's the specific kind worth noticing: I
+built the thing, proved its applicative laws, proved it isn't a monad,
+proved the projection back to the single-error carrier is a morphism, and
+never applied it to a list. Collecting independent failures over a
+sequence of independent checks is the entire reason the carrier exists.
+Every traversal in this model so far has been the short-circuiting one.
+
+So: traverse the accumulating carrier, and prove three things about what
+comes out. Which errors, in which order, and what the first one is.
+
+* What the checker refused
+
+The first refusal was structural and I should have seen it coming. I put
+the definitions in the accumulating carrier's own file, where they
+obviously belong, and Lean rejected the import. The morphism module
+imports the accumulating carrier, and the sufficient-grade module imports
+the morphism module, so the accumulating carrier cannot see
+=traverseK=. And it needs to, because the theorem I actually care about
+compares the two traversals. A new module was the honest fix, not the
+convenient one.
+
+The second was the law inventory, and it turned into the finding. The
+script reads every theorem and records which grade property the proof
+consumes, and it flagged fourteen of mine as consuming nothing at all. I
+went through them expecting sloppy statements and found instead that the
+flag was correct, and interesting. Here are the two reduction
+lemmas for the both-failed case, the old one and the new one:
+
+#+begin_src lean
+theorem ap_ok_errs  ... = .errs es hne (fun e he => Grade.le_join_right g h (hmem e he))
+theorem apK_ok_errs ... = .errs es hne (fun e he => hh (hmem e he))
+#+end_src
+
+The first line is the union-graded version: to put the argument's errors
+into the result grade it cites =le_join_right=, a named fact about the
+grade's order, because it computed the union itself and has to justify
+membership in it. The second is the sufficient-grade version, and it uses
+=hh=, the inclusion proof the caller handed in. No named fact, because
+there's nothing left to justify. The inventory tags the first =order= and
+the second nothing, and that difference is the whole sufficient-grade
+story showing up in a table instead of in prose.
+
+The accumulation-order theorem is the same shape. It costs no grade
+property whatever, because it's a claim about appending lists and the
+grade never moves.
+
+* What changed
+
+=apK= for the accumulating carrier is defined by matching on both
+arguments and concatenating. It can't be built the way the
+short-circuiting one is, out of =bindK=, because there is no monad here
+to build it from. That was Letter 6's finding and it's still the reason:
+the both-failed case is the one thing sequencing can't produce.
+
+The traversal itself is shaped like its short-circuiting counterpart, and
+three theorems say what it does. Every failing position contributes its
+errors, in source order, exactly once, which I stated as: the error list
+of the traversal is the concatenation of each element's error list, left
+to right. An all-succeeding traversal is the mapped list. And the one I
+wanted:
+
+Taking the first error of an accumulated traversal is the same as
+short-circuiting at the first failure from the start. No side condition,
+no hypothesis about how many things failed.
+
+That falls out of a fact I proved in Letter 6 without noticing what it
+was for. The accumulating combine puts the function's errors first, and
+the short-circuiting one keeps the function's error when the function
+fails. Those are the same tie-break, made independently in two places, and
+lifting them through a list is an induction with nothing in it.
+
+I wrote the tests with two distinguishable failures instead of one
+repeated one, deliberately. With a single error kind the ordering claim
+cannot fail. So the guards run =[0, 5, 200]= and get parse
+then range, and =[200, 5, 0]= and get range then parse. If I had used the
+same kind twice, both would have passed against a broken traversal.
+
+* Back in C++
+
+If you offer both a validating =transpose= and a short-circuiting one,
+somebody is going to ask whether they agree. The answer is yes, and the
+reason is not that anyone maintained a convention.
+
+The accumulating version appends left to right. The short-circuiting one
+stops at the leftmost failure. So the first element of the accumulated
+list is the error the short-circuiting version would have returned, by
+construction. You get to say: run the validating form when you want the
+whole report, run the fast form when you want the first problem, and the
+first problem is the same problem either way.
+
+What that costs you is that the order is now a contract. It's observable,
+through exactly that projection, so it is not free to change later. If
+anyone ever wants an unordered bag of errors, that's a different carrier
+with its own projection policy, not this one with a weaker promise.
+
+--SMD

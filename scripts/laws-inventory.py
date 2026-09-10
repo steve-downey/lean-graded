@@ -292,6 +292,56 @@ ALLOWLIST = {
         "counter-instance: a Finset non-membership fact (e₀ ∉ ∅), not a "
         "pomonoid property citation — the absence of a VOCAB mention here "
         "is exactly what the theorem is about, not an oversight",
+    # --- accum-traverse ----------------------------------------------------
+    # `apK_ok_ok` is not listed again: it is already allow-listed above for
+    # `Graded/Sufficient.lean`, and this dict is keyed by bare name. The
+    # reason transfers unchanged — an ok/ok case with no join in sight —
+    # but the sharing is the script's known name-collision weakness, not a
+    # judgement, and it is recorded here so a reader does not mistake the
+    # absence for an oversight.
+    "apK_ok_errs": "structural, and this is the finding: Accum.ap_ok_errs "
+        "cites order because `ap`'s own definition inlines "
+        "Grade.le_join_right into the statement; apK threads the caller's "
+        "`hh` instead, so no named property is consumed at all — the same "
+        "order-in, nothing-out shape apK_flip already records",
+    "apK_errs_ok": "structural: same reasoning as apK_ok_errs, on the "
+        "function side, threading `hg`",
+    "apK_errs_errs": "structural: the both-fail case; the concatenation is "
+        "List.append and the two membership proofs are the caller's `hg` "
+        "and `hh`, never Grade.le_join_left/right",
+    "errsOf_ok": "structural: definitional unfold",
+    "errsOf_errs": "structural: definitional unfold",
+    "errsOf_map": "structural: map never touches the error list, no grade "
+        "in sight",
+    "errsOf_apK": "structural: reads the error list off each constructor "
+        "case; the concatenation is List.append, not Grade.join",
+    "errsOf_traverseK": "structural, and worth stating as a finding: the "
+        "accumulation-order law costs no pomonoid property whatever. It is "
+        "a claim about List.append and List.flatMap, delegating to "
+        "errsOf_apK/errsOf_map (both structural this step) — the grade is "
+        "fixed at the caller's `k` throughout and never computed, so there "
+        "is nothing for a join law to be about",
+    "traverseK_ok": "structural: the all-success case never constructs an "
+        "error, so no membership and no grade arithmetic arises; delegates "
+        "to traverseK_cons (structural)",
+    "toGraded_pureK": "delegates to fromEmpty_eq_ok (structural)",
+    "toGraded_map": "structural: naturality in the payload at one grade, "
+        "the Accum mirror of Graded.rename_map's reasoning, no join",
+    "toGraded_apK": "structural: which element of the accumulated list "
+        "comes first, not a pomonoid fact — exactly toGraded_grade''s own "
+        "allow-list reason, at the sufficient grade where apK threads the "
+        "caller's inclusions rather than computing a union",
+    "toGraded_map2K": "delegates to toGraded_apK and toGraded_map (both "
+        "structural this step)",
+    "toGraded_traverseK": "structural: the list-order fact lifted through "
+        "the induction, delegating to toGraded_map2K and toGraded_pureK; "
+        "no grade is computed anywhere, so no property is spent",
+    # --- morphism-bridge ---------------------------------------------------
+    "renameHomK_hom": "structural: `rfl`. GradedHom.toGradedHomK reuses "
+        "H.hom unchanged, so factoring renameHomK through the lift changed "
+        "no term — which is the whole content of the theorem",
+    "renameHomK_gmap": "structural: `rfl`, same reasoning as "
+        "renameHomK_hom for the grade map",
     # --- sufficient-grade-nested (this step) -------------------------------
     "flattenK_ok": "structural: flattenK's own ok-case reduction, "
         "delegates to bindK_ok (documented as such at flattenK's own "
