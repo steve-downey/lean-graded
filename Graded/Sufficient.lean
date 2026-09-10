@@ -81,7 +81,7 @@ theorem bindK_pure_left (hh : h ⊆ k) (a : α) (f : α → Graded h β) :
 theorem bindK_pure_right (hg : g ⊆ k) (x : Graded g α) :
     bindK hg (Grade.bot_le k) x (pure : α → Graded (Grade.bot : Grade Err) α) =
       widen hg x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => rfl
   | err e he => rfl
 
@@ -96,10 +96,10 @@ theorem bindK_assoc (hg : g ⊆ k) (hh : h ⊆ k) (hj : j ⊆ k)
     (x : Graded g α) (f : α → Graded h β) (kk : β → Graded j γ) :
     bindK (Grade.le_refl' k) hj (bindK hg hh x f) kk =
       bindK hg (Grade.le_refl' k) x (fun a => bindK hh hj (f a) kk) := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a =>
     rw [bindK_ok hg hh a f, bindK_ok hg (Grade.le_refl' k) a (fun a => bindK hh hj (f a) kk)]
-    cases hfa : f a with
+    cases hfa : f a using Graded.rec' with
     | ok b =>
       rw [widen_ok, bindK_ok hh hj b kk, bindK_ok (Grade.le_refl' k) hj b kk,
         widen_refl]
@@ -119,7 +119,7 @@ theorem bindK_assoc (hg : g ⊆ k) (hh : h ⊆ k) (hj : j ⊆ k)
 theorem bindK_widen (h₁ : g ⊆ g') (hg' : g' ⊆ k) (hh : h ⊆ k)
     (x : Graded g α) (f : α → Graded h β) :
     bindK hg' hh (widen h₁ x) f = bindK (Grade.le_trans' h₁ hg') hh x f := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => rfl
   | err e he => rfl
 
@@ -140,7 +140,7 @@ theorem bindK_irrel (hg hg' : g ⊆ k) (hh hh' : h ⊆ k)
 /-- BRIDGE -/
 theorem bind_eq_bindK (x : Graded g α) (f : α → Graded h β) :
     bind x f = bindK (Grade.le_join_left g h) (Grade.le_join_right g h) x f := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => rfl
   | err e he => rfl
 
@@ -229,7 +229,7 @@ theorem apFlippedK_ok_err (hg : g ⊆ k) (hh : h ⊆ k) (a : α) (e : Err) (he :
 
 theorem apK_pure_id (hh : h ⊆ k) (x : Graded h α) :
     apK (Grade.le_refl' k) hh (pureK (@id α) : Graded k (α → α)) x = widen hh x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => rfl
   | err e he => rfl
 
@@ -245,7 +245,7 @@ theorem apK_pure_pure (f : α → β) (a : α) :
 theorem apK_interchange (hg : g ⊆ k) (u : Graded g (α → β)) (a : α) :
     apK hg (Grade.le_refl' k) u (pureK a : Graded k α) =
       apK (Grade.le_refl' k) hg (pureK (fun f => f a) : Graded k ((α → β) → β)) u := by
-  cases u with
+  cases u using Graded.rec' with
   | ok f' => rfl
   | err e he => rfl
 
@@ -256,13 +256,13 @@ theorem apK_comp (hg : g ⊆ k) (hg' : g' ⊆ k) (hj : j ⊆ k)
           (apK (Grade.le_refl' k) hg
             (pureK Function.comp : Graded k ((β → γ) → (α → β) → α → γ)) u) v) w =
       apK hg (Grade.le_refl' k) u (apK hg' hj v w) := by
-  cases u with
+  cases u using Graded.rec' with
   | err e he => rfl
   | ok uf =>
-    cases v with
+    cases v using Graded.rec' with
     | err e he => rfl
     | ok vf =>
-      cases w with
+      cases w using Graded.rec' with
       | err e he => rfl
       | ok wa => rfl
 
@@ -298,9 +298,9 @@ theorem apK_flip (hg : g ⊆ k) (hh : h ⊆ k) (f : Graded g (α → β)) (x : G
 /-- BRIDGE -/
 theorem ap_eq_apK (f : Graded g (α → β)) (x : Graded h α) :
     ap f x = apK (Grade.le_join_left g h) (Grade.le_join_right g h) f x := by
-  cases f with
+  cases f using Graded.rec' with
   | ok f' =>
-    cases x with
+    cases x using Graded.rec' with
     | ok a => rw [ap_ok_ok, apK_ok_ok]
     | err e he => rw [ap_ok_err, apK_ok_err]
   | err e he => rw [ap_err_left, apK_err_left]
@@ -436,12 +436,12 @@ theorem traverseK_length (hg : g ⊆ k) (f : α → Graded g β) :
       subst h'
       rfl
   | x :: xs, l, h => by
-      cases hfx : f x with
+      cases hfx : f x using Graded.rec' with
       | err e he =>
           rw [traverseK_cons_err_left hg f x xs e he hfx] at h
           exact absurd h (by simp)
       | ok b =>
-          cases hxs : traverseK hg f xs with
+          cases hxs : traverseK hg f xs using Graded.rec' with
           | err e he =>
               rw [traverseK_cons_ok_err hg f x xs b e he hfx hxs] at h
               exact absurd h (by simp)
@@ -480,12 +480,12 @@ theorem traverse_eq_traverseK (f : α → Graded g β) (xs : List α) :
   | nil => rw [traverse_nil, traverseK_nil_eq_fromEmpty]
   | cons x xs ih =>
       rw [traverseK_cons, ← ih]
-      cases hfx : f x with
+      cases hfx : f x using Graded.rec' with
       | err e he =>
           rw [traverse_cons, hfx]
           simp only [map2, map, ap_err_left, cast_err, map2K, apK_err_left]
       | ok b =>
-          cases hxs : traverse f xs with
+          cases hxs : traverse f xs using Graded.rec' with
           | err e he =>
               rw [traverse_cons, hfx, hxs]
               simp only [map2, map, ap_ok_err, cast_err, map2K, apK_ok_err]
@@ -532,9 +532,9 @@ theorem flattenK_err (hg : g ⊆ k) (hh : h ⊆ k) (e : Err) (he : e ∈ g) :
     already land in `Graded k β` before any grade is compared. -/
 theorem flattenK_map (hg : g ⊆ k) (hh : h ⊆ k) (f : α → β) (x : Graded g (Graded h α)) :
     flattenK hg hh ((map (map f) x : Graded g (Graded h β))) = map f (flattenK hg hh x) := by
-  cases x with
+  cases x using Graded.rec' with
   | ok y =>
-    cases y with
+    cases y using Graded.rec' with
     | ok a => rfl
     | err e he => rfl
   | err e he => rfl
@@ -555,7 +555,7 @@ theorem flattenK_pure_outer (hh : h ⊆ k) (y : Graded h α) :
     anywhere. -/
 theorem flattenK_pure_inner (hg : g ⊆ k) (x : Graded g α) :
     flattenK hg (Grade.bot_le k) (map pure x) = widen hg x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => rfl
   | err e he => rfl
 
@@ -569,11 +569,11 @@ theorem flattenK_flattenK (hg : g ⊆ k) (hh : h ⊆ k) (hj : j ⊆ k)
     (x : Graded g (Graded h (Graded j α))) :
     flattenK (Grade.le_refl' k) hj (flattenK hg hh x) =
       flattenK hg (Grade.le_refl' k) (map (flattenK hh hj) x) := by
-  cases x with
+  cases x using Graded.rec' with
   | ok y =>
-    cases y with
+    cases y using Graded.rec' with
     | ok z =>
-      cases z with
+      cases z using Graded.rec' with
       | ok a => rfl
       | err e he => rfl
     | err e he => rfl
@@ -587,9 +587,9 @@ theorem flattenK_flattenK (hg : g ⊆ k) (hh : h ⊆ k) (hj : j ⊆ k)
 theorem flattenK_widen_outer (h₁ : g ⊆ g') (hg' : g' ⊆ k) (hh : h ⊆ k)
     (x : Graded g (Graded h α)) :
     flattenK hg' hh (widen h₁ x) = flattenK (Grade.le_trans' h₁ hg') hh x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok y =>
-    cases y with
+    cases y using Graded.rec' with
     | ok a => rfl
     | err e he => rfl
   | err e he => rfl
@@ -602,9 +602,9 @@ theorem flattenK_widen_inner (h₂ : h ⊆ h') (hg : g ⊆ k) (hh' : h' ⊆ k)
     (x : Graded g (Graded h α)) :
     flattenK hg hh' ((map (widen h₂) x : Graded g (Graded h' α))) =
       flattenK hg (Grade.le_trans' h₂ hh') x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok y =>
-    cases y with
+    cases y using Graded.rec' with
     | ok a => rfl
     | err e he => rfl
   | err e he => rfl
@@ -636,9 +636,9 @@ theorem flattenK_widen_inner (h₂ : h ⊆ h') (hg : g ⊆ k) (hh' : h' ⊆ k)
     is no second expression for the same grade left to reconcile. -/
 theorem flattenK_comm (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g (Graded h α)) :
     flattenK hg hh x = flattenK hh hg (swap x) := by
-  cases x with
+  cases x using Graded.rec' with
   | ok y =>
-    cases y with
+    cases y using Graded.rec' with
     | ok a => rfl
     | err e he => rfl
   | err e he => rfl
@@ -651,9 +651,9 @@ theorem flattenK_comm (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g (Graded h α))
 /-- BRIDGE -/
 theorem flatten_eq_flattenK (x : Graded g (Graded h α)) :
     flatten x = flattenK (Grade.le_join_left g h) (Grade.le_join_right g h) x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok y =>
-    cases y with
+    cases y using Graded.rec' with
     | ok a => rfl
     | err e he => rfl
   | err e he => rfl
@@ -713,10 +713,10 @@ theorem Comp.apK_interchange (hg : g ⊆ k1) (hh : h ⊆ k2) (u : Comp g h (α �
     Comp.apK hg (Grade.bot_le k1) hh (Grade.bot_le k2) u (Comp.pure a) =
       Comp.apK (Grade.bot_le k1) hg (Grade.bot_le k2) hh
         (Comp.pure (fun f => f a) : Comp Grade.bot Grade.bot ((α → β) → β)) u := by
-  cases u with
+  cases u using Graded.rec' with
   | err e he => rfl
   | ok F =>
-    cases F with
+    cases F using Graded.rec' with
     | ok f' => rfl
     | err e he => rfl
 
@@ -797,11 +797,11 @@ theorem traverseCompK_eq (hg : g ⊆ k1) (hh : h ⊆ k2)
   | nil => rfl
   | cons x xs' ih =>
       rw [traverseCompK_cons, ih, traverseK_cons]
-      cases hfx : f x with
+      cases hfx : f x using Graded.rec' with
       | err e he =>
           simp only [Graded.map, Comp.map2K, Comp.apK, Comp.map, Graded.map2K, apK_err_left]
       | ok a =>
-          cases hxs : traverseK hg f xs' with
+          cases hxs : traverseK hg f xs' using Graded.rec' with
           | err e he =>
               simp only [Graded.map, Comp.map2K, Comp.apK, Comp.map, Graded.map2K, apK_ok_err]
           | ok l =>
@@ -843,11 +843,11 @@ theorem flatten_apK (hg : g ⊆ k1) (hg' : g' ⊆ k1) (hh : h ⊆ k2) (hh' : h' 
       apK (Grade.le_refl' k) (Grade.le_refl' k)
         (flattenK (Grade.le_trans' hg hk1) (Grade.le_trans' hh hk2) ff)
         (flattenK (Grade.le_trans' hg' hk1) (Grade.le_trans' hh' hk2) xx) := by
-  cases ff with
+  cases ff using Graded.rec' with
   | err e he =>
-    cases xx with
+    cases xx using Graded.rec' with
     | ok Y =>
-      cases Y with
+      cases Y using Graded.rec' with
       | ok a =>
         simp only [Comp.apK_err_left, flattenK_err, flattenK_ok, widen_ok, apK_err_left]
       | err e' he' =>
@@ -855,24 +855,24 @@ theorem flatten_apK (hg : g ⊆ k1) (hg' : g' ⊆ k1) (hh : h ⊆ k2) (hh' : h' 
     | err e' he' =>
       simp only [Comp.apK_err_left, flattenK_err, flattenK_err, apK_err_left]
   | ok F =>
-    cases xx with
+    cases xx using Graded.rec' with
     | err e he =>
-      cases F with
+      cases F using Graded.rec' with
       | ok f' =>
         simp only [Comp.apK_ok_err, flattenK_ok, flattenK_err, widen_ok, apK_ok_err]
       | err e' he' =>
         exfalso
         rcases hcond with ⟨_, _, hff⟩ | ⟨_, hff⟩ | ⟨_, hxx⟩ <;> simp_all
     | ok X =>
-      cases F with
+      cases F using Graded.rec' with
       | ok f' =>
-        cases X with
+        cases X using Graded.rec' with
         | ok a =>
           simp only [Comp.apK_ok_ok, flattenK_ok, apK_ok_ok, widen_ok]
         | err e he =>
           simp only [Comp.apK_ok_ok, flattenK_ok, apK_ok_err, widen_ok, widen_err]
       | err e he =>
-        cases X with
+        cases X using Graded.rec' with
         | ok a =>
           simp only [Comp.apK_ok_ok, flattenK_ok, apK_err_left, widen_ok, widen_err]
         | err e' he' =>
@@ -943,9 +943,9 @@ theorem rename_apK (φ : Err → Err') (hg : g ⊆ k) (hh : h ⊆ k)
     (f : Graded g (α → β)) (x : Graded h α) :
     rename φ (apK hg hh f x) =
       apK (Grade.rename_mono φ hg) (Grade.rename_mono φ hh) (rename φ f) (rename φ x) := by
-  cases f with
+  cases f using Graded.rec' with
   | ok f' =>
-      cases x with
+      cases x using Graded.rec' with
       | ok a => rw [apK_ok_ok, rename_ok, rename_ok, rename_ok, apK_ok_ok]
       | err e he => rw [apK_ok_err, rename_err, rename_ok, rename_err, apK_ok_err]
   | err e he => rw [apK_err_left, rename_err, rename_err, apK_err_left]
@@ -1024,7 +1024,7 @@ theorem traverseK_rename (φ : Err → Err') (hg : g ⊆ k) (f : α → Graded g
 theorem bindK_eq_widen_bind (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g α)
     (f : α → Graded h β) :
     bindK hg hh x f = widen (Grade.join_le hg hh) (bind x f) := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a =>
       change widen hh (f a)
         = widen (Grade.join_le hg hh) (widen (Grade.le_join_right g h) (f a))
@@ -1152,9 +1152,9 @@ def constHomK (e₀ : Err') (he₀ : e₀ ∈ g₀) : GradedHomK Err Err' where
   hom := constHom e₀ he₀
   hom_bindK := by
     intro g h k α β hg hh x f
-    cases x with
+    cases x using Graded.rec' with
     | ok a =>
-        cases hfa : f a with
+        cases hfa : f a using Graded.rec' with
         | ok b => simp only [bindK_ok, hfa, widen_ok, constHom]
         | err e he => simp only [bindK_ok, hfa, widen_err, constHom]
     | err e he => simp only [bindK_err, constHom]

@@ -416,6 +416,12 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "toSum_inj",
+    "module": "Graded/Carrier.lean",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "map_id",
     "module": "Graded/Carrier.lean",
     "properties": [],

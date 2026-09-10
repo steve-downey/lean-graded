@@ -336,6 +336,13 @@ ALLOWLIST = {
     "toGraded_traverseK": "structural: the list-order fact lifted through "
         "the induction, delegating to toGraded_map2K and toGraded_pureK; "
         "no grade is computed anywhere, so no property is spent",
+    # --- payload-carrier ---------------------------------------------------
+    "toSum_inj": "structural: `ExpectedG` carries a success payload or a "
+        "kind-tagged error payload and a proof-irrelevant membership "
+        "witness; this says the first two determine the value. It is a "
+        "fact about the carrier's own shape, with no grade arithmetic — "
+        "the same footing as errs_eq_of_list_eq, which is on this list "
+        "for the Accum analogue of exactly this reasoning",
     # --- abstract-effects --------------------------------------------------
     "widen_errs": "structural: Accum.widen's own errs-case reduction, rfl; "
         "the membership proof it threads is the caller's inclusion, not a "

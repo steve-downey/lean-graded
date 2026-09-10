@@ -31,6 +31,31 @@ This file does not change between steps. It changes when a step reverses
 something a previous step decided, and then it records what was reversed
 and why, so the reversal is visible to a reader who only has this file.
 
+### Carrier universes: the tag-only payload is pinned — 2026-09-10
+
+The style rule says "universe-polymorphic `Type u` for carriers unless
+the step says otherwise". [payload-carrier] needs an exception stated
+rather than discovered.
+
+`ErrorSignature` carries two universes: `Kind : Type u` and
+`Payload : Kind → Type v`. `ExpectedG` over such a signature, at payload
+type `α : Type w`, lives in `Type (max u v w)`. `Graded` is the
+specialization at `tagOnly Err`, and its result universe can only be
+stated as `Type (max u v)` — the universe it has always had — if the
+signature's payload universe is known to be no larger. Left free it is an
+unsolvable constraint, and Lean reports it as "stuck at solving universe
+constraint" at the specialization rather than at `tagOnly`.
+
+So `tagOnly` is pinned: `ErrorSignature.{u, 0}`, payload `Unit` rather
+than a polymorphic `PUnit`. This costs nothing — a tag carries no data,
+so there is nothing to be polymorphic about — and it applies **only** to
+the tag-only signature. A real signature keeps a free payload universe,
+and `Examples/Payload.lean` is one.
+
+The general rule stands for carriers. This records that the *signature*
+of the tag-only specialization is the one place a universe is fixed, and
+why.
+
 ### Class mixins are parameterised, not `extends` — 2026-09-10
 
 [obligation-layering] decided that a mixin over `Graded.PreorderedGradeMonoid`

@@ -2707,6 +2707,106 @@ question's own log applied to itself.
   `Tests/Sufficient.lean` to confirm the statement is not vacuous. Wrote
   the summary table above and closed the question.
 
+## payloads
+
+**The question this section answers.** `#cpp-counterpart` has said from
+the start that an `error_set` instance "holds **one** error value, whose
+type is in the set". The model held the *type*: `Graded.err e he` records
+that an `e`-shaped failure happened and nothing about it. So no law about
+a parse location, a range bound, or an errno was statable — the one place
+the model was narrower than the design it exists to check.
+
+`Graded/Signature.lean` adds `ErrorSignature`: a type of kinds, and for
+each kind the type of payload it carries. The grade stays a `Finset` of
+*kinds*, which is why `error_set<parse_error>` is one type however much
+data a parse error turns out to carry. `Graded/Carrier.lean` builds
+`ExpectedG` over a signature, and recovers `Graded` as the
+`tagOnly`-signature specialization.
+
+### The bridge, decided before anything was written
+
+The choice was between proving `Graded ≃ ExpectedG (tagOnly Err)` and
+*defining* the one as the other. An `Equiv` carries no theorems: each of
+the two hundred-odd results proved against `Graded` would need
+transporting. A definitional specialization leaves them proved. This was
+settled by prototype before the carrier was touched, and the measured
+cost of the migration is the argument:
+
+| | count |
+|---|---|
+| existing theorem statements changed | **0** |
+| transports introduced | **0** |
+| `cases … with` sites needing `using Graded.rec'` | 76 |
+| constructor lemmas restated by hand | 4 |
+
+Three mechanisms make that work, and each was found by something
+breaking:
+
+- **`@[match_pattern]` smart constructors.** `Graded.ok`/`Graded.err`
+  are `def`s supplying the unit payload, so `| .err e he => …` still
+  elaborates against a constructor that really takes three arguments.
+- **A `@[cases_eliminator, induction_eliminator]` two-case recursor.**
+  Without it `cases x with | err e he` binds `he` to the *payload* and
+  auto-names the membership proof — loud at most sites, and silent at any
+  site that never uses `he`.
+- **`Graded` is a `def`, not an `abbrev`.** Dot-notation resolves in the
+  namespace of the expected type's head; under an `abbrev` Lean sees
+  through to `ExpectedG` and picks its three-argument `err`, so every
+  legacy `.err e he` becomes a partial application. The smart
+  constructors also have to live in `Graded.Graded`, the type's own
+  namespace, for the same reason.
+
+**Where the 76 sites come from, and why they are not avoidable.** `cases`
+looks up a custom eliminator by the head constant *as written*. Modules
+that go through a reducible alias over `Graded` — `Fixed` in
+[ungraded-baseline], `Comp` in [compose-applicative] — present a
+different head, so the lookup misses and `cases` unfolds all the way to
+`ExpectedG`. Making the aliases opaque fixes `cases` and breaks `rw`
+instead, since the lemmas are stated about `Graded`. Naming the
+eliminator explicitly (`cases x using Graded.rec' with`) is correct
+whatever the head, and is a one-token edit. Modules that name `Graded`
+directly needed nothing.
+
+### What a signature owes
+
+`ExpectedG`'s `DecidableEq` and `Repr` need an instance for **each**
+member of the payload family — `[∀ k, DecidableEq (S.Payload k)]` — and
+instance search cannot assemble that from the pieces. Every concrete
+signature owes two dependent instances, written out kind by kind;
+`Examples/Payload.lean` is what discharging them looks like. This is not
+a detail: every `#guard` in the repository reduces through
+`instDecidableEq`, so it had to work before anything else could.
+
+Equality itself goes through `toSum`, which forgets the membership proof
+and keeps the success payload or the kind-tagged error payload.
+`toSum_inj` says that is sound, and it is sound because the membership
+argument is a `Prop`.
+
+**The universe pin** is recorded as an amendment at
+[`docs/RULES.md#amendments`](RULES.md#amendments): `tagOnly` fixes its
+payload universe at `0`, because `Graded`'s result universe is otherwise
+an unsolvable constraint. Only the tag-only signature is pinned.
+
+### What payloads buy, in one line
+
+`Examples/Payload.lean` guards `parseAt "4x2" ≠ parseAt "nope"` — two
+failures of the *same kind* carrying different offsets, and therefore
+different values. At the tag-only carrier both are `err parse` and the
+inequality is false. That is the whole gap, and it is now closed at the
+carrier.
+
+### Outstanding
+
+The carrier is done and the compatibility evidence is green. Not yet
+done, and listed so the absence is not mistaken for completion:
+payload-bearing accumulation over `Sigma S.Payload` (which moves the
+accumulating carrier's universe); payload-preservation laws for `map`,
+`widen`, `bindK` and `apK`; `ErrorSignatureMap` and the
+payload-independent error mapping [morphism-bridge] deferred here;
+`CompleteGrade`; and porting `Examples/Validation.lean`'s own errors to
+carry data. `Validation.lean` stays tag-only deliberately for now — it is
+the evidence that nothing regressed.
+
 ## abstract-operational-classes
 
 **The question this section answers.** `Graded/Obligations.lean` states
