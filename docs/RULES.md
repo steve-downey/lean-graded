@@ -130,6 +130,25 @@ proves nothing. So:
 None of that is mechanically checkable, which is exactly why it is written
 down here rather than left to the script.
 
+## C++ obligations
+
+A law with a consequence for the C++ implementation earns a `CPP_LAW`
+entry in `scripts/laws-inventory.py` **in the same change that proves
+it**. That column is the sync channel: `docs/probe-harness.md` is
+generated from the non-`—` rows, and it is what the C++ side reads.
+
+A finding that never reaches the column has not been communicated,
+however well it is written up in `docs/design.md`. Tranches C through G
+proved five modules' worth of results with C++ consequences and added
+zero equations, so the harness went on describing the model as it stood
+before them — see [cpp-sync](design.md#cpp-sync).
+
+Two cautions. The table is keyed by **bare theorem name**, so a name
+declared in two modules with different C++ meanings must not get an entry
+at all (`apK_comp` is the live example). And a result about the model's
+own internals is not an obligation: the test is whether a C++
+implementation could be *checked* against it.
+
 ## Axioms
 
 `make nosorry` is a text grep: it cannot see an axiom reached through a

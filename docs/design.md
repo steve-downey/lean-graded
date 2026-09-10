@@ -2996,6 +2996,73 @@ not "re-pointing is free."
   laws. Both were added, which is a use for the abstraction independent
   of anything it proves.
 
+## cpp-sync
+
+**The question this section answers.** Which of the model's results are
+obligations on the C++ implementation, and how does a result acquire that
+status without anyone remembering to carry it across?
+
+The mechanism already existed: a row in `docs/laws.md` with a non-`—`
+`C++ law` column is a probe obligation, and
+[`docs/probe-harness.md`](probe-harness.md) is generated from exactly
+those rows. What did not exist was any *pressure* to fill the column.
+Tranches C through G added a payload-bearing carrier, an accumulating
+traversal, a completed morphism bridge, an abstract effect layer and a
+module split — and **not one of them put an equation in that column**.
+All 52 probe obligations came from modules that predated them, so the
+harness the C++ side reads was still describing the model as it stood
+before any of that work.
+
+Six equations added. They are the ones a C++ implementation can be
+checked against, as opposed to results that are about the model's own
+internals:
+
+| law | what the C++ side owes |
+|---|---|
+| `toGraded_traverseK` | a validating `transpose` and a short-circuiting one agree on which error the caller sees, unconditionally |
+| `errsOf_traverseK` | every failing position contributes once, in source order |
+| `traverseK_ok` | an all-succeeding accumulating traversal is `transform` |
+| `toGraded_widen` | the accumulating carrier supports subsumption at all |
+| `toGraded_apK` | first-error commutes with `apply`, with no side condition |
+| `GradedHom.hom_ok` | an error adapter preserves `ok` at *every* error set |
+
+**Two of these are new obligations rather than new evidence for old
+ones.**
+
+`GradedHom.hom_widen` — the field, not the row — is the sharper of the
+two. An adapter between two error designs must commute with the
+*implicit widening conversion*, and that does not follow from commuting
+with `and_then` and `pure`. [sufficient-grade-morphism] recorded the
+opposite: that the obligation could not be stated, and that renaming
+worked only because `rename_widen` happened to hold of it.
+[morphism-bridge] showed it is one field and that the lift is then total.
+Anyone who read the earlier account would have concluded there was no
+such law to test. There is, and it is the easy one to omit, because it
+governs the conversion nobody writes.
+
+The accumulation **order** is the other. `errsOf_traverseK` fixes
+left-to-right concatenation, and `toGraded_traverseK` makes that choice
+observable through first-error projection. So the order is a contract
+rather than an implementation detail, and the agreement between the two
+traversal forms is a consequence of it rather than a convention anyone
+maintains. An unordered bag would be a different carrier with a different
+projection policy — the provisional note on `Graded.Accum`'s
+`List`-over-`Multiset` choice already says so.
+
+**What is *not* here.** The canonicalization `static_assert` corpus is a
+standing obligation from [truth-in-labelling], not a new one: Lean owns
+the normal-form mathematics and C++ owns type identity, and the probes
+belong to the C++ repository. Nothing in Tranches B through G changes
+that division. The payload carrier ([payload-carrier]) is the model
+catching up to what `#cpp-counterpart` always said C++ does, so it
+creates no obligation in that direction.
+
+**The standing rule this leaves.** A law with a C++ consequence earns a
+`CPP_LAW` entry in the same change that proves it. The column is the sync
+channel, `docs/probe-harness.md` is generated and diffed, and a finding
+that never reaches the column has not been communicated no matter how
+well it is written up here.
+
 ## module-split
 
 **The question this section answers.** `Graded/Sufficient.lean` was

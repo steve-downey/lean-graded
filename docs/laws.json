@@ -294,14 +294,14 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "\u2014"
+    "cpp": "errors(traverse(f, xs) /*accumulating*/) == concat{ errors(f(x)) : x in xs, in source order }  // every failing position contributes, once; the order is observable through first_error and is therefore part of the contract"
   },
   {
     "theorem": "traverseK_ok",
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "\u2014"
+    "cpp": "traverse(f, xs) == pure(transform(xs, f))  // when every check succeeds, the accumulating form is just transform"
   },
   {
     "theorem": "toGraded_pureK",
@@ -315,7 +315,7 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "\u2014"
+    "cpp": "first_error(widen<Es2>(x)) == widen<Es2>(first_error(x))  // the accumulating carrier must support subsumption at all - the model went fifteen steps without it because no law asked"
   },
   {
     "theorem": "toGraded_map",
@@ -329,7 +329,7 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "\u2014"
+    "cpp": "first_error(apply(f, x)) == apply(first_error(f), first_error(x))  // unconditional at a nominated error set, because the accumulating apply concatenates the function's errors first and the short-circuiting one keeps the function's error"
   },
   {
     "theorem": "toGraded_map2K",
@@ -343,7 +343,7 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "\u2014"
+    "cpp": "first_error(traverse(f, xs) /*accumulating*/) == traverse(first_error compose f, xs) /*short-circuiting*/  // the two forms agree on which error the caller sees, unconditionally"
   },
   {
     "theorem": "ap_ok_ok",
@@ -1665,7 +1665,7 @@
     "properties": [
       "order"
     ],
-    "cpp": "\u2014"
+    "cpp": "transform_error(ok(a), phi) == ok(a)  // at EVERY error set, not only the empty one where the pure law states it"
   },
   {
     "theorem": "renameHomK_hom",

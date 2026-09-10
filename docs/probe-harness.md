@@ -28,6 +28,36 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
+## `errsOf_traverseK` (Graded/AccumTraverse.lean)
+
+    errors(traverse(f, xs) /*accumulating*/) == concat{ errors(f(x)) : x in xs, in source order }  // every failing position contributes, once; the order is observable through first_error and is therefore part of the contract
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `traverseK_ok` (Graded/AccumTraverse.lean)
+
+    traverse(f, xs) == pure(transform(xs, f))  // when every check succeeds, the accumulating form is just transform
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `toGraded_widen` (Graded/AccumTraverse.lean)
+
+    first_error(widen<Es2>(x)) == widen<Es2>(first_error(x))  // the accumulating carrier must support subsumption at all - the model went fifteen steps without it because no law asked
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `toGraded_apK` (Graded/AccumTraverse.lean)
+
+    first_error(apply(f, x)) == apply(first_error(f), first_error(x))  // unconditional at a nominated error set, because the accumulating apply concatenates the function's errors first and the short-circuiting one keeps the function's error
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `toGraded_traverseK` (Graded/AccumTraverse.lean)
+
+    first_error(traverse(f, xs) /*accumulating*/) == traverse(first_error compose f, xs) /*short-circuiting*/  // the two forms agree on which error the caller sees, unconditionally
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
 ## `ap_pure_id` (Graded/Applicative.lean)
 
     apply(pure(id), x) == x
@@ -223,6 +253,12 @@ check by example with std types; equality is `==` on the carrier after conversio
 ## `traverse_rename` (Graded/Morphism.lean)
 
     transform_error(traverse(f, xs), phi) == traverse(transform_error(f, phi), xs)
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `GradedHom.hom_ok` (Graded/Sufficient/MorphismK.lean)
+
+    transform_error(ok(a), phi) == ok(a)  // at EVERY error set, not only the empty one where the pure law states it
 
 check by example with std types; equality is `==` on the carrier after conversion.
 

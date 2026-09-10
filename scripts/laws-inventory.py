@@ -624,6 +624,41 @@ CPP_LAW = {
     "apF_interchange": "apply(u, pure(a)) == apply(pure([=](auto f){ return f(a); }), u)  // fixed grade",
     "apF_comp": "apply(apply(apply(pure(compose), u), v), w) == apply(u, apply(v, w))  // fixed grade",
     "sumEquiv_bindF": "and_then(x, f) corresponds to std::expected/variant-style Sum::bind under the Equiv",
+    # --- accum-traverse / morphism-bridge --------------------------------
+    # Added by [cpp-sync]. Tranches C-G proved laws with C++ consequences
+    # and none of them reached this table, so `docs/probe-harness.md` was
+    # still describing the model as it stood before them. These six are
+    # the ones a C++ implementation can actually be checked against.
+    #
+    # `apK_comp` is deliberately absent: the name is declared in both
+    # `Graded/AccumTraverse.lean` and `Graded/Sufficient/ApplicativeK.lean`
+    # with genuinely different C++ meanings (accumulate both sides' errors
+    # versus keep the first), and this table is keyed by bare name, so one
+    # entry would put the wrong equation on one of the two rows.
+    "toGraded_traverseK":
+        "first_error(traverse(f, xs) /*accumulating*/) == "
+        "traverse(first_error compose f, xs) /*short-circuiting*/  "
+        "// the two forms agree on which error the caller sees, unconditionally",
+    "errsOf_traverseK":
+        "errors(traverse(f, xs) /*accumulating*/) == "
+        "concat{ errors(f(x)) : x in xs, in source order }  "
+        "// every failing position contributes, once; the order is observable "
+        "through first_error and is therefore part of the contract",
+    "traverseK_ok":
+        "traverse(f, xs) == pure(transform(xs, f))  "
+        "// when every check succeeds, the accumulating form is just transform",
+    "toGraded_widen":
+        "first_error(widen<Es2>(x)) == widen<Es2>(first_error(x))  "
+        "// the accumulating carrier must support subsumption at all - "
+        "the model went fifteen steps without it because no law asked",
+    "toGraded_apK":
+        "first_error(apply(f, x)) == apply(first_error(f), first_error(x))  "
+        "// unconditional at a nominated error set, because the accumulating "
+        "apply concatenates the function's errors first and the short-circuiting "
+        "one keeps the function's error",
+    "GradedHom.hom_ok":
+        "transform_error(ok(a), phi) == ok(a)  "
+        "// at EVERY error set, not only the empty one where the pure law states it",
 }
 
 
