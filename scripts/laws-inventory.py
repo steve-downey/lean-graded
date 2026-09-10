@@ -52,6 +52,14 @@ VOCAB = [
     "join_le",
     "join_mono",
     "bot_le",
+    # Added by [grade-join-strength]'s closure: antisymmetry is a
+    # separable order property, not a consequence of the other four, and
+    # the `Pack` counter-instance is the first grade in the model to
+    # refute it. Tagged `antisymmetry` (not `order`) by a literal
+    # `/-- PROPERTY: -/` docstring on `Graded.Grade.le_antisymm`, so the
+    # by-property table separates the grades that have it from the one
+    # that does not.
+    "le_antisymm",
     "rename_join",
     "rename_bot",
 ]

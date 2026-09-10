@@ -514,6 +514,14 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "le_antisymm",
+    "module": "Graded/Grade.lean",
+    "properties": [
+      "antisymmetry"
+    ],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "join_eq_right_of_le",
     "module": "Graded/Grade.lean",
     "properties": [],
@@ -711,6 +719,40 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "IsLubGrade.of_idem",
+    "module": "Graded/Obligations.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "IsIdemGrade.of_lub_of_antisymm",
+    "module": "Graded/Obligations.lean",
+    "properties": [
+      "antisymmetry",
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "join_self_equiv",
+    "module": "Graded/Obligations.lean",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "grade_isCanonical",
+    "module": "Graded/Obligations.lean",
+    "properties": [
+      "commutative",
+      "idempotent"
+    ],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "foldG_nil",
     "module": "Graded/Obligations.lean",
     "properties": [],
@@ -764,6 +806,30 @@
     "theorem": "nat_not_idem",
     "module": "Graded/Obligations.lean",
     "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "pack_not_antisymm",
+    "module": "Graded/Obligations.lean",
+    "properties": [
+      "antisymmetry"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "pack_not_idem",
+    "module": "Graded/Obligations.lean",
+    "properties": [
+      "idempotent"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "pack_not_comm",
+    "module": "Graded/Obligations.lean",
+    "properties": [
+      "commutative"
+    ],
     "cpp": "\u2014"
   },
   {

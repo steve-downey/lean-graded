@@ -1,6 +1,8 @@
 # RULES — Lean model of graded Transpose
 
-This is the rules pack. It does not change between steps.
+This is the rules pack. It does not change between steps, except to
+record an amendment when a step reverses an earlier decision — see
+[Amendments](#amendments).
 
 ## Lean style
 
@@ -20,6 +22,41 @@ A theorem takes the *weakest* hypothesis that proves it, and the step file
 says what that is expected to be. If the proof needs more than the step
 allowed, that is a finding, not a licence: halt with an amendment (the
 design may be wrong) rather than strengthening the hypothesis silently.
+
+## Amendments
+
+<a id="amendments"></a>
+
+This file does not change between steps. It changes when a step reverses
+something a previous step decided, and then it records what was reversed
+and why, so the reversal is visible to a reader who only has this file.
+
+### Class mixins are parameterised, not `extends` — 2026-09-10
+
+[obligation-layering] decided that a mixin over `Graded.PreorderedGradeMonoid`
+(then `Pomonoid`) should `extends` it, so that instance search had exactly
+one route to the base class and no two `Pomonoid G` terms could disagree.
+[grade-join-strength] reverses that: mixins take the base class as an
+instance **parameter** (`class IsIdemGrade (G) [PreorderedGradeMonoid G] :
+Prop`), and carry no data of their own.
+
+The reason is that the `extends` form cannot express the separation the
+model now needs. `Pack Err` (`List Err` under `++`) inhabits `IsLubGrade`
+and refutes `IsPartialOrderGrade`; `Grade Err` inhabits both; `Nat`
+inhabits the second and not the first. Under `extends`, asking for two
+mixins at once means two independent copies of the base class, which is
+the diamond the original decision existed to prevent. Under the
+parameterised form the base instance is *indexed*, not carried, so there
+is exactly one such term by construction rather than by discipline, and
+`[IsCommGrade G] [IsIdemGrade G]` is a well-formed conjunction — which is
+why `IsCanonicalGrade` could stop being a class with duplicated fields and
+become an `abbrev` for that conjunction.
+
+This changes the *spelling* of a hypothesis, never its strength: a theorem
+that took `[IsIdemGrade G]` alone now takes `[PreorderedGradeMonoid G]
+[IsIdemGrade G]`, which is the same requirement written with the base
+instance named instead of projected out. No operational theorem in
+`Graded/` is affected — none of them mentions these classes at all.
 
 ## Tests
 

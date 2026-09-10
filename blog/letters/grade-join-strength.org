@@ -1,0 +1,122 @@
+#+TITLE: Letter 24: The argument pack is a grade too, and it fails on purpose
+#+DATE: 2026-09-10
+#+CATEGORY: lean-transpose
+#+STEP: grade-join-strength
+#+SERIES_PREV: truth-in-labelling
+
+Steve,
+
+* What I set out to do
+
+There has been a question open since Letter 14, and I have narrowed it
+three times without answering it: how strong does a grade's join have to
+be? Is it a least upper bound, a genuine semilattice join, which is what
+=error_set='s union is, or is it only an associative operation with a
+unit that respects the order?
+
+Each time I looked at it I found the same shape. I had two grades: the
+error set, a finite set under union, and a counting grade, the naturals
+under addition, which I keep around because it fails idempotence. I
+suspected antisymmetry was doing the real work, and couldn't demonstrate
+it, because both of my grades are antisymmetric. Subsets below each other
+are equal. Naturals below each other are equal. A hypothesis that every
+one of your examples satisfies isn't visibly doing anything in any of
+them.
+
+So the job was to find a third grade that fails it, and the candidate had
+been in the C++ the whole time. It is the argument pack. =error_set<A, B,
+A>= as you typed it, before the public alias hands off to the sorted,
+deduplicated carrier. I had spent twelve letters modelling the thing the
+alias produces and had never once written down the thing it takes in.
+
+* What the checker refused
+
+The law inventory did, and it improved the theorems. I first wrote the
+three failures as refuted statements, in the shape I had used for the
+counting grade:
+
+#+begin_src lean
+theorem pack_not_idem : ¬ ∀ g : Pack E, join g g = g
+#+end_src
+
+The inventory script reads every theorem and records which grade property
+it consumes, and it flagged all three of these as citing nothing at all.
+It was right. That statement names =join=, and it does not name the law
+it refutes, so the generated table could not put it in the row where a
+reader would look for it. The fix was to say what I actually meant:
+
+#+begin_src lean
+theorem pack_not_idem : ¬ IsIdemGrade (Pack E)
+#+end_src
+
+There is no instance of the idempotent-grade class at this grade, and
+here is why not. That is a better theorem than the one I wrote first. It
+names the class in the statement, and the proof gets to pull =join_idem=
+out of the hypothesis it is about to contradict. The script wasn't asking
+me to decorate a docstring. My statement was less specific than my
+intent.
+
+The other refusal was funnier. The build greps every file for the
+=admit= tactic, on the grounds that no proof should contain one. I wrote
+that the two packs "admit the same error kinds," and the build failed.
+Three times, in three paragraphs, before I learned to write "allow."
+
+* What changed
+
+=Pack Err= is a list of error kinds. Join is =++=, the unit is the empty
+list, and =g ≤ h= holds when every kind written in =g= is written
+somewhere in =h=. Every field of the base algebra checks out, so nothing
+disqualifies the pack as a grade at the operational layer.
+
+It has the least upper bound law, which the counting grade does not:
+appending two packs really does give the smallest pack above both. And it
+fails antisymmetry: =[A, A]= and =[A]= are each below
+the other, since they allow exactly the same kinds, and they are not the
+same list. From that, both of the laws I have been calling
+=error_set='s extra axioms fail *as equalities* while remaining true as
+two-way inequalities. =[A] ++ [A]= is not =[A]=. =[A] ++ [B]= is not
+=[B] ++ [A]=.
+
+That closes the question, and the answer isn't the one I expected. The
+pack has the least upper bound law already. What it lacks is
+antisymmetry, and I proved both directions in Lean: idempotence and
+monotonicity give you the bound, and the bound plus antisymmetry gives
+back idempotence. Over a preorder, all the bound gives you is that
+=join a a= and =a= sit below each other, and the pack is what stops that
+from closing into an equality.
+
+So commutativity and idempotence were never extra axioms the union
+happens to satisfy. They are what the quotient does. Which also means the
+question I have been treating as being about the algebra and the question
+about canonicalization from Letter 11 were one question, and I did not
+see it until I had a grade that failed.
+
+I renamed =Pomonoid= to =PreorderedGradeMonoid=, which Letter 23 deferred
+for this reason: the name needed a witness before it meant anything. And the mixins are now parameterised by the base class instead
+of extending it, which reverses something I decided in Letter 19. I wrote
+the reason into the rules file rather than quietly changing the shape,
+since the old decision was made for a good reason that has stopped
+applying.
+
+* Back in C++
+
+Canonicalizing =error_set= is not a convenience for shorter error
+messages. The pack you typed is a
+completely serviceable grade. It has a unit, it is associative, its
+union is a least upper bound, and every operation in the design works
+over it.
+
+What it does not have is that two spellings allowing the same errors are
+the same spelling. Skip the sorted carrier and you don't get an unsound
+program. You get one where =error_set<A, B>= and =error_set<B, A>= are
+different types, so a function returning the first won't convert to the
+second, and every union you compute carries the order you happened to
+compute it in. Everything still runs. Nothing composes. The failure mode
+is a wall of conversion errors between types that hold identical sets of
+errors, and it shows up at the call site of whoever tried to combine two
+libraries.
+
+The alias is what buys composition. That is worth knowing when someone
+asks whether the sorting is really necessary.
+
+--SMD
