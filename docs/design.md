@@ -2924,16 +2924,53 @@ modules — no tactic block, no `simp` set, nothing re-derived. That was
 the outcome to watch for: a field needing its own proof would have been
 evidence the abstraction had drifted from what the model establishes.
 
-*Elaboration: under the threshold.* A clean `Tests/` rebuild went from
-7.71s wall / 40.78s user to 8.96s / 48.24s — **+16% wall, +18% user**,
-against a threshold of +33%. Those are *minima* of repeated runs, not
-means: the machine carried an unrelated CPU-bound build for part of the
-measurement window (load average 10 to 23), which inflates means badly
-and leaves the minimum as the only figure worth quoting. Method and
-per-run numbers are in `metrics/fanout-runs.jsonl`. No pre-existing
-`Tests/` module imports the abstract layer, so the existing suite is
-unchanged by construction and the whole delta is the new
-`Tests/EffectK.lean`.
+*Elaboration: under the threshold.* Measured in **heartbeats**, not
+wall-clock — see "How elaboration cost is measured" below for why. Across
+the 13 `Tests/` modules whose source is byte-identical before and after
+Tranches E and F, elaboration work rose from 24688 to 25285 heartbeats:
+**+2.4%**, against a threshold of +33%. The worst single module is
+`Tests/Monad.lean` at +6.4%.
+
+The four modules that *did* change (`Accum`, `AccumTraverse`, `Carrier`,
+and the new `EffectK`) went from 6569 to 11298 heartbeats, and that
+increase is new `example`s rather than the same work costing more —
+counting it as a cost of the abstraction would be measuring added
+coverage.
+
+> **This figure replaces an earlier wall-clock one and the verdict did
+> not change.** The first measurement reported +16% wall / +18% user, as
+> minima of repeated `lake build Tests` runs. Two things were wrong with
+> it. It compared whole-suite times, so most of what it measured was the
+> new test file rather than any slowdown; and it was taken on a machine
+> that routinely runs other expensive builds, where repeated samples of
+> the same tree ranged from 8.96s to 47s. A later sample would have read
+> as +53% and tripped the criterion, on noise.
+
+### How elaboration cost is measured
+
+**Heartbeats, not seconds.** A heartbeat is Lean's own count of
+elaboration steps. It is deterministic: the same file at the same commit
+gives the same number every time, whatever else the machine is doing.
+Wall-clock and user time are not usable here — this development happens
+on a machine that routinely carries other CPU-bound work, and repeated
+timings of an unchanged tree have varied by a factor of five.
+
+The instrument is Mathlib's `linter.countHeartbeats`, which reports a
+count per declaration, enabled from the command line so no source has to
+be edited:
+
+```text
+lake env lean -D linter.countHeartbeats=true Tests/Monad.lean
+```
+
+Summing those gives a per-module figure. Comparing two commits means
+building the older one in a `git worktree` and running the same sweep, so
+both numbers come from the same toolchain and the same Mathlib.
+
+**Compare module by module, and only where the source is unchanged.** A
+whole-suite total conflates "existing work got more expensive" with "we
+added tests", and those answer different questions. Only the first is a
+cost.
 
 **What the criterion does *not* cover, and where to re-check it.** These
 measurements are of an *additive* layer. The cost that would matter is
@@ -2946,6 +2983,12 @@ not "re-pointing is free."
 
 **Log.**
 
+- 2026-09-10 — re-measured in heartbeats after the wall-clock figure
+  proved unusable on a contended machine. Verdict unchanged and now
+  reproducible: **+2.4%** across unchanged test sources, against a +33%
+  threshold. The original number was not merely noisy, it was measuring
+  the wrong thing — whole-suite time, most of which was the new test
+  file.
 - 2026-09-10 — [abstract-effects] connected the grade algebra to the
   carriers, measured both halves of the criterion, and closed the
   question. Two gaps in the *model* surfaced from trying to instantiate:
