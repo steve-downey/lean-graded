@@ -1384,8 +1384,14 @@ TEST_CASE("probe-harness: Tuple.sequence_cons") {
         return left;
     };
 
-    REQUIRE(*check(harness::pure<set_p>(1), harness::pure<set_r>(2),
-                   harness::pure<set_i>(3)) == std::tuple{1, 2, 3});
+    // Bound first and compared inside parentheses, so the tuple never meets
+    // Catch's expression decomposer: on clang 19 and 20 with libstdc++ 15,
+    // the tuple-like operator<=> tries to instantiate tuple_size on the
+    // decomposer itself and hard-errors.
+    const auto all_ok = check(harness::pure<set_p>(1), harness::pure<set_r>(2),
+                              harness::pure<set_i>(3));
+    REQUIRE(all_ok.has_value());
+    REQUIRE((*all_ok == std::tuple{1, 2, 3}));
     REQUIRE(check(fail_p(1), harness::pure<set_r>(2), harness::pure<set_i>(3))
                 .error()
                 .holds<err_parse>());
