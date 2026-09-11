@@ -790,8 +790,9 @@ def write_probe_harness(docs_dir: Path, rows):
     `and_then`, `transform_error`, `transpose`; `apply`/`transform` for the
     applicative/functor operations `docs/design.md#cpp-counterpart` and
     `#applicative` describe but do not themselves name). Nothing here runs
-    C++ — this is the equation list a probe harness built from `std`
-    types checks by example."""
+    C++ — this is the equation list that the probe corpus in the vendored
+    transpose tree (`cpp/transpose/tests/beman/transpose/probe_harness.test.cpp`)
+    checks by example, one `TEST_CASE` per row, named after the theorem."""
     lines = [
         "# Probe harness",
         "",
@@ -803,7 +804,10 @@ def write_probe_harness(docs_dir: Path, rows):
         "`std` types (`std::expected`-shaped probes, per "
         "`docs/design.md#cpp-counterpart`'s decision that the CRTP "
         "machinery itself does no law-checking); equality is `==` on the "
-        "carrier after conversion. Nothing here runs C++.",
+        "carrier after conversion. Nothing here runs C++: the corpus that "
+        "does is `cpp/transpose/tests/beman/transpose/probe_harness.test.cpp`, "
+        "one `TEST_CASE` per row below, named `probe-harness: "
+        "<Module>.<theorem>` (`make cpp-probes`).",
         "",
     ]
     for row in rows:

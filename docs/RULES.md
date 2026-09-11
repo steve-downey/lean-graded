@@ -208,7 +208,9 @@ workflows only from the repository root.
 
 Building the C++ is deliberately not wired into `make all`: it would need
 a C++ toolchain in CI, and "probes green" remains the C++ side's
-definition of done. Revisit when there is a probe corpus to run.
+definition of done. `make cpp-probes` builds and runs the probe corpus
+(below) out of tree, under `.build/cpp-probes/`, for whoever has a
+toolchain; it is a convenience target, not a gate.
 
 ## C++ obligations
 
@@ -228,6 +230,19 @@ declared in two modules with different C++ meanings must not get an entry
 at all (`apK_comp` is the live example). And a result about the model's
 own internals is not an obligation: the test is whether a C++
 implementation could be *checked* against it.
+
+**Where an obligation is discharged.** In the vendored tree, at
+`cpp/transpose/tests/beman/transpose/probe_harness.test.cpp`, as a
+`TEST_CASE` named `probe-harness: <Module>.<theorem>` after the Lean
+declaration — so a row of `docs/probe-harness.md` and its probe find each
+other by name, in either direction. A new `CPP_LAW` entry therefore owes a
+probe in the same *pair* of commits (the Lean-side one adds the row, the
+C++-side one adds the case; never one commit for both, per
+[one commit, one side](#one-commit-one-side)). A harness verb with no
+library operation behind it is recorded in the probe file as a finding
+and pinned as the specific compile-time refusal that stands in for it,
+never approximated by a runtime check of something else — see
+[cpp-sync](design.md#cpp-sync) for the three that exist.
 
 ## Axioms
 

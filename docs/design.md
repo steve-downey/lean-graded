@@ -3063,6 +3063,86 @@ channel, `docs/probe-harness.md` is generated and diffed, and a finding
 that never reaches the column has not been communicated no matter how
 well it is written up here.
 
+### The corpus, and what running it found
+
+Added 2026-09-10 by [probe-corpus]. transpose is vendored under
+`cpp/transpose/` ([RULES.md](RULES.md#the-vendored-c-source)), so the
+"deferred out of this repository" item of the counter-plan is discharged
+*in* the repository, on the C++ side of the subtree boundary:
+[`cpp/transpose/tests/beman/transpose/probe_harness.test.cpp`](../cpp/transpose/tests/beman/transpose/probe_harness.test.cpp),
+one `TEST_CASE` per row of [`probe-harness.md`](probe-harness.md), named
+`probe-harness: <Module>.<theorem>` so either side can be found from the
+other by name, and
+`probe_harness_cross_tu.cpp` for the one claim a `static_assert` cannot
+make. `make cpp-probes` builds and runs it; it is deliberately not part
+of `make all` (no C++ toolchain in this repository's CI). Every row is
+either run or pinned as the specific compile-time refusal that stands in
+for it. transpose's own record of the channel is
+[`decisions.md#lean-model-sync`](../cpp/transpose/docs/decisions.md#lean-model-sync).
+
+**Three harness verbs have no C++ operation behind them.** Each is a
+finding about the *boundary* rather than about either side alone:
+
+- **`first_error`.** `Graded.Accum` carries a `List Err` in source order
+  and `toGraded` takes its head; `toGraded_traverseK` and `toGraded_apK`
+  are equations about that head. The C++ accumulating object keeps one
+  witness *per kind*, left-biased, in canonical type order
+  (transpose's `#accumulation-evidence`), so which kind failed first is
+  not recorded and no projection from the accumulated value recovers the
+  short-circuit result. What holds, and what the probes check, is the
+  per-kind consequence: the witness kept for the short-circuit error's
+  kind *is* that error, and with exactly one failing operand the two
+  carriers are equal outright. See
+  [accumulated-evidence-shape](#accumulated-evidence-shape) below.
+- **A composed applicative as a `traverse` policy.** transpose's
+  `traverse` reads the element type of the context it builds off the
+  context *type* (`applicative_value_t`, the carrier's `value_type`); for
+  a nested `expected` that is the inner carrier, not the value `Comp`
+  holds, so a composed policy's `pure` fails `applicative_object_for`.
+  `traverseComp_eq` is checked against a hand fold over the library's own
+  two objects. The `Comp` laws themselves (`Comp.ap_*`, `flatten_ap`)
+  went through against that composition unchanged.
+- **Traversal at the empty grade.** Bare `T` is not a context, and the
+  uniform form `expected<T, error_set<>>` re-indexes at its own grade to
+  bare `T` and so fails `applicative_object`'s subsumption clause. Both
+  refusals follow from transpose's `#empty-grade-spelling`, which
+  [cpp-counterpart](#cpp-counterpart) records. `traverse_fromEmpty` and
+  `traverse_fromEmpty_map` therefore have no C++ left side; they are
+  pinned as negative `static_assert`s with a positive control.
+
+Two things the corpus confirmed that the harness rows did not ask for:
+the side conditions on `ap_flip` and `flatten_ap` are *necessary*, shown
+by exhibiting the excluded case as an inequality rather than only
+checking the licensed cases; and the canonicalization claim this
+document declines to make at [representation](#representation) — that
+`error_set<A,B>` and `error_set<B,A>` are one type — is checked the only
+way it can be, by declaring a function with one spelling in one
+translation unit and defining it with the other in a second, and
+linking. `rename_cast` has no residue at all: a same-set cast is type
+identity.
+
+### accumulated-evidence-shape
+
+**Question.** Is the accumulating carrier a *source-ordered list* of
+errors (what `Graded.Accum` is, and what `errsOf_traverseK` states) or a
+*per-kind, left-biased set* (what transpose's accumulating object
+stores)? The two agree on every law in this document except the two
+that project to the short-circuiting carrier, and there they differ in
+what can be *stated*: the list has a head, the set does not.
+
+**Status: OPEN**, raised 2026-09-10 by [probe-corpus]. The provisional
+note at [Accum](#accum-an-accumulating-applicative-needs-its-own-carrier)
+already records `List` over `Multiset` as a choice; this sharpens it to a
+choice against the implementation. What the Lean side owes is the
+per-kind statement — for every kind `e` the leftmost source-order witness
+of `e` in the accumulated evidence equals the short-circuiting carrier's
+witness whenever the latter is of kind `e` — over a carrier whose
+evidence is a function from kinds to optional witnesses, and a bridge
+from `Accum` to it that forgets order. That is what the C++ probes
+check; until it is proved, `toGraded_traverseK`'s C++ column describes a
+projection the C++ cannot compute. Not started; a stage, not an
+amendment, since nothing proved becomes false.
+
 ## module-split
 
 **The question this section answers.** `Graded/Sufficient.lean` was
@@ -3432,6 +3512,11 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
   least upper bound for the *preorder*, and `join_idem` is a theorem
   rather than an axiom exactly when the order is antisymmetric. Kept in
   this index because the anchor still carries the reasoning.
+- [#cpp-sync](#accumulated-evidence-shape) — **OPEN**
+  `accumulated-evidence-shape`: whether the accumulating carrier is a
+  source-ordered list (the model) or a per-kind left-biased set (the
+  implementation). Raised by [probe-corpus]; the Lean side owes the
+  per-kind form of `toGraded_traverseK`/`toGraded_apK`.
 - [#compose](#graded-traversable-composition) — **CLOSED**
   `graded-traversable-composition`: the flattened composition law is
   false (and the refutation is not about grading); the product-graded

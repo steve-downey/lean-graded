@@ -3,3 +3,6 @@
 
 # scripts/test-coverage.py imports laws-inventory.py to reuse its parse
 __pycache__/
+
+# make cpp-probes builds the vendored transpose probe harness out of tree
+/.build/

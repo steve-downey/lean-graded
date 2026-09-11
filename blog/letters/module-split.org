@@ -3,6 +3,7 @@
 #+CATEGORY: lean-transpose
 #+STEP: module-split
 #+SERIES_PREV: payload-carrier
+#+SERIES_NEXT: probe-corpus
 
 Steve,
 
