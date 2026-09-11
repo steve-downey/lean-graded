@@ -3139,9 +3139,14 @@ of `e` in the accumulated evidence equals the short-circuiting carrier's
 witness whenever the latter is of kind `e` — over a carrier whose
 evidence is a function from kinds to optional witnesses, and a bridge
 from `Accum` to it that forgets order. That is what the C++ probes
-check; until it is proved, `toGraded_traverseK`'s C++ column describes a
-projection the C++ cannot compute. Not started; a stage, not an
-amendment, since nothing proved becomes false.
+check, and (since 2026-09-11) what the C++ column of `toGraded_traverseK`,
+`toGraded_apK`, `errsOf_traverseK` and `toGraded_widen` *says*: the rows
+were reworded to the per-kind form so that the harness and the corpus
+agree, while the theorems still state the list form. The gap is now
+between a row and its theorem rather than between the harness and the
+implementation, which is where it belongs until the per-kind theorems
+exist. Not started; a stage, not an amendment, since nothing proved
+becomes false.
 
 ## module-split
 
