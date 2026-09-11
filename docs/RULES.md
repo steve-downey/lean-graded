@@ -130,6 +130,86 @@ proves nothing. So:
 None of that is mechanically checkable, which is exactly why it is written
 down here rather than left to the script.
 
+## The vendored C++ source
+
+`cpp/transpose/` is `beman.transpose` — the implementation this model
+exists to confirm — vendored by `git subtree`, **unsquashed**, so its
+history is present and changes made here can be sent back upstream.
+transpose is the source and home of the design; a finding that stays in
+this repository has not reached it.
+
+### No remote, and no tags
+
+The subtree is addressed by **URL, never by a named remote**. A remote
+would be picked up by `git fetch --all` workflows that have no business
+fetching it, and its tags bleed into this repository's tag namespace —
+transpose carries six `blog/*` tags, all reachable from `main`, and
+`git fetch` auto-follows tags into fetched history unless told not to.
+
+So every fetch of it is spelled:
+
+```text
+git fetch --no-tags git@github.com:steve-downey/transpose.git main
+```
+
+and `git subtree` is handed the resulting `FETCH_HEAD`, not a
+`<url> <ref>` pair — `git subtree add/merge` does its own fetch
+otherwise, without `--no-tags`.
+
+### One commit, one side
+
+**Never let a single commit touch both `cpp/transpose/` and the rest of
+the repository.** `git subtree split` reconstructs upstream commits from
+the prefix alone; a commit spanning both becomes an upstream commit with
+half its content silently missing. This is the whole discipline that
+keeps send-back clean, and nothing enforces it.
+
+A change driven by a Lean finding is therefore two commits: the C++ one
+under the prefix, and the Lean-side one recording why.
+
+### Updating from upstream
+
+```text
+git fetch --no-tags git@github.com:steve-downey/transpose.git main
+git subtree merge --prefix=cpp/transpose FETCH_HEAD
+```
+
+### Sending work back
+
+Split explicitly and look before pushing, rather than using
+`git subtree push`, which does both at once:
+
+```text
+git subtree split --prefix=cpp/transpose -b send-back
+git push git@github.com:steve-downey/transpose.git send-back:<branch>
+git branch -D send-back
+```
+
+Then open the pull request on transpose. Push to a branch, never to
+`main`.
+
+The round trip was verified at vendoring time: `git subtree split` over
+the freshly added prefix reproduced upstream's tip commit
+`26f6ab8` **by hash**, not merely an equal tree. Re-run that check if the
+split ever looks wrong.
+
+**transpose is mirrored.** Its own clone carries `ceridwen`/`forgejo`
+remotes besides GitHub. Pushing a send-back branch to GitHub alone leaves
+those behind, silently, per the mirror rule in the global conventions.
+
+### What the vendored tree does not touch
+
+`make all` is unaffected and stays that way for now. transpose has no
+`.lean` files, so `make nosorry`'s grep is clean; `laws-inventory` and
+`test-coverage` walk `Graded/`, `Tests/` and `Examples/` only; and
+`lakefile.toml` names its libraries explicitly, so `lake` cannot see
+`cpp/`. `cpp/transpose/.github/workflows/` is inert because GitHub reads
+workflows only from the repository root.
+
+Building the C++ is deliberately not wired into `make all`: it would need
+a C++ toolchain in CI, and "probes green" remains the C++ side's
+definition of done. Revisit when there is a probe corpus to run.
+
 ## C++ obligations
 
 A law with a consequence for the C++ implementation earns a `CPP_LAW`
