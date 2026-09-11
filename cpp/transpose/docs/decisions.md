@@ -1750,3 +1750,13 @@ pinned as negatives instead):
 - 2026-09-10 — First run, 56 cases / 217 assertions green on GCC 15.2,
   C++23. The harness's `first_error`, `traverse` with a composed policy,
   and traversal at the empty grade recorded as above.
+- 2026-09-11 — The Lean side answered the `first_error` finding with a
+  carrier shaped like this one: `Accum.Kinds`, a value or a nonempty
+  sub-grade of kinds, with a one-way projection from its list carrier and
+  a theorem (`Kinds.noFirstError`) that no projection back exists. The
+  four accumulation cases here are renamed for the theorems they now
+  discharge — `Kinds.mem_kindsOf_traverseK`, `Kinds.kindsOf_widen`,
+  `Kinds.kindsOf_apK`, `Kinds.toGraded_mem` — and the list-form rows
+  carry no C++ equation. Assertions unchanged; the left-bias clause (the
+  witness kept for a kind is the leftmost) is still checked here and is
+  not yet stated there, pending payload-bearing accumulation.

@@ -726,30 +726,29 @@ TEST_CASE("probe-harness: Accum.ap_comp") {
 }
 
 // =========================================================================
-// Graded/AccumTraverse.lean -- accumulation against short-circuiting.
+// Graded/AccumKinds.lean -- accumulation against short-circuiting, per
+// kind.
 //
-// FINDING: `first_error` is not an operation of this carrier. In the Lean
-// model the accumulating carrier holds a LIST of errors in source order,
-// and `toGraded` takes its head -- the head is the leftmost failure, which
-// is exactly what the short-circuiting carrier kept, and that is the
-// content of `toGraded_traverseK` and `toGraded_apK`. Here the accumulating
-// object stores one witness PER TYPE, left-biased, in canonical type order
-// (docs/decisions.md#accumulation-evidence): which type failed first is
-// not recorded, so no projection from the accumulated value alone recovers
-// the short-circuit result. What the implementation does satisfy is the
-// consequence the Lean law has for each kind: the witness kept for the
-// short-circuiting error's type IS the short-circuiting error, and when
-// exactly one operand fails the two carriers are equal outright. The
-// probes below check that weaker, carrier-appropriate form, and the Lean
-// side owes a statement of it over a per-kind carrier.
+// The model's accumulating carrier holds a LIST of errors in source order
+// and projects to the short-circuiting carrier by its head. This object
+// stores one witness PER KIND, left-biased, in canonical type order
+// (docs/decisions.md#accumulation-evidence), so which kind failed first is
+// not recorded and no projection from the accumulated value recovers the
+// short-circuit result -- `Kinds.noFirstError` proves that in the model.
+// What the model states about the carrier this library actually has is
+// the per-kind set `Accum.Kinds`, and the four cases below are named for
+// its theorems: which kinds a traversal's evidence holds, that widening
+// preserves them, that an application's evidence is the union, and what
+// the short-circuiting result says about the set. The list-form theorems
+// (`toGraded_traverseK`, `errsOf_traverseK`, ...) carry no C++ equation.
 // =========================================================================
 
-TEST_CASE("probe-harness: AccumTraverse.errsOf_traverseK") {
-    // Lean: errors(traverse(f, xs)) == concat of errors(f(x)), source order.
-    // Here: for each kind, the witness is the LEFTMOST failure of that
-    // kind; every failing kind is present; no succeeding position
-    // contributes. Fixture: zero, one and several failures, and a repeated
-    // kind so left-bias is visible.
+TEST_CASE("probe-harness: AccumKinds.Kinds.mem_kindsOf_traverseK") {
+    // A kind is present exactly when some position raised it; a kind
+    // raised twice is present once. The witness kept is the LEFTMOST of
+    // that kind -- the payload clause the tag-only model cannot state, and
+    // checked here anyway. Fixture: zero, one and several failures, and a
+    // repeated kind so left-bias is visible.
     auto zero =
         harness::traverse_accumulating(classify, std::vector<int>{1, 2, 3});
     REQUIRE(zero.has_value());
@@ -780,12 +779,11 @@ TEST_CASE("probe-harness: AccumTraverse.traverseK_ok") {
     REQUIRE(result == harness::traverse(classify, xs));
 }
 
-TEST_CASE("probe-harness: AccumTraverse.toGraded_widen") {
-    // first_error(widen<Es2>(x)) == widen<Es2>(first_error(x)): the
-    // accumulating carrier supports subsumption at all, and widening
-    // preserves every witness. Both objects share one carrier here, so the
-    // conversion is the same conversion, and the probe is that it loses
-    // nothing.
+TEST_CASE("probe-harness: AccumKinds.Kinds.kindsOf_widen") {
+    // Widening moves the membership proof and not the evidence: every
+    // kind present before is present after, none is added. Both objects
+    // share one carrier here, so the conversion is the same conversion,
+    // and the probe is that it loses nothing.
     auto accumulated =
         harness::traverse_accumulating(classify, std::vector<int>{-1, 200});
     auto widened = harness::widen<set_pri>(accumulated);
@@ -805,11 +803,11 @@ TEST_CASE("probe-harness: AccumTraverse.toGraded_widen") {
                 harness::traverse(classify, std::vector<int>{1, 200})));
 }
 
-TEST_CASE("probe-harness: AccumTraverse.toGraded_apK") {
-    // first_error(apply(f, x)) == apply(first_error(f), first_error(x)),
-    // in the per-kind form: the short-circuit result's kind carries the
-    // same witness in the accumulated result, and with one failure the two
-    // results are equal.
+TEST_CASE("probe-harness: AccumKinds.Kinds.kindsOf_apK") {
+    // The evidence of an application is the union of the evidence, and
+    // the short-circuit result's kind carries the same witness in it
+    // (Kinds.toGraded_mem); with one failing side the two results are
+    // equal outright (Kinds.toGraded_of_kindsOf_singleton).
     at<increment_fn, set_p> f_ok{increment};
     at<increment_fn, set_p> f_bad{std::unexpect, err_parse{1}};
     auto x_ok = harness::pure<set_r>(41);
@@ -832,9 +830,12 @@ TEST_CASE("probe-harness: AccumTraverse.toGraded_apK") {
     REQUIRE(accumulated.error().witness_count() == 2);
 }
 
-TEST_CASE("probe-harness: AccumTraverse.toGraded_traverseK") {
-    // first_error(traverse_accumulating(f, xs)) == traverse(f, xs), in the
-    // per-kind form, at zero, one and several failures.
+TEST_CASE("probe-harness: AccumKinds.Kinds.toGraded_mem") {
+    // Whatever kind the short-circuiting traversal stopped on, the
+    // accumulating one holds that kind with the same witness; with exactly
+    // one failing position the two results are equal outright
+    // (Kinds.toGraded_of_kindsOf_singleton). Zero, one and several
+    // failures.
     const std::vector<int> none{1, 2, 3};
     REQUIRE(harness::traverse_accumulating(classify, none) ==
             harness::traverse(classify, none));
