@@ -59,11 +59,7 @@ an error."
 argument, each success handed to the next stage exactly like =and_then=
 would.
 
-#+begin_src lean
-def ap (f : Graded g (α → β)) (x : Graded h α) : Graded (Grade.join g h) β :=
-  cast (congrArg (Grade.join g) (Grade.join_bot h))
-    (bind f (fun f' => bind x (fun a => pure (f' a))))
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/applicative-from-monad::Graded/Applicative.lean::27]] :lines 1-3 :src lean
 
 The =cast= at the top is bookkeeping, the same kind from last letter: the
 grade Lean computes along the way is =g ∪ (h ∪ ∅)=, and =congrArg= turns

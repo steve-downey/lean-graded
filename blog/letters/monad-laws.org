@@ -45,11 +45,7 @@ was evidence for.
 The fix wasn't a cleverer tactic, it was writing three small reusable
 lemmas first, each proved the same way:
 
-#+begin_src lean
-theorem cast_ok (e : g = g') (a : α) :
-    cast e (Graded.ok a : Graded g α) = Graded.ok a := by
-  subst e; rfl
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/monad-laws::Graded/Monad.lean::41]] :lines 1-3 :src lean
 
 =subst e= is the same substitution tactic from Letter 3's =widen_cast=:
 it uses the equality proof to make both sides talk about the same grade,

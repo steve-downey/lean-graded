@@ -98,9 +98,7 @@ it had to work before anything else could.
 
 The demonstration is one line, and it is the entire point:
 
-#+begin_src lean
-#guard parseAt "4x2" ≠ parseAt "nope"
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/payload-carrier::Examples/Payload.lean::76]] :lines 1-1 :src lean
 
 Two parse failures at different offsets, and they are different values.
 Under the old carrier both are =err parse= and that inequality is simply

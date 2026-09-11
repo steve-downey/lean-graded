@@ -55,13 +55,7 @@ would still need "the union doesn't care how you parenthesize it," the
 same fact ordinary =bind= needs for three *different* error sets. It
 doesn't:
 
-#+begin_src lean
-theorem bindF_assoc (x : Fixed g α) (f : α → Fixed g β) (k : β → Fixed g γ) :
-    bindF (bindF x f) k = bindF x (fun a => bindF (f a) k) := by
-  cases x with
-  | ok a => rw [bindF_ok a f, bindF_ok a (fun a => bindF (f a) k)]
-  | err e he => rw [bindF_err e he f, bindF_err e he k, bindF_err e he (fun a => bindF (f a) k)]
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/ungraded-baseline::Graded/Ungraded.lean::104]] :lines 1-5 :src lean
 
 Once every error set in sight is the *same* set, "does it fail" collapses
 the whole expression to one of two shapes (the payload, or the error)

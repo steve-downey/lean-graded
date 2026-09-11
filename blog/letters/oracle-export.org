@@ -36,13 +36,7 @@ isn't on a short hand-checked list of "this one genuinely needs
 nothing," stop. It found thirty theorems that named nothing. Most had a
 boring explanation once I looked: a theorem like
 
-#+BEGIN_SRC
-theorem widen_map (h : g ⊆ g') (f : α → β) (x : Graded g α) :
-    widen h (map f x) = map f (widen h x) := by
-  cases x with
-  | ok a => rfl
-  | err e he => rfl
-#+END_SRC
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/oracle-export::Graded/Widen.lean::42]] :lines 1-5 :src lean
 
 never puts two error sets together at all: mapping a function and
 widening the allowed errors are independent moves, so there's nothing

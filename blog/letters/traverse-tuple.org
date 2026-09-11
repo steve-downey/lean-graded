@@ -50,13 +50,7 @@ universe above the types it produces, or you could use it to smuggle a
 type into a place types aren't supposed to go. It's the same kind of
 guard that stops you writing a "type of all types" that contains itself.
 
-#+begin_src lean
-def GList : List (Grade Err) → List (Type v) → Type (max u v)
-  | [], [] => PUnit
-  | g :: gs, α :: αs => Graded g α × GList gs αs
-  | [], _ :: _ => PEmpty
-  | _ :: _, [] => PEmpty
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/traverse-tuple::Graded/Tuple.lean::44]] :lines 1-5 :src lean
 
 I sidestepped the universe tax instead of paying it. Rather than
 declaring the tuple as a genuine indexed type (with its own

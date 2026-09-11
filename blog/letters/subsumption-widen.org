@@ -42,11 +42,7 @@ likely sticking point, and told me to budget several attempts for it. I
 wrote the statement, reached for the obvious tactic, and it went through
 immediately:
 
-#+begin_src lean
-theorem widen_cast (e : g = g') (h : g' ⊆ g'') (x : Graded g α) :
-    widen h (cast e x) = widen (e ▸ h) x := by
-  subst e; rfl
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/subsumption-widen::Graded/Widen.lean::59]] :lines 1-3 :src lean
 
 =subst e= replaces every occurrence of =g'= in the goal with =g= (using
 the equality proof =e= to eliminate the variable), which turns the two

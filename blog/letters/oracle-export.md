@@ -14,7 +14,7 @@ The result is bigger than the fifteen letters: 146 theorems, not the handful I'd
 
 The script's rule is deliberately unclever: scan a theorem's own statement and proof for one of a dozen known property names (`join_comm`, `join_idem`, and so on); if none appear, and the theorem isn't on a short hand-checked list of "this one genuinely needs nothing," stop. It found thirty theorems that named nothing. Most had a boring explanation once I looked: a theorem like
 
-```
+```lean
 theorem widen_map (h : g ⊆ g') (f : α → β) (x : Graded g α) :
     widen h (map f x) = map f (widen h x) := by
   cases x with

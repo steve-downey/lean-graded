@@ -65,13 +65,7 @@ used everywhere.
 With the vocabulary sorted out, the representation theorem itself came
 together cleanly:
 
-#+begin_src lean
-def canonEquiv : Grade Err ≃ Canon Err where
-  toFun := Canon.ofFinset
-  invFun := Canon.toFinset
-  left_inv := Canon.toFinset_ofFinset
-  right_inv := Canon.ofFinset_toFinset
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/canonical-representation::Graded/Canonical.lean::100]] :lines 1-5 :src lean
 
 =ofFinset= sorts a =Finset= into a =Canon= (Mathlib's own =Finset.sort=
 does the work); =toFinset= forgets the order and reads the elements back

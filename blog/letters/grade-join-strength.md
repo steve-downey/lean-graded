@@ -23,7 +23,7 @@ theorem pack_not_idem : ¬ ∀ g : Pack E, join g g = g
 The inventory script reads every theorem and records which grade property it consumes, and it flagged all three of these as citing nothing at all. It was right. That statement names `join`, and it does not name the law it refutes, so the generated table could not put it in the row where a reader would look for it. The fix was to say what I actually meant:
 
 ```lean
-theorem pack_not_idem : ¬ IsIdemGrade (Pack E)
+theorem pack_not_idem : ¬ IsIdemGrade (Pack E) := by
 ```
 
 There is no instance of the idempotent-grade class at this grade, and here is why not. That is a better theorem than the one I wrote first. It names the class in the statement, and the proof gets to pull `join_idem` out of the hypothesis it is about to contradict. The script wasn't asking me to decorate a docstring. My statement was less specific than my intent.

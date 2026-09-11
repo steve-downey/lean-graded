@@ -25,7 +25,7 @@ The earlier proof discharged the sequencing law by case-splitting on the carrier
 ```lean
 theorem bindK_eq_widen_bind (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g α)
     (f : α → Graded h β) :
-    bindK hg hh x f = widen (Grade.join_le hg hh) (bind x f)
+    bindK hg hh x f = widen (Grade.join_le hg hh) (bind x f) := by
 ```
 
 Read it as: sequencing at a grade the caller nominated is the same as sequencing at the exact union and then widening. Once both sides of the law are in that form, you push the carrier map through the outer widening with the new field, rewrite underneath with the law you already had, and the cast the union version carries gets absorbed. There is no branch, so there is nowhere for the payload types to disagree.

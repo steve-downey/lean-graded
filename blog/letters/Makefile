@@ -11,6 +11,7 @@ EMACS     ?= emacs
 ROOT      := $(shell git rev-parse --show-toplevel)
 EMACSDIR  := $(ROOT)/.emacs.d
 EXPORT_EL := $(CURDIR)/letters-export.el
+ADAPTER_EL := $(EMACSDIR)/lisp/orgit-file-transclusion.el
 
 ORGFILES  := $(wildcard *.org)
 MD        := $(ORGFILES:.org=.md)
@@ -21,11 +22,12 @@ all: blog-md
 
 blog-md: $(MD)
 
-%.md: %.org $(EXPORT_EL) $(EMACSDIR)/init.el
+%.md: %.org $(EXPORT_EL) $(EMACSDIR)/init.el $(ADAPTER_EL)
 	$(EMACS) --init-directory=$(EMACSDIR)/ \
 	  --batch --load $(EMACSDIR)/init.el \
 	  --load $(EXPORT_EL) \
 	  --visit $< \
+	  --eval "(org-transclusion-mode t)" \
 	  --eval "(org-export-to-file 'gfm \"$(abspath $@)\")"
 
 clean:

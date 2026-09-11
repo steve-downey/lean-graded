@@ -51,11 +51,7 @@ two payload types are staring at each other, and that's what forces the
 second obligation. The new proof never splits. It goes through a small
 theorem I hadn't written before:
 
-#+begin_src lean
-theorem bindK_eq_widen_bind (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g α)
-    (f : α → Graded h β) :
-    bindK hg hh x f = widen (Grade.join_le hg hh) (bind x f)
-#+end_src
+#+transclude: [[orgit-file:~/src/steve-downey/lean-graded/integration/lean-model::blog/morphism-bridge::Graded/Sufficient.lean::1024]] :lines 1-3 :src lean
 
 Read it as: sequencing at a grade the caller nominated is the same as
 sequencing at the exact union and then widening. Once both sides of the

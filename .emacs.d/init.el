@@ -12,17 +12,28 @@
       (locate-user-emacs-file (concat "elpa-" emacs-version)))
 (package-initialize)
 
-(unless (package-installed-p 'ox-gfm)
+(unless (and (package-installed-p 'ox-gfm)
+             (package-installed-p 'org-transclusion))
   (package-refresh-contents)
-  (package-install 'ox-gfm))
+  (dolist (pkg '(ox-gfm org-transclusion))
+    (unless (package-installed-p pkg)
+      (package-install pkg))))
 
 (require 'org)
 (require 'ox-gfm)
+(require 'org-transclusion)
 
 ;; Preserve Lean and C++ spelling and indentation in prose and source blocks.
 (setq org-use-sub-superscripts '{})
 (setq org-export-with-sub-superscripts '{})
 (setq org-src-preserve-indentation t)
 (setq-default indent-tabs-mode nil)
+
+(add-to-list 'load-path
+             (expand-file-name
+              "lisp" (or (and load-file-name
+                              (file-name-directory load-file-name))
+                         user-emacs-directory)))
+(require 'orgit-file-transclusion)
 
 ;;; init.el ends here
