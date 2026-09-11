@@ -30,7 +30,7 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 ## `errsOf_traverseK` (Graded/AccumTraverse.lean)
 
-    errors(traverse(f, xs) /*accumulating*/) == concat{ errors(f(x)) : x in xs, in source order }  // every failing position contributes, once; the order is observable through first_error and is therefore part of the contract
+    traverse(f, xs, accumulating).error().witness<E>() == the leftmost failing f(x) of kind E, for every kind E that fails; succeeding positions contribute nothing  // per-kind form of 'every failing position contributes once, in source order': the C++ evidence collapses repeats of a kind to the leftmost, so source order survives only within a kind
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
@@ -42,19 +42,19 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 ## `toGraded_widen` (Graded/AccumTraverse.lean)
 
-    first_error(widen<Es2>(x)) == widen<Es2>(first_error(x))  // the accumulating carrier must support subsumption at all - the model went fifteen steps without it because no law asked
+    widen<Es2>(x /*accumulated*/).error().witness<E>() == x.error().witness<E>() for every kind E, witness_count preserved  // the accumulating carrier must support subsumption at all - the model went fifteen steps without it because no law asked; in C++ both objects share one carrier, so the conversion is the same conversion
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
 ## `toGraded_apK` (Graded/AccumTraverse.lean)
 
-    first_error(apply(f, x)) == apply(first_error(f), first_error(x))  // unconditional at a nominated error set, because the accumulating apply concatenates the function's errors first and the short-circuiting one keeps the function's error
+    apply(f, x, accumulating).error().witness<E>() == apply(f, x).error().witness<E>() for the kind E of the short-circuiting error; equal outright when at most one side fails  // per-kind form, unconditional: the accumulating apply keeps the function's witness for its kind and the short-circuiting one keeps the function's error
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
 ## `toGraded_traverseK` (Graded/AccumTraverse.lean)
 
-    first_error(traverse(f, xs) /*accumulating*/) == traverse(first_error compose f, xs) /*short-circuiting*/  // the two forms agree on which error the caller sees, unconditionally
+    traverse(f, xs, accumulating).error().witness<E>() == traverse(f, xs).error().witness<E>() for the kind E of the short-circuiting error; equal outright when exactly one position fails  // per-kind form: the C++ evidence keeps one left-biased witness per kind, so the model's first_error (head of a source-ordered list) is not computable from it -- docs/design.md#accumulated-evidence-shape
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
@@ -156,7 +156,7 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 ## `traverseComp_eq` (Graded/ComposeApp.lean)
 
-    transpose_nested(transform(f, map(k))) == transform(map(transpose(k)), transpose(f, xs))
+    traverse_comp(a -> transform(f(a), k), xs) == transform(traverse(f, xs), ys -> traverse(k, ys))  // traverse_comp is a hand fold over the library's two applicative objects: a composed applicative cannot be a traverse policy, because applicative_value_t reads the carrier's value_type, and for a nested expected that is the inner carrier
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
@@ -282,7 +282,7 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 ## `traverse_fromEmpty` (Graded/Traverse.lean)
 
-    traverse(fromEmpty, xs) == fromEmpty(xs)  // no-fail context is a no-op
+    static_assert(!traverse_accepts<fromEmpty, xs>)  // no C++ left side: at the empty grade the carrier is bare T, which is not a context, and expected<T, error_set<>> fails applicative_object's subsumption clause at its own grade; a no-fail traversal is spelled std::ranges::transform
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
@@ -342,7 +342,7 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 ## `traverse_fromEmpty_map` (Graded/Ungraded.lean)
 
-    traverse(fromEmpty compose f, xs) == fromEmpty(transform(xs, f))
+    static_assert(!traverse_accepts<fromEmpty compose f, xs>)  // the same refusal as traverse_fromEmpty; the right side, transform(xs, f), is the only spelling the C++ has
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
