@@ -2181,6 +2181,36 @@ an accurate name. The fields are unchanged: sequencing needs reflexivity
 and transitivity and nothing more, and charging every operational law for
 antisymmetry is what `docs/RULES.md`'s hypothesis discipline forbids.
 
+**The rename corrected a misreading, not the literature — added
+2026-09-11.** Read the two paragraphs above with this in hand: the
+graded-monad literature's "pomonoid" *is* a preordered monoid. Katsumata's
+parametric effect monads are graded by a monoid carrying a preorder under
+which multiplication is monotone, and the graded-monad and effect-system
+work that builds on it (Gaboardi and co-authors' graded monads among
+them) keeps that structure: no antisymmetry, no commutativity, no
+idempotence. That is field for field the class this section defines.
+[truth-in-labelling]'s finding was therefore right about the docstring
+and wrong about the term: the docstring said "partially ordered" and the
+fields said "preordered", and it was the docstring that was off, not the
+name. The rename to `PreorderedGradeMonoid` is harmless and stays — it
+says in full what "po" abbreviates — but a reader should not take it as
+this model having found a weaker structure than the literature's. It
+has confirmed the literature's structure, with `Pack Err` as the witness
+that its generality is real.
+
+What the model *does* find is relative to the C++ design, not the
+theory. transpose's `grade_semilattice` and its law harness demand a
+bounded join-semilattice with canonical forms — commutative, idempotent,
+antisymmetric, order read off the join — which is a special case of a
+pomonoid. The tables at [cpp-sync](#cpp-sync) and
+[laws-inventory](#laws-inventory) show that none of the special-case
+axioms is cited by any law about what a computation does; they are
+cited only where a grade is *spelled*, so that `error_set<A,B>` and
+`error_set<B,A>` are one type and subsumption has a unique target. The
+theory never asked for a semilattice. The implementation asks for one
+because it wants type identity, and that is the whole of the extra
+requirement.
+
 **The `extends` reversal, which is an amendment.** [obligation-layering]
 made each mixin `extends Pomonoid` so instance search had one route to
 the base and no two `Pomonoid G` terms could disagree. That was right for
@@ -2375,6 +2405,15 @@ least-upper-bound law into. The witness is `Pack Err` (`List Err` under
 framing and the three narrowing passes are kept beneath it, unedited,
 because they are what the question looked like on the way to being
 answered.
+
+**Against the literature (added 2026-09-11).** This closure is
+consistent with the graded-monad literature, not a departure from it:
+its "pomonoid" is a preordered monoid, exactly `PreorderedGradeMonoid`,
+and it never required commutativity or idempotence. What is new here is
+narrower and about transpose: the semilattice axioms its `grade` concept
+adds are the price of canonical spelling and nothing else. See the
+"corrected a misreading" note under [obligations](#obligations) for the
+account of the term, including the one place this repository misread it.
 
 **Status before this revision: OPEN, reframed by [obligation-layering] —
 sharpened, not closed.** Raised by the orchestrator after [grade-obligations], which had
