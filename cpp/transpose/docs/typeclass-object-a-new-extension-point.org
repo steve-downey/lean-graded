@@ -1,0 +1,306 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Typeclass Object: A New Extension Point
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE: Variable Templates as Concept Maps, Revisited
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+DESCRIPTION:
+#+KEYWORDS:
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+HTML_HEAD:
+#+HTML_HEAD_EXTRA:
+#+SUBTITLE:
+#+INFOJS_OPT:
+
+#+begin_abstract
+C++ has several extension point mechanisms: ADL, concepts, CPOs, tag_invoke.
+None of them give you what a Haskell typeclass or a Rust trait does: a bundle of related operations, derivable defaults, and open extension with static dispatch.
+The typeclass object pattern fills that gap using variable templates.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+* The Extension Points I Have
+
+C++ offers a menu of ways to let types participate in generic algorithms.
+Each has a gap.
+
+** ADL
+
+Argument-dependent lookup lets a type provide a free function in its own namespace.
+~swap(a, b)~ finds the right ~swap~ because of where ~a~ lives.
+
+The problem: ADL is invisible, fragile, and unscoped.
+It does not group related operations.
+It does not provide defaults.
+Two unrelated namespaces can silently collide.
+There is no way to say "this type satisfies the full contract" --- only "this function exists."
+
+** Concepts (C++20)
+
+Concepts constrain templates.
+~std::sortable<I>~ tells me that ~I~ can be sorted.
+But it does not dispatch to a sort implementation.
+It does not bundle ~begin~, ~end~, ~size~ into one looked-up object.
+It checks; it does not provide.
+
+** CPOs and ~tag_invoke~
+
+Customization point objects like ~std::ranges::begin~ wrap ADL lookup in an object.
+~tag_invoke~ generalizes this to arbitrary operations with a single ADL entry point.
+
+Both solve the "find the right overload" problem.
+Neither bundles related operations.
+Neither provides defaults derived from primitives.
+Each operation is a separate CPO with a separate customization path.
+If a concept has ten operations and only one is primitive, the type still has to think about all ten customization points individually.
+
+** What I Want Instead
+
+I want the Haskell/Rust model:
+
+- A /concept/ bundles related operations.
+- A type opts in once, providing the minimal primitives.
+- Derived operations come for free.
+- The opt-in is open-world: it can live in a separate header, far from the type definition.
+- Dispatch is static.
+- The mechanism is explicit and overridable.
+
+C++0x Concepts had ~concept_map~ that would have given exactly this.
+They were lost in the transition to Concepts Lite.
+The typeclass object pattern is a library-level recovery of the same idea.
+
+* The Pattern
+
+A typeclass object has three layers.
+
+** Layer 1: A Variable Template for Lookup
+
+#+begin_src cpp
+template <class T>
+inline constexpr auto foldable_typeclass = std::false_type{};
+#+end_src
+
+Default: no instance.
+A type opts in by specializing:
+
+#+begin_src cpp
+template <>
+inline constexpr auto foldable_typeclass<example::BinaryTree<int>> =
+    BinaryTreeFoldableMap{};
+#+end_src
+
+This is the extension point.
+Three lines.
+No modification to the data type.
+No central registry.
+The specialization lives wherever is convenient --- a separate adapter header, close to the type, in an entirely different library.
+
+** Layer 2: Implementation + CRTP Base for Derivation
+
+The implementation struct provides the primitive:
+
+#+begin_src cpp
+struct BinaryTreeFoldableImpl {
+    template <class F>
+    auto fold_map(this auto&& self, F&& f, const example::BinaryTree<int>& t) {
+        // ... one recursive traversal
+    }
+};
+#+end_src
+
+The CRTP base derives everything else from that one function:
+
+#+begin_src cpp
+template <class Impl>
+struct Foldable : protected Impl {
+    using Impl::fold_map;
+
+    template <class T>
+    auto length(this auto&& self, T&& value) -> std::size_t { ... }
+
+    template <class T>
+    auto to_vector(this auto&& self, T&& value) { ... }
+
+    // ... ten more derived operations
+};
+#+end_src
+
+Write ~fold_map~.
+Get ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, ~fold~.
+
+** Layer 3: The Map (Connecting Impl to Base)
+
+#+begin_src cpp
+struct BinaryTreeFoldableMap : Foldable<BinaryTreeFoldableImpl> {
+    using BinaryTreeFoldableImpl::fold_map;
+};
+#+end_src
+
+The ~using~ declaration selects which operation is primitive.
+A different type might provide ~fold_right~ instead of ~fold_map~ as its core --- the CRTP base detects this and derives the rest from whichever primitive is declared.
+
+* Why Variable Template, Not Class Template?
+
+~std::numeric_limits<T>~ is a class template.
+Every specialization is still a ~numeric_limits~.
+
+~foldable_typeclass<vector<int>>~ and ~foldable_typeclass<example::BinaryTree<int>>~ can be completely different types.
+One might be ~VectorFoldableMap~.
+The other is ~BinaryTreeFoldableMap~.
+The variable template does not constrain the specialization's type.
+
+This matters because a variable template specialization is an object.
+I can take a reference to it, pass it as an NTTP, or override it locally.
+A class template specialization is a type --- I can instantiate it, but I cannot hand it around as a value.
+
+* Three Lookup Modes
+
+The looked-up object is a value.
+This gives three ways to use it.
+
+** Implicit
+
+Look up by type, call operations:
+
+#+begin_src cpp
+const auto& foldable = beman::transpose::foldable_typeclass<Expr>;
+foldable.length(tree);
+#+end_src
+
+** Explicit Object Argument
+
+Pass a specific instance.
+Useful for local policy override or testing with alternate implementations:
+
+#+begin_src cpp
+MyCustomFoldableMap custom_foldable;
+auto n = custom_foldable.length(tree);
+#+end_src
+
+** NTTP Pinning
+
+Bind the lookup as a default non-type template parameter:
+
+#+begin_src cpp
+template <class T,
+          const auto& FOLDABLE = beman::transpose::foldable_typeclass<T>>
+auto count_elements(const T& structure) {
+    return FOLDABLE.length(structure);
+}
+#+end_src
+
+Lookup is fixed at instantiation.
+It does not depend on ADL, overload resolution, or the call site's namespace.
+Callers can override the default for testing or policy reasons.
+Existing instantiations are unaffected if someone specializes the variable template later.
+
+* Comparison
+
+| Mechanism                | Bundles operations | Derived defaults | Open extension | Static dispatch | Overridable at call site |
+|--------------------------+--------------------+------------------+----------------+-----------------+--------------------------|
+| ADL                      | No                 | No               | Yes            | Yes             | No                       |
+| C++20 Concepts           | No (constraint)    | No               | No             | ---             | ---                      |
+| CPOs / ~tag_invoke~      | No (per-operation) | No               | Yes            | Yes             | No                       |
+| ~numeric_limits~         | Yes                | No               | Yes            | Yes             | No (class template)      |
+| Typeclass object pattern | Yes                | Yes              | Yes            | Yes             | Yes (NTTP override)      |
+
+The typeclass object is the only one that checks every box.
+The trade-off is that it requires explicit specialization (no implicit opt-in) and the lookup is through a named object rather than invisible name resolution.
+I consider both of those features, not costs.
+
+* Alternate Cores
+
+Haskell's ~{-# MINIMAL foldMap | foldr #-}~ lets an instance choose which operation to provide.
+Either suffices; the other is derived.
+
+This pattern supports the same idea.
+The ~using~ declaration in the Map struct selects the core:
+
+#+begin_src cpp
+// fold_map as primitive
+struct FoldMapSequenceMap : Foldable<FoldMapSequenceImpl> {
+    using FoldMapSequenceImpl::fold_map;
+};
+
+// fold_right as primitive
+struct FoldRightSequenceMap : Foldable<FoldRightSequenceImpl> {
+    using FoldRightSequenceImpl::fold_right;
+};
+#+end_src
+
+Both produce identical derived surfaces.
+Different types express different primitives.
+A tree might find ~fold_map~ natural.
+A stream might prefer ~fold_right~.
+The choice is local to the instance, not global to the concept.
+
+* Real Usage
+
+This pattern is not theoretical in this codebase.
+The same ~foldable_typeclass~, ~traversable_typeclass~, and ~applicative_typeclass~ variable templates dispatch for:
+
+- ~std::optional<T>~ --- Functor, Applicative, Monad
+- ~std::vector<T>~ --- Functor, Foldable, Traversable
+- ~zip_list<T>~ --- Applicative (with zip semantics, not the list Applicative)
+- ~sender<T>~ --- Applicative (deferred computation)
+- ~std::array<T, N>~ --- Applicative
+- ~simd_lanes<T, N>~ --- Applicative (conditional on ~<simd>~ header)
+
+See ~examples/binary_tree.hpp~ for a worked example adding ~BinaryTree<T>~ with Foldable, Applicative, and Traversable as a standalone example.
+
+Each type specializes the variable template in its own adapter header.
+The type definitions do not know about these typeclasses.
+The typeclasses do not know about each other.
+Generic algorithms written against any one of these concepts work on all participating types without modification.
+
+* What This Is Not
+
+This is not type erasure.
+There is no virtual dispatch, no heap allocation, no runtime polymorphism.
+The typeclass object is a compile-time dispatch mechanism.
+If the type is wrong or unregistered, you get a compile error, not a runtime crash.
+
+This is not a replacement for concepts.
+C++20 concepts still constrain templates.
+The typeclass object /dispatches/ --- it is the implementation behind the constraint.
+The two compose naturally: a concept can require that ~foldable_typeclass<T>~ is not ~false_type~.
+
+This is not a framework.
+There is no base class for your types to inherit from, no macro to invoke, no code generation step.
+A specialization of a variable template is all the ceremony required.
+
+* The Extension Surface
+
+Adding a new type to an existing concept:
+
+1. Write the Impl struct (one function).
+2. Wrap it in the CRTP base (one line).
+3. Specialize the variable template (three lines).
+
+Adding a new concept to the system:
+
+1. Write the CRTP base with derived operations.
+2. Add a variable template defaulting to ~false_type~.
+3. Specialize for at least one type.
+4. Write a free-function entry point if desired.
+
+Both are purely additive.
+Neither requires modifying existing types, existing concepts, or a central registry.
+Independent extension points that compose.

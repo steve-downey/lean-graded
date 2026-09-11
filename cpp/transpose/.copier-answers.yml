@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Standard answers and internal state managed by Copier
+_commit: v2.4.1-14-g66b1f43
+_src_path: ~/src/steve-downey/exemplar/copier
+description: Shape-preserving traversal and transposition for contextual computations
+maintainer: steve-downey
+minimum_cpp_build_version: '23'
+paper: P3200
+project_name: transpose
+unit_test_library: catch2
+# Hidden variables manually tracked because 'when: false' omits them from _copier_answers
+generating_exemplar: false
+owner: "steve-downey"
+ci_tests_cron: "30 13 * * 3"
+pre_commit_update_cron: "45 8 * * 5"

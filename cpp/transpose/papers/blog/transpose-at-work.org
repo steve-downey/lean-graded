@@ -1,0 +1,90 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Transpose at Work
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+SUBTITLE: One verb over optional, sender, and simd, with the output to prove it
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+BIBLIOGRAPHY: ./references.bib
+
+*DRAFT --- pending author revision*
+
+#+begin_abstract
+[[file:transposing-structure-and-context.org][The opening post of this series]] argued that ~vector<optional<T>>~ to ~optional<vector<T>>~ is one operation, ~transpose~, and that the same verb covers deferred and lanewise computation.
+This post runs it.
+The code is transcluded from a compiled example in the [[https://github.com/bemanproject/transpose][=beman.transpose=]] repository and the output is captured from the built binary: absence hoisted out of a vector, a composed sender that provably doesn't run until asked, and hardware SIMD lanes transposed through ~std::simd~ on GCC 16.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+*Prev:* [[file:graded-gadgets.org][Graded Gadgets]] --- *Next:* [[file:traverse-does-all-the-work.org][Traverse Does All the Work]] --- *Up:* [[file:index.org][Contents]]
+
+* The loop, gone
+
+The problem from the first post: all of the values if every element is present, nothing if any element is missing.
+Here it is as a call, once with no gaps and once with one.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/transpose-at-work::examples/transpose_post_example.cpp::05ce0358-d2a6-4908-a5b3-ec09da449bbd]] :lines 2- :src cpp :end "05ce0358-d2a6-4908-a5b3-ec09da449bbd end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.transpose_post_example optional
+#+end_src
+
+No reserve, no early exit, no accumulate.
+The declaration ~std::optional<std::vector<int>>~ on the left is doing the documentation too.
+
+* Deferral survives the composition
+
+A ~sender~ here is the library's minimal stand-in for a P2300 sender: a lazy value that runs when you call ~get()~.
+The interesting property is what ~transpose~ must /not/ do: composing a vector of senders into one sender of a vector had better not run anything.
+
+To make the laziness visible, each sender announces itself when it actually executes.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/transpose-at-work::examples/transpose_post_example.cpp::680950c9-7c4f-4aac-9e7b-bd32d9c7056a]] :lines 2- :src cpp :end "680950c9-7c4f-4aac-9e7b-bd32d9c7056a end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.transpose_post_example sender
+#+end_src
+
+Read the output in order.
+The "nothing has run yet" line prints /before/ any sender announces itself; nothing executes until ~get()~.
+And then GCC happens to run the three computations right to left, because they sit as arguments to one deferred call and argument evaluation order is the compiler's to choose.
+The computations are independent, so no order was promised; the values still land in position order, ~[1, 4, 9]~.
+The transposition rearranged types, not execution.
+
+* Lanes
+
+The lanewise context is ~simd_lanes<T, N>~: an ~N~-lane array, filled here from real ~std::simd::vec~ registers (P1928, in GCC 16).
+Three positions of four lanes each transpose into four complete result vectors, one per hardware lane.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/transpose-at-work::examples/transpose_post_example.cpp::e916da84-685b-40b3-aee5-c9df63321855]] :lines 2- :src cpp :end "e916da84-685b-40b3-aee5-c9df63321855 end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.transpose_post_example simd
+#+end_src
+
+Lane 0 holds the first element of each position's computation, lane 1 the second, and so on.
+It's the same data-layout flip as the ~optional~ case; only the meaning of the context changed.
+
+* Three contexts, one specification
+
+Nothing about ~transpose~ was overloaded per domain.
+The structure (~vector~) knows how to be walked and rebuilt; each element context (~optional~, ~sender~, ~simd_lanes~) knows how to combine independent computations; ~transpose~ is the fixed rule connecting the two.
+The per-context knowledge lives in two lookup objects, ~traversable_typeclass~ for the structure and ~applicative_typeclass~ for the context, as [[file:adapting-a-type-to-a-typeclass.org][the adaptation post]] described.
+
+Which leaves the actual mechanism unexplained.
+The umbrella header states it in one comment: ~transpose~ is ~traverse~ with the identity function.
+That single sentence, from McBride and Paterson's distributive law [cite:@mcbride2008applicative], is the entire implementation, and unpacking it is the next post.
+
+#+print_bibliography:

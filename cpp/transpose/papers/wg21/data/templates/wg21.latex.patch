@@ -1,0 +1,64 @@
+diff --git a/data/templates/default.latex b/data/templates/wg21.latex
+index e993af1..d03b446 100644
+--- a/data/templates/default.latex
++++ b/data/templates/wg21.latex
+@@ -44,6 +44,7 @@ $header-includes$
+ $endfor$
+ $after-header-includes.latex()$
+ $hypersetup.latex()$
++\hypersetup{pdfcreator={mpark/wg21}}
+ $if(pdf-trailer-id)$
+
+ \ifXeTeX
+@@ -58,6 +59,26 @@ $if(pdf-trailer-id)$
+ \fi
+ $endif$
+
++\makeatletter
++\def\@maketitle{
++  \newpage \null \vskip 2em
++  {\center \LARGE \@title \par}
++  \vskip 1.5em
++  \begin{flushright}
++    \begin{tabular}{ll}
++Document \#:&$document$\\
++Date:       &\@date\\
++Project:    &Programming Language C++\\
++Audience:   $for(audience)$&$audience$\\$endfor$
++$if(revises)$
++Revises:    &$revises$\\
++$endif$
++Reply-to:   \@author
++    \end{tabular}
++  \end{flushright}
++}
++\makeatother
++
+ $if(title)$
+ \title{$title$$if(thanks)$\thanks{$thanks$}$endif$}
+ $endif$
+@@ -70,7 +91,7 @@ $if(subtitle)$
+ \makeatother
+ \subtitle{$subtitle$}
+ $endif$
+-\author{$for(author)$$author$$sep$ \and $endfor$}
++\author{$for(author)$&$author.name$\\$for(author.email)$&<$author.email$>\\$endfor$$endfor$}
+ \date{$date$}
+
+ \begin{document}
+@@ -78,6 +99,7 @@ $if(has-frontmatter)$
+ \frontmatter
+ $endif$
+ $if(title)$
++\hypertarget{title-block-header}{\label{title-block-header}}
+ \maketitle
+ $if(abstract)$
+ \begin{abstract}
+@@ -101,6 +123,7 @@ $if(toccolor)$
+ $endif$
+ $endif$
+ \setcounter{tocdepth}{$toc-depth$}
++\hypertarget{toctitle}{\label{toctitle}}
+ \tableofcontents
+ }
+ $endif$

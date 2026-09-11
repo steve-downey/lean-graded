@@ -1,0 +1,531 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: The Typeclass Object Pattern in C++
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE: Variable Templates as Concept Maps
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+DESCRIPTION:
+#+KEYWORDS:
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+HTML_HEAD:
+#+HTML_HEAD_EXTRA:
+#+SUBTITLE:
+#+INFOJS_OPT:
+#+BIBLIOGRAPHY: ./references.bib
+
+#+begin_abstract
+Open extension with static dispatch, using variable templates as concept maps.
+No virtual calls, no ADL, no central registry.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+* You Already Know This Pattern
+
+You use ~std::numeric_limits<T>~ all the time.
+
+#+begin_src cpp
+auto max_int = std::numeric_limits<int>::max();      // 2147483647
+auto is_signed = std::numeric_limits<int>::is_signed; // true
+#+end_src
+
+It is a struct, specialized per type, providing named operations and values.
+If you wanted to add support for a new numeric type, you would specialize the template.
+
+That is the typeclass object pattern.
+The version in this codebase generalizes it in three ways: the operations are functions (not just constants), derived operations come for free via CRTP, and lookup is through a variable template (not a class template).
+
+Here is the equivalent shape for Foldable:
+
+From [[file:../include/beman/transpose/fold.hpp][=include/beman/transpose/fold.hpp=]]:
+
+#+begin_src cpp
+template <class T>
+inline constexpr auto foldable_typeclass = std::false_type{};
+#+end_src
+
+Default: no instance.
+A type opts in by specializing.
+
+From [[file:../examples/binary_tree.hpp][=examples/binary_tree.hpp=]]:
+
+#+begin_src cpp
+template <>
+inline constexpr auto foldable_typeclass<example::BinaryTree<int>> =
+    BinaryTreeFoldableMap{};
+#+end_src
+
+Three lines.
+No modification to the data type.
+No central registry.
+The specialization can live in a separate header, close to the type it adapts.
+
+I described earlier versions of this idea in [[https://sdowney.org/posts/index.php/2024/05/19/concept-maps-using-c23-library-tech/][Concept Maps Using C++23 Library Tech]] and [[https://sdowney.org/posts/index.php/2023/12/24/some-informal-remarks-towards-a-new-theory-of-trait-customization/][Some Informal Remarks Towards a New Theory of Trait Customization]].
+What follows is the mature version with working code.
+
+* Anatomy: Three Layers
+
+The smallest typeclass in this codebase is Functor.
+It has one primitive (~fmap~) and one derived operation (~replace~).
+I will use it to walk through the three layers.
+
+** Layer 1: The Implementation
+
+The Impl struct provides the primitive operation.
+Here is the Functor Impl for [[https://en.cppreference.com/w/cpp/utility/optional][=std::optional=]]:
+
+From [[file:../include/beman/transpose/functor.hpp][=include/beman/transpose/functor.hpp=]]:
+
+#+begin_src cpp
+template <class VALUE_TYPE>
+struct OptionalFunctorImpl {
+    template <class F>
+    auto fmap(this auto&&, F&& function,
+              const std::optional<VALUE_TYPE>& value) {
+        using Result = std::invoke_result_t<F, const VALUE_TYPE&>;
+        if (!value) {
+            return std::optional<remove_cvref_t<Result>>{};
+        }
+        return std::optional<remove_cvref_t<Result>>{
+            std::invoke(std::forward<F>(function), *value)};
+    }
+};
+#+end_src
+
+That ~this auto&&~ is C++23 deducing this.
+It preserves value category and constness without boilerplate overload sets.
+
+** Layer 2: The CRTP Base
+
+The CRTP base provides derived operations.
+~Functor<Impl>~ inherits from the Impl and adds ~replace~, defined in terms of ~fmap~:
+
+From [[file:../include/beman/transpose/functor.hpp][=include/beman/transpose/functor.hpp=]]:
+
+#+begin_src cpp
+template <class Impl>
+struct Functor : protected Impl {
+    using Impl::fmap;
+
+    template <class T, class U>
+    auto replace(this auto&& self, T&& value, U&& replacement) {
+        return self.fmap([replacement = std::forward<U>(replacement)](
+                             const auto&) { return replacement; },
+                         std::forward<T>(value));
+    }
+};
+#+end_src
+
+The Impl provides ~fmap~.
+The base derives ~replace~.
+The implementer writes one function.
+The user gets two.
+
+For Foldable, the ratio is better: one ~fold_map~ gives you ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, and ~fold~.
+
+** Layer 3: The Map and Lookup
+
+The Map struct connects the Impl to the CRTP base, and a ~using~ declaration selects which operations are primitive:
+
+#+begin_src cpp
+template <class VALUE_TYPE>
+struct OptionalFunctorMap : Functor<OptionalFunctorImpl<VALUE_TYPE>> {
+    using OptionalFunctorImpl<VALUE_TYPE>::fmap;
+};
+#+end_src
+
+The variable template specialization registers it:
+
+#+begin_src cpp
+template <class VALUE_TYPE>
+inline constexpr auto functor_typeclass<std::optional<VALUE_TYPE>> =
+    OptionalFunctorMap<VALUE_TYPE>{};
+#+end_src
+
+That is the entire opt-in.
+No base class on ~optional~.
+No macro.
+No ~friend~ declaration.
+The variable template lives in the ~beman::transpose~ namespace; the type it adapts is in ~std~.
+
+* Three Lookup Modes
+
+This is what distinguishes the pattern from a plain specialization.
+The looked-up object is a /value/.
+You can use it three ways.
+
+** Implicit Lookup
+
+The most common form.
+Look up the typeclass object by type, call operations on it.
+
+#+begin_src cpp
+const auto& functor = beman::transpose::functor_typeclass<std::optional<int>>;
+auto mapped = functor.fmap([](int x) { return x + 1; }, value);
+#+end_src
+
+** Explicit Object Argument
+
+Pass a specific instance at the call site.
+This is local policy override --- you can swap in a different implementation without changing the type.
+
+From [[file:../examples/lookup_modes_example.cpp][=examples/lookup_modes_example.cpp=]]:
+
+#+begin_src cpp
+auto explicit_object_lookup_example() -> std::optional<int> {
+    OptionalFunctorObject functor;
+    std::optional<int> value{41};
+
+    return functor.fmap([](int x) { return x + 1; }, value);
+}
+#+end_src
+
+** NTTP Pinning
+
+Bind the looked-up object as a non-type template parameter default.
+Lookup happens at instantiation time.
+Callers can override it, but the default is stable.
+
+From [[file:../tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
+
+#+begin_src cpp
+template <class STRUCTURE,
+          const auto& FOLDABLE = beman::transpose::foldable_typeclass<STRUCTURE>>
+auto sum_with_nttp_lookup(const STRUCTURE& structure) {
+    return FOLDABLE.fold_map([](int x) { return x; }, structure);
+}
+#+end_src
+
+This matters in generic code.
+The lookup is bound once, at template instantiation.
+It does not depend on ADL, overload resolution, or the call site's namespace.
+If someone specializes the variable template later, existing instantiations are unaffected.
+
+* How It Differs From Standard Approaches
+
+The pattern sits in a specific place in the design space, near several things C++ programmers already know.
+The differences are the point.
+
+** ~numeric_limits~: Close, But Static
+
+[[https://en.cppreference.com/w/cpp/types/numeric_limits][=std::numeric_limits<T>=]] is the closest standard analogy.
+Both are struct templates specialized per type, providing named operations.
+
+The differences:
+- ~numeric_limits~ provides constants and ~static~ member functions.  The typeclass object provides instance member functions called on the looked-up object.
+- ~numeric_limits~ has no derived operations.  The typeclass object derives a large surface from a small set of primitives via CRTP.
+- ~numeric_limits~ is a class template.  The typeclass object is a variable template, so specializations can have entirely unrelated types.
+
+The last point is important.
+~beman::transpose::foldable_typeclass<vector<int>>~ and ~beman::transpose::foldable_typeclass<example::BinaryTree<int>>~ can be completely different types, as long as they both provide ~fold_map~.
+A class template specialization must always instantiate the same class template.
+
+** Type Traits: Predicates, Not Operations
+
+[[https://en.cppreference.com/w/cpp/header/type_traits][Type traits]] like ~is_integral<T>~ and ~is_floating_point<T>~ answer questions about types.
+They do not provide operations.
+
+But the typeclass object answers questions /and/ provides the operations in one place.
+~beman::transpose::foldable_typeclass<T>~ both asserts "T is Foldable" (by existing) and gives you ~fold_map~, ~length~, ~to_vector~.
+
+** CPOs: ADL, Not Objects
+
+Customization point objects like ~std::ranges::begin~ use ADL to find the right overload.
+Each CPO is a single operation.
+There is no grouping, no derivation, no object that bundles related operations.
+
+The typeclass object bundles all operations for a concept into one looked-up value.
+No ADL.
+
+** Concepts (C++20): Constraints, Not Dispatch
+
+C++20 ~concept~ s constrain templates.
+They do not dispatch to implementations.
+
+The typeclass object dispatches.
+~beman::transpose::foldable_typeclass<T>.fold_map(f, value)~ finds and calls the right implementation for ~T~ at compile time.
+
+C++0x Concepts had ~concept_map~ s that would have filled exactly this role.
+They were lost in the transition to Concepts Lite.
+The variable-template approach is a library-level recovery of the same idea.
+
+** Rust Traits: The Closest Analogy
+
+Rust traits are the closest language-level equivalent.
+A Rust trait bundles operations with default implementations.
+Types ~impl~ traits explicitly.
+The compiler dispatches statically via monomorphization.
+
+The typeclass object achieves the same goals in C++ at the library level.
+The trade-off is that dispatch is explicit (you call through the looked-up object) rather than implicit (the compiler resolves it via the trait bound).
+That is more syntax and more control --- you can override the instance at the call site without changing the type.
+
+* Alternate Cores
+
+Haskell allows a typeclass to have multiple valid primitives:
+
+#+begin_src haskell
+class Foldable t where
+  foldMap :: Monoid m => (a -> m) -> t a -> m
+  foldr :: (a -> b -> b) -> b -> t a -> b
+  {-# MINIMAL foldMap | foldr #-}
+#+end_src
+
+Either ~foldMap~ or ~foldr~ suffices; the other is derived.
+Different types naturally express different primitives.
+
+This codebase supports the same idea.
+The Map struct's ~using~ declaration selects which operation is primitive.
+
+The default Foldable for ~Sequence~ uses ~fold_map~ as primitive:
+
+From [[file:../tests/beman/transpose/test_support.hpp][=tests/beman/transpose/test_support.hpp=]]:
+
+#+begin_src cpp
+template <class VALUE_TYPE>
+struct TestSequenceFoldableImpl {
+    template <class FUNCTION>
+    auto fold_map(this auto&&, FUNCTION&& function,
+                  const Sequence<VALUE_TYPE>& sequence) {
+        using Result =
+            remove_cvref_t<std::invoke_result_t<FUNCTION, const VALUE_TYPE&>>;
+        return std::ranges::fold_left(
+            sequence.values, monoid_identity<Result>(),
+            [&](Result acc, const VALUE_TYPE& value) {
+                return monoid_combine(std::move(acc),
+                                      std::invoke(function, value));
+            });
+    }
+};
+
+template <class VALUE_TYPE>
+struct TestSequenceFoldableMap
+    : Foldable<TestSequenceFoldableImpl<VALUE_TYPE>> {
+    using TestSequenceFoldableImpl<VALUE_TYPE>::fold_map;
+};
+#+end_src
+
+An alternate Impl can use ~fold_right~ as primitive instead.
+The CRTP base ~Foldable<Impl>~ detects this via the ~using~ declaration and derives ~fold_map~ from ~fold_right~ automatically.
+
+From [[file:../tests/beman/transpose/fold.test.cpp][=tests/beman/transpose/fold.test.cpp=]]:
+
+#+begin_src cpp
+template <class VALUE_TYPE>
+struct RightFoldSequenceImpl {
+    using element_type = VALUE_TYPE;
+
+    template <class STATE, class F>
+    auto fold_right(this auto&&,
+                    const Sequence<VALUE_TYPE>& seq,
+                    STATE initial, F&& step) {
+        auto acc = std::move(initial);
+        for (auto it = seq.values.rbegin(); it != seq.values.rend(); ++it) {
+            acc = std::invoke(step, *it, std::move(acc));
+        }
+        return acc;
+    }
+};
+
+template <class VALUE_TYPE>
+struct RightFoldSequenceMap : Foldable<RightFoldSequenceImpl<VALUE_TYPE>> {
+    using RightFoldSequenceImpl<VALUE_TYPE>::fold_right;
+};
+#+end_src
+
+Both produce identical results.
+The tests verify this:
+
+#+begin_src cpp
+const auto& fold_map_foldable = beman::transpose::foldable_typeclass<Sequence>;
+const auto& fold_right_foldable = right_fold_sequence_map<int>;
+
+CHECK(fold_map_foldable.length(seq) == fold_right_foldable.length(seq));
+CHECK(fold_map_foldable.to_vector(seq) == fold_right_foldable.to_vector(seq));
+#+end_src
+
+The ~using~ declaration is the mechanism.
+It is not decorative boilerplate.
+
+* Algorithm Objects: Inheriting from the Typeclass
+
+The three lookup modes above let generic code /call/ typeclass operations.
+But when I am writing an algorithm that /composes/ several operations --- checking a precondition with Foldable, then transforming via Traversable --- I want those names available without qualifying through a separate lookup object on every call.
+
+The solution is to inherit from the typeclass instance.
+The typeclass objects are empty structs, so the inheritance adds no data, and slicing to the base is a non-issue.
+The inheritance is purely a mechanism to bring the operation names into scope.
+
+** The Implementation Layer
+
+An algorithm implementation struct inherits from the typeclass, parameterized by an NTTP that defaults to the standard lookup.
+The algorithm body calls typeclass operations through ~this->~.
+
+From [[file:../examples/algorithm_object_example.cpp][=examples/algorithm_object_example.cpp=]]:
+
+#+begin_src cpp
+template <class T,
+          const auto &TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+struct validate_impl : remove_cvref_t<decltype(TC)> {
+    template <class Pred>
+    auto call(Pred &&pred, const T &value) const {
+        using element_type =
+            typename remove_cvref_t<decltype(TC)>::element_type;
+        return this->for_each(value,
+            [&](const element_type &elem)
+                -> std::optional<element_type> {
+                if (pred(elem)) return {elem};
+                return std::nullopt;
+            });
+    }
+};
+#+end_src
+
+~for_each~ is not a free function and not a qualified call through a separate object.
+It is an inherited member.
+The algorithm body reads like the operations belong to it.
+
+** Multi-Typeclass Composition
+
+When an algorithm needs operations from more than one typeclass, inherit from both.
+Both bases are empty, so there is no diamond and no ambiguity (the typeclass surfaces have disjoint operation names by design).
+
+#+begin_src cpp
+template <class T,
+          const auto &FC = beman::transpose::foldable_typeclass<remove_cvref_t<T>>,
+          const auto &TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+struct transform_if_large_impl
+    : remove_cvref_t<decltype(FC)>,
+      remove_cvref_t<decltype(TC)> {
+    using foldable_base    = remove_cvref_t<decltype(FC)>;
+    using traversable_base = remove_cvref_t<decltype(TC)>;
+    using element_type     = typename traversable_base::element_type;
+
+    template <class F>
+    auto call(std::size_t min_size, F &&f, const T &value) const {
+        auto n = this->foldable_base::length(value);
+        if (n < min_size)
+            return std::optional<T>{};
+
+        return this->traversable_base::for_each(
+            value, [&](const element_type &elem)
+                       -> std::optional<element_type> {
+                return {f(elem)};
+            });
+    }
+};
+#+end_src
+
+~length~ comes from Foldable.
+~for_each~ comes from Traversable.
+Both are called as inherited members.
+The base-qualified ~this->foldable_base::length~ disambiguates in the presence of multiple inheritance; where names are unique, plain ~this->for_each~ suffices.
+
+** The Public Layer: Niebloid / CPO
+
+The implementation struct is a detail.
+The public interface is a single ~inline constexpr~ object with a deducing ~operator()~.
+Callers never name the implementation type and never supply a type argument.
+
+#+begin_src cpp
+struct validate_fn {
+    template <class Pred, class T>
+    auto operator()(Pred &&pred, T &&value) const {
+        return detail::validate_impl<remove_cvref_t<T>>{}.call(
+            std::forward<Pred>(pred),
+            std::forward<T>(value));
+    }
+};
+inline constexpr validate_fn validate{};
+#+end_src
+
+Call site:
+
+#+begin_src cpp
+auto result = algorithm::validate(
+    [](double x) { return x > 0.0; }, tree);
+#+end_src
+
+~T~ is deduced.
+ADL is suppressed because ~validate~ is an object, not a function.
+The inheritance from the typeclass, the NTTP pinning, the ephemeral construction of the impl --- all invisible.
+
+** Practical Note: ~decltype~ on NTTP References
+
+A ~const auto&~ NTTP gives a reference type under ~decltype~.
+You cannot inherit from a reference, and you cannot use it in a qualified name.
+~remove_cvref_t<decltype(TC)>~ is needed at three points:
+
+1. The base specifier: ~struct impl : remove_cvref_t<decltype(TC)>~
+2. Extracting nested types: ~typename remove_cvref_t<decltype(TC)>::element_type~
+3. Disambiguation in multi-inheritance: ~this->remove_cvref_t<decltype(FC)>::length(...)~
+
+Type aliases (~using foldable_base = ...~) keep this readable.
+
+* The Implementer Surface
+
+The pattern splits the naming problem in two.
+
+Typeclass operation names (~fold_map~, ~traverse~, ~invoke~) are abstract and generic.
+They name /what the concept does/, not what the domain calls it.
+It is fine that they are all terrible, because they name abstract generic operations.
+
+Particular types use good, domain-specific names: ~push_back~, ~pop_min~, ~insert~, ~to_string~.
+The typeclass layer is plumbing.
+The user-facing API is porcelain.
+
+The implementer surface is deliberately small:
+
+| Typeclass   | Primitive(s)           | Derived operations                                       |
+|-------------+------------------------+----------------------------------------------------------|
+| Functor     | ~fmap~                 | ~replace~                                                |
+| Foldable    | ~fold_map~ (or ~fold_right~) | ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, ~fold~ |
+| Applicative | ~pure~ + ~apply~       | ~invoke~, ~map~, ~lift~, ~ap~, ~zip_with~, ~discard_first~, ~discard_second~ |
+| Traversable | ~traverse~             | ~transpose~, ~for_each~, ~traverse_with~, ~transpose_with~ |
+
+Write one or two functions.
+Get a full API.
+That is the trade.
+
+* Where It Matters
+
+This pattern is load-bearing.
+In this repository, it dispatches for:
+
+- ~std::optional<T>~ --- Functor, Applicative, Monad
+- ~std::vector<T>~ --- Functor, Foldable, Traversable
+- ~zip_list<T>~ --- Applicative (zip semantics)
+- ~sender<T>~ --- Applicative (deferred computation)
+- ~std::array<T, N>~ --- Applicative
+- ~simd_lanes<T, N>~ --- Applicative (conditional on ~<simd>~ header)
+
+See ~examples/binary_tree.hpp~ for a worked example adding ~BinaryTree<T>~ with Foldable, Applicative, and Traversable as a standalone example.
+
+Each type has its own ~foldable_typeclass~ and ~traversable_typeclass~ specialization in a separate header.
+The type definitions do not know about these typeclasses.
+The typeclasses do not know about each other.
+The call site does not change when the representation changes.
+
+Independent extension points that compose.
+No monkey-patching, no reopening classes, no central registry.
+
+If the language eventually gets better generic facilities --- pattern matching, richer concept maps --- this API should get simpler.
+It should not need to be replaced.
+
+#+print_bibliography:
