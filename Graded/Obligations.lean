@@ -137,11 +137,17 @@ import Graded.Grade
 
 namespace Graded
 
-/-- A **pre**ordered monoid, notwithstanding the name (see the module
-    docstring's misnomer note): associative `join` with a two-sided unit
+/-- A **pre**ordered monoid — the graded-monad literature's "pomonoid",
+    under its standard reading (Katsumata's parametric effect monads are
+    graded by exactly this structure; an earlier revision of this class
+    misread "po" as *partially* ordered, and the rename says in full what
+    the abbreviation meant): associative `join` with a two-sided unit
     `bot`, a *preorder* `le` — `le_refl'` and `le_trans'`, and no
     antisymmetry field — with `bot` as global minimum, and `join`
-    monotone in both arguments. Field names match the corresponding named
+    monotone in both arguments. Commutativity, idempotence and
+    antisymmetry are *not* here and are not the literature's either; they
+    are the mixins below, and the model cites them only where a grade is
+    spelled, never in an operational law (`docs/design.md#obligations`). Field names match the corresponding named
     lemmas in `Graded/Grade.lean` exactly, so a later grep sees one
     vocabulary rather than two. Deliberately *not* including `Grade`'s
     `join_le`/`le_join_left`/`le_join_right`: see the module docstring for
