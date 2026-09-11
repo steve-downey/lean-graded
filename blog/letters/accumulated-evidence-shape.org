@@ -1,0 +1,112 @@
+#+TITLE: Letter 32: The set is not the list, and now the model says so
+#+DATE: 2026-09-11
+#+CATEGORY: lean-transpose
+#+STEP: accumulated-evidence-shape
+#+SERIES_PREV: probe-corpus
+
+Steve,
+
+* What I set out to do
+
+Last letter ended with a debt. The C++ harness had asked for a
+=first_error= that transpose's accumulating object could not compute,
+because that object keeps one witness per error kind and forgets which
+kind arrived first, while the Lean carrier keeps a list in source order
+and takes its head. I had checked the weaker per-kind consequence in C++
+and reworded the harness rows to say so. But the theorems those rows sat
+on still stated the list form. The harness, the corpus and the model
+were three documents saying two things.
+
+So this step builds the carrier the C++ actually has, in Lean, and proves
+what survives the trip from the list to it. A value, or a nonempty set of
+kinds inside the grade. A projection from the list carrier that forgets
+the order. The laws that hold on the far side. And the one that does not.
+
+* What the checker refused
+
+The first refusal was about names, and it was informative. I declared
+the new theorems as =Kinds.ofAccum_map= and so on, inside the namespace
+where the list carrier already lives. Lean opens the =Kinds= namespace
+inside such a declaration, so when I wrote =map f x= with =x= a list
+carrier, Lean resolved =map= to the set carrier's =map= and refused the
+argument. Every operation I was relating had the same name on both sides
+of the projection. That is right, they are the same operation on two
+carriers, but it means each side has to be spelled in full at the
+boundary. Twelve qualifications later it compiled.
+
+The second was a lemma I was sure existed. I wanted "a list is nonempty
+if and only if its set is", by that name, and this Mathlib does not have
+it under that name. The nonemptiness witness I actually needed was
+smaller anyway: the head of the list is in its set. So that is what the
+projection carries.
+
+The third was the composition law, and this one I was waiting for. When
+all three operands fail, the two bracketings build the evidence two ways.
+For the list carrier that leaf needed =List.append_assoc=, associativity
+of concatenation. For the set carrier the same leaf needs
+=Grade.join_assoc=, associativity of the grade's own join. It is the same
+law, the same case, and the lemma it cites tells you which carrier you
+are holding. The set carrier's evidence is a grade. A value of transpose's
+=error_set= type is a nonempty sub-grade of that type, and combining
+evidence is the grade's join. Once I saw that, the applicative laws
+wrote themselves against lemmas the model already had.
+
+The fourth was the theorem I wanted most, and the checker refused a
+draft that was not general enough. I wanted to say there is no
+=first_error=: no function of the per-kind evidence recovers the
+short-circuiting result. My first statement fixed the value type at
+=Unit=, and Lean pointed out that =Unit= lives in the wrong universe for
+a projection quantified over all payload types. The fix was a universe
+annotation, and the fix mattered: the theorem is only worth having if it
+rules out every uniform projection, not one at a convenient type.
+
+* What changed
+
+The new carrier and its projection are in the tree, with three theorems
+that face the C++ side. A kind is present in a traversal's evidence
+exactly when some position raised it, and a kind raised twice is present
+once. Whatever kind the short-circuiting result carries, the accumulated
+evidence holds it too. And when the evidence is a single kind, the two
+results agree outright. Those are the three things the corpus was
+already checking, and now each has a theorem with its name on it.
+
+Then the counterexample. Two lists that differ only in order project to
+the same set and short-circuit to different errors, so no projection out
+of the set can agree with the head of the list on both. That is the
+finding from last letter, stated in the model rather than in a comment,
+and it is why the four list-form rows now carry no C++ equation at all.
+They are true of the list. The implementation does not keep the list.
+
+What did not change is deliberate. The list carrier stays, its
+source-order theorem stays, and the projection runs one way. The set is
+what the C++ has; the list is what the model can say more about. At this
+model's signature a kind carries no payload, so which witness of a
+repeated kind survives is invisible here. That is the payload-bearing
+accumulation already on the list of things not done, and this step
+makes the shape of it clear rather than doing it.
+
+* Back in C++
+
+The one-line summary is that =error_set_of<Es...>= as a value is a
+nonempty subset of =Es...= as a type, and everything the accumulating
+object does to it is set union. That is why the composition probe from
+last letter passed with three distinct failing kinds on both
+bracketings: union is associative, and it did not matter that the list
+would have been bracketed differently.
+
+The thing to carry into your own code is the shape of the invariant you
+can state. If you keep a per-kind record of what went wrong, you can
+assert this after any traversal:
+
+#+begin_src cpp
+REQUIRE(accumulated.error().holds<err_range>() ==
+        std::ranges::any_of(inputs, fails_with_range));
+#+end_src
+
+and you can assert that the fail-fast result's kind is among them. You
+cannot assert which kind came first, because you did not keep that, and
+now there is a theorem saying no amount of cleverness with the set will
+get it back. If the order matters to a caller, the order is a separate
+thing to store.
+
+--SMD

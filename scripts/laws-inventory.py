@@ -99,6 +99,32 @@ ORDER_SUPPLEMENT = {
 #     not invented here.
 ALLOWLIST = {
     # --- structural -----------------------------------------------------
+    # --- Graded/AccumKinds.lean ([accumulated-evidence-shape]) -----------
+    # The per-kind carrier's evidence IS a `Grade`, so the laws that put
+    # two pieces of evidence together cite the grade's own lemmas and need
+    # no entry here; these are the ones that do not join anything.
+    "Kinds.kindsOf_ok": "structural: definitional unfold",
+    "Kinds.kindsOf_failed": "structural: definitional unfold",
+    "Kinds.failed_eq_of_kinds_eq": "structural: proof irrelevance, the Kinds mirror of errs_eq_of_list_eq",
+    "Kinds.kindsOf_map": "structural: functor law, no grade in sight",
+    "Kinds.kindsOf_widen": "structural: widening moves the membership proof, not the set",
+    "Kinds.kindsOf_map2K": "delegates to Kinds.kindsOf_apK (unit) and Kinds.kindsOf_map",
+    "Kinds.traverseK_nil": "structural: definitional unfold",
+    "Kinds.kindsOf_traverseK": "delegates to Kinds.kindsOf_map2K, folded",
+    "Kinds.mem_kindsOf_traverseK": "delegates to Kinds.kindsOf_map2K and Finset.mem_union, folded",
+    "Kinds.traverseK_ok": "structural: ok-only path, no evidence to join",
+    "Kinds.ofAccum_ok": "structural: definitional unfold",
+    "Kinds.ofAccum_errs": "structural: definitional unfold",
+    "Kinds.kindsOf_ofAccum": "structural: List.toFinset of the error list, no grade in sight",
+    "Kinds.ofAccum_map": "structural: functor naturality at one grade",
+    "Kinds.ofAccum_widen": "structural: the projection ignores the membership proof widening changes",
+    "Kinds.ofAccum_pureK": "structural: definitional unfold",
+    "Kinds.ofAccum_apK": "structural: List.toFinset_append at the both-fail leaf, the list's join not the grade's",
+    "Kinds.ofAccum_map2K": "delegates to Kinds.ofAccum_apK and Kinds.ofAccum_map",
+    "Kinds.ofAccum_traverseK": "delegates to Kinds.ofAccum_map2K, folded",
+    "Kinds.toGraded_mem": "structural: which element of the list comes first, and that it is in the list's set",
+    "Kinds.toGraded_of_kindsOf_singleton": "structural: a singleton set names its element",
+    "Kinds.noFirstError": "structural: a counterexample about list order against set equality, no grade in sight",
     "map_id": "structural: functor law, no grade in sight",
     "map_comp": "structural: functor law, no grade in sight",
     "cast_rfl": "structural: generic cast transport",
@@ -649,36 +675,46 @@ CPP_LAW = {
     # with genuinely different C++ meanings (accumulate both sides' errors
     # versus keep the first), and this table is keyed by bare name, so one
     # entry would put the wrong equation on one of the two rows.
-    "toGraded_traverseK":
-        "traverse(f, xs, accumulating).error().witness<E>() == "
-        "traverse(f, xs).error().witness<E>() for the kind E of the "
-        "short-circuiting error; equal outright when exactly one position fails  "
-        "// per-kind form: the C++ evidence keeps one left-biased witness per "
-        "kind, so the model's first_error (head of a source-ordered list) is not "
-        "computable from it -- docs/design.md#accumulated-evidence-shape",
-    "errsOf_traverseK":
-        "traverse(f, xs, accumulating).error().witness<E>() == the leftmost "
-        "failing f(x) of kind E, for every kind E that fails; succeeding "
-        "positions contribute nothing  "
-        "// per-kind form of 'every failing position contributes once, in source "
-        "order': the C++ evidence collapses repeats of a kind to the leftmost, so "
-        "source order survives only within a kind",
+    # `toGraded_traverseK`, `toGraded_apK`, `errsOf_traverseK` and
+    # `toGraded_widen` carry NO entry, deliberately. Each is a statement
+    # about the source-ordered list and its head, and [probe-corpus] found
+    # the C++ accumulating evidence has neither (`Kinds.noFirstError`
+    # proves no projection from it recovers the head). What a C++
+    # implementation CAN be checked against is the per-kind consequence,
+    # and that is stated by the `Kinds.*` theorems below, which carry the
+    # entries instead. The list-form theorems remain the model's own
+    # facts; they are not obligations on an implementation that does not
+    # keep the list.
     "traverseK_ok":
         "traverse(f, xs) == pure(transform(xs, f))  "
         "// when every check succeeds, the accumulating form is just transform",
-    "toGraded_widen":
-        "widen<Es2>(x /*accumulated*/).error().witness<E>() == "
-        "x.error().witness<E>() for every kind E, witness_count preserved  "
-        "// the accumulating carrier must support subsumption at all - the model "
-        "went fifteen steps without it because no law asked; in C++ both objects "
-        "share one carrier, so the conversion is the same conversion",
-    "toGraded_apK":
-        "apply(f, x, accumulating).error().witness<E>() == "
-        "apply(f, x).error().witness<E>() for the kind E of the short-circuiting "
-        "error; equal outright when at most one side fails  "
-        "// per-kind form, unconditional: the accumulating apply keeps the "
-        "function's witness for its kind and the short-circuiting one keeps the "
-        "function's error",
+    # --- accumulation, per kind (Graded/AccumKinds.lean) ---
+    "Kinds.mem_kindsOf_traverseK":
+        "traverse(f, xs, accumulating).error().holds<E>() == (some f(x), x in xs, "
+        "failed with kind E); a succeeding position contributes nothing, a kind "
+        "raised twice is present once  "
+        "// the per-kind form of errsOf_traverseK -- what the C++ evidence "
+        "retains; that the witness kept for E is the LEFTMOST of that kind is "
+        "the payload detail this tag-only carrier cannot state",
+    "Kinds.kindsOf_widen":
+        "widen<Es2>(x /*accumulated*/).error().holds<E>() == x.error().holds<E>() "
+        "for every kind E, witness_count preserved  "
+        "// widening moves the membership proof and not the evidence; in C++ "
+        "both objects share one carrier, so the conversion is the same conversion",
+    "Kinds.kindsOf_apK":
+        "apply(f, x, accumulating).error() holds exactly the kinds f and x raised  "
+        "// the evidence of an application is the join of the evidence; unit "
+        "laws where one side succeeded",
+    "Kinds.toGraded_mem":
+        "apply(f, x).error() is of kind E  =>  apply(f, x, accumulating).error()"
+        ".holds<E>() with the same witness; likewise traverse(f, xs) against "
+        "traverse(f, xs, accumulating)  "
+        "// what remains of toGraded_apK / toGraded_traverseK once order is "
+        "forgotten; the C++ cannot compute first_error (Kinds.noFirstError)",
+    "Kinds.toGraded_of_kindsOf_singleton":
+        "witness_count() == 1  =>  the accumulating result == the "
+        "short-circuiting result outright  "
+        "// with one kind present there is nothing left to disagree about",
     "GradedHom.hom_ok":
         "transform_error(ok(a), phi) == ok(a)  "
         "// at EVERY error set, not only the empty one where the pure law states it",

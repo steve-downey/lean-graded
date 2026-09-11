@@ -28,33 +28,39 @@ check by example with std types; equality is `==` on the carrier after conversio
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
-## `errsOf_traverseK` (Graded/AccumTraverse.lean)
+## `Kinds.kindsOf_widen` (Graded/AccumKinds.lean)
 
-    traverse(f, xs, accumulating).error().witness<E>() == the leftmost failing f(x) of kind E, for every kind E that fails; succeeding positions contribute nothing  // per-kind form of 'every failing position contributes once, in source order': the C++ evidence collapses repeats of a kind to the leftmost, so source order survives only within a kind
+    widen<Es2>(x /*accumulated*/).error().holds<E>() == x.error().holds<E>() for every kind E, witness_count preserved  // widening moves the membership proof and not the evidence; in C++ both objects share one carrier, so the conversion is the same conversion
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `Kinds.kindsOf_apK` (Graded/AccumKinds.lean)
+
+    apply(f, x, accumulating).error() holds exactly the kinds f and x raised  // the evidence of an application is the join of the evidence; unit laws where one side succeeded
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `Kinds.mem_kindsOf_traverseK` (Graded/AccumKinds.lean)
+
+    traverse(f, xs, accumulating).error().holds<E>() == (some f(x), x in xs, failed with kind E); a succeeding position contributes nothing, a kind raised twice is present once  // the per-kind form of errsOf_traverseK -- what the C++ evidence retains; that the witness kept for E is the LEFTMOST of that kind is the payload detail this tag-only carrier cannot state
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `Kinds.toGraded_mem` (Graded/AccumKinds.lean)
+
+    apply(f, x).error() is of kind E  =>  apply(f, x, accumulating).error().holds<E>() with the same witness; likewise traverse(f, xs) against traverse(f, xs, accumulating)  // what remains of toGraded_apK / toGraded_traverseK once order is forgotten; the C++ cannot compute first_error (Kinds.noFirstError)
+
+check by example with std types; equality is `==` on the carrier after conversion.
+
+## `Kinds.toGraded_of_kindsOf_singleton` (Graded/AccumKinds.lean)
+
+    witness_count() == 1  =>  the accumulating result == the short-circuiting result outright  // with one kind present there is nothing left to disagree about
 
 check by example with std types; equality is `==` on the carrier after conversion.
 
 ## `traverseK_ok` (Graded/AccumTraverse.lean)
 
     traverse(f, xs) == pure(transform(xs, f))  // when every check succeeds, the accumulating form is just transform
-
-check by example with std types; equality is `==` on the carrier after conversion.
-
-## `toGraded_widen` (Graded/AccumTraverse.lean)
-
-    widen<Es2>(x /*accumulated*/).error().witness<E>() == x.error().witness<E>() for every kind E, witness_count preserved  // the accumulating carrier must support subsumption at all - the model went fifteen steps without it because no law asked; in C++ both objects share one carrier, so the conversion is the same conversion
-
-check by example with std types; equality is `==` on the carrier after conversion.
-
-## `toGraded_apK` (Graded/AccumTraverse.lean)
-
-    apply(f, x, accumulating).error().witness<E>() == apply(f, x).error().witness<E>() for the kind E of the short-circuiting error; equal outright when at most one side fails  // per-kind form, unconditional: the accumulating apply keeps the function's witness for its kind and the short-circuiting one keeps the function's error
-
-check by example with std types; equality is `==` on the carrier after conversion.
-
-## `toGraded_traverseK` (Graded/AccumTraverse.lean)
-
-    traverse(f, xs, accumulating).error().witness<E>() == traverse(f, xs).error().witness<E>() for the kind E of the short-circuiting error; equal outright when exactly one position fails  // per-kind form: the C++ evidence keeps one left-biased witness per kind, so the model's first_error (head of a source-ordered list) is not computable from it -- docs/design.md#accumulated-evidence-shape
 
 check by example with std types; equality is `==` on the carrier after conversion.
 

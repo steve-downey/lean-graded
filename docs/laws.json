@@ -173,6 +173,215 @@
     "cpp": "\u2014"
   },
   {
+    "theorem": "Kinds.kindsOf_ok",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.kindsOf_failed",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.failed_eq_of_kinds_eq",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.kindsOf_map",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.kindsOf_widen",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "widen<Es2>(x /*accumulated*/).error().holds<E>() == x.error().holds<E>() for every kind E, witness_count preserved  // widening moves the membership proof and not the evidence; in C++ both objects share one carrier, so the conversion is the same conversion"
+  },
+  {
+    "theorem": "Kinds.kindsOf_apK",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [
+      "unit"
+    ],
+    "cpp": "apply(f, x, accumulating).error() holds exactly the kinds f and x raised  // the evidence of an application is the join of the evidence; unit laws where one side succeeded"
+  },
+  {
+    "theorem": "Kinds.kindsOf_map2K",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.apK_pure_id",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.apK_pure_pure",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.apK_interchange",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.apK_comp",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [
+      "associative",
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.traverseK_nil",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.traverseK_cons",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.kindsOf_traverseK",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.mem_kindsOf_traverseK",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "traverse(f, xs, accumulating).error().holds<E>() == (some f(x), x in xs, failed with kind E); a succeeding position contributes nothing, a kind raised twice is present once  // the per-kind form of errsOf_traverseK -- what the C++ evidence retains; that the witness kept for E is the LEFTMOST of that kind is the payload detail this tag-only carrier cannot state"
+  },
+  {
+    "theorem": "Kinds.traverseK_ok",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_ok",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_errs",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.kindsOf_ofAccum",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_map",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_widen",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_pureK",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_apK",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_map2K",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.ofAccum_traverseK",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Kinds.toGraded_mem",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "apply(f, x).error() is of kind E  =>  apply(f, x, accumulating).error().holds<E>() with the same witness; likewise traverse(f, xs) against traverse(f, xs, accumulating)  // what remains of toGraded_apK / toGraded_traverseK once order is forgotten; the C++ cannot compute first_error (Kinds.noFirstError)"
+  },
+  {
+    "theorem": "Kinds.toGraded_of_kindsOf_singleton",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "witness_count() == 1  =>  the accumulating result == the short-circuiting result outright  // with one kind present there is nothing left to disagree about"
+  },
+  {
+    "theorem": "Kinds.noFirstError",
+    "module": "Graded/AccumKinds.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "apK_ok_ok",
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
@@ -294,7 +503,7 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "traverse(f, xs, accumulating).error().witness<E>() == the leftmost failing f(x) of kind E, for every kind E that fails; succeeding positions contribute nothing  // per-kind form of 'every failing position contributes once, in source order': the C++ evidence collapses repeats of a kind to the leftmost, so source order survives only within a kind"
+    "cpp": "\u2014"
   },
   {
     "theorem": "traverseK_ok",
@@ -315,7 +524,7 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "widen<Es2>(x /*accumulated*/).error().witness<E>() == x.error().witness<E>() for every kind E, witness_count preserved  // the accumulating carrier must support subsumption at all - the model went fifteen steps without it because no law asked; in C++ both objects share one carrier, so the conversion is the same conversion"
+    "cpp": "\u2014"
   },
   {
     "theorem": "toGraded_map",
@@ -329,7 +538,7 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "apply(f, x, accumulating).error().witness<E>() == apply(f, x).error().witness<E>() for the kind E of the short-circuiting error; equal outright when at most one side fails  // per-kind form, unconditional: the accumulating apply keeps the function's witness for its kind and the short-circuiting one keeps the function's error"
+    "cpp": "\u2014"
   },
   {
     "theorem": "toGraded_map2K",
@@ -343,7 +552,7 @@
     "module": "Graded/AccumTraverse.lean",
     "layer": "concrete",
     "properties": [],
-    "cpp": "traverse(f, xs, accumulating).error().witness<E>() == traverse(f, xs).error().witness<E>() for the kind E of the short-circuiting error; equal outright when exactly one position fails  // per-kind form: the C++ evidence keeps one left-biased witness per kind, so the model's first_error (head of a source-ordered list) is not computable from it -- docs/design.md#accumulated-evidence-shape"
+    "cpp": "\u2014"
   },
   {
     "theorem": "ap_ok_ok",

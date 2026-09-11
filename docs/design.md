@@ -2800,7 +2800,10 @@ carrier.
 The carrier is done and the compatibility evidence is green. Not yet
 done, and listed so the absence is not mistaken for completion:
 payload-bearing accumulation over `Sigma S.Payload` (which moves the
-accumulating carrier's universe); payload-preservation laws for `map`,
+accumulating carrier's universe), and its per-kind counterpart with
+evidence as a function from kinds to optional payloads, where
+[accumulated-evidence-shape](#accumulated-evidence-shape)'s left-bias
+clause becomes statable; payload-preservation laws for `map`,
 `widen`, `bindK` and `apK`; `ErrorSignatureMap` and the
 payload-independent error mapping [morphism-bridge] deferred here;
 `CompleteGrade`; and porting `Examples/Validation.lean`'s own errors to
@@ -3130,23 +3133,49 @@ stores)? The two agree on every law in this document except the two
 that project to the short-circuiting carrier, and there they differ in
 what can be *stated*: the list has a head, the set does not.
 
-**Status: OPEN**, raised 2026-09-10 by [probe-corpus]. The provisional
-note at [Accum](#accum-an-accumulating-applicative-needs-its-own-carrier)
-already records `List` over `Multiset` as a choice; this sharpens it to a
-choice against the implementation. What the Lean side owes is the
-per-kind statement — for every kind `e` the leftmost source-order witness
-of `e` in the accumulated evidence equals the short-circuiting carrier's
-witness whenever the latter is of kind `e` — over a carrier whose
-evidence is a function from kinds to optional witnesses, and a bridge
-from `Accum` to it that forgets order. That is what the C++ probes
-check, and (since 2026-09-11) what the C++ column of `toGraded_traverseK`,
-`toGraded_apK`, `errsOf_traverseK` and `toGraded_widen` *says*: the rows
-were reworded to the per-kind form so that the harness and the corpus
-agree, while the theorems still state the list form. The gap is now
-between a row and its theorem rather than between the harness and the
-implementation, which is where it belongs until the per-kind theorems
-exist. Not started; a stage, not an amendment, since nothing proved
-becomes false.
+**Status: CLOSED 2026-09-11 by [accumulated-evidence-shape].** Both,
+and the model now holds both, with the projection running one way.
+`Graded/AccumKinds.lean` adds `Accum.Kinds g α`: a value, or a nonempty
+set of kinds `ks ⊆ g`. The evidence is itself a `Grade Err` — transpose's
+`error_set` *value* is a nonempty sub-grade of the `error_set` *type* —
+so combining evidence is `Grade.join`, and `Kinds.apK_comp`'s both-fail
+leaf cites `Grade.join_assoc` exactly where `Accum.apK_comp` cited
+`List.append_assoc`. `Kinds.ofAccum` forgets the order of an accumulated
+list, and `Kinds.ofAccum_apK` / `Kinds.ofAccum_traverseK` make it an
+applicative morphism (`List.toFinset_append` at the one leaf that joins).
+
+**What faces the C++ side**, and now carries the harness rows the four
+list-form theorems used to carry:
+
+- `Kinds.mem_kindsOf_traverseK` — a kind is present exactly when some
+  position raised it; a kind raised twice is present once.
+- `Kinds.kindsOf_widen` — widening moves the membership proof and not
+  the evidence.
+- `Kinds.kindsOf_apK` — the evidence of an application is the join.
+- `Kinds.toGraded_mem` — whatever kind the short-circuiting carrier kept
+  is in the per-kind evidence: what remains of `toGraded_traverseK` and
+  `toGraded_apK` once order is forgotten.
+- `Kinds.toGraded_of_kindsOf_singleton` — with one kind present, the two
+  carriers agree outright.
+
+**The finding is a theorem.** `Kinds.noFirstError`: no projection from
+the per-kind evidence, uniform in the grade and the payload type, recovers
+`toGraded`, because `[e₁, e₂]` and `[e₂, e₁]` forget to one set and
+short-circuit to two errors. That is why `toGraded_traverseK`,
+`toGraded_apK`, `errsOf_traverseK` and `toGraded_widen` now carry `—` in
+the C++ column: they are facts about the list, and the implementation
+does not keep the list. They stay as the model's own facts; nothing
+proved became false.
+
+**What this does not settle.** The carrier is tag-only, like `Accum`, so
+"the witness kept for kind `e` is the *leftmost* of that kind" — the
+left-bias transpose's `combined_with` documents — is invisible here: with
+no payload, presence is the whole witness. That clause is the
+payload-bearing accumulation already listed under
+[payloads](#payloads)' outstanding items, and this step fixes its shape:
+evidence as a function from kinds to optional payloads, `ofAccum` keeping
+the head of each kind's sublist, and `Kinds.toGraded_mem` sharpening to
+witness equality.
 
 ## module-split
 
@@ -3517,11 +3546,11 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
   least upper bound for the *preorder*, and `join_idem` is a theorem
   rather than an axiom exactly when the order is antisymmetric. Kept in
   this index because the anchor still carries the reasoning.
-- [#cpp-sync](#accumulated-evidence-shape) — **OPEN**
-  `accumulated-evidence-shape`: whether the accumulating carrier is a
-  source-ordered list (the model) or a per-kind left-biased set (the
-  implementation). Raised by [probe-corpus]; the Lean side owes the
-  per-kind form of `toGraded_traverseK`/`toGraded_apK`.
+- [#cpp-sync](#accumulated-evidence-shape) — **CLOSED**
+  `accumulated-evidence-shape`: the model now holds both carriers, the
+  source-ordered list and the per-kind set, with a one-way projection
+  and `Kinds.noFirstError` proving there is no way back. Kept in this
+  index because the anchor still carries the reasoning.
 - [#compose](#graded-traversable-composition) — **CLOSED**
   `graded-traversable-composition`: the flattened composition law is
   false (and the refutation is not about grading); the product-graded

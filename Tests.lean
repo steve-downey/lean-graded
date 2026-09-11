@@ -7,6 +7,7 @@ import Tests.SufficientTupleK
 import Tests.Applicative
 import Tests.Accum
 import Tests.AccumTraverse
+import Tests.AccumKinds
 import Tests.Traverse
 import Tests.Tuple
 import Tests.GradeFold
