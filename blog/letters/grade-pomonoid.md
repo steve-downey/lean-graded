@@ -1,0 +1,29 @@
+# Letter 1: The grade is a set, and every fact about it gets a name
+
+Steve,
+
+
+# What I set out to do
+
+Last time I described `error_set<Es...>`: a compile-time set of error types, joined by union, ordered by inclusion, with the empty set as its unit. This letter is where that structure gets a model. In Lean, a grade over some universe of error kinds `Err` is just `Finset Err`, Mathlib's finite-set type, the same object you'd reach for if you were building sets of integers or strings. `bot` is the empty set, `join` is union, and the order is `⊆`, which I kept as literal "subset" rather than translating it to the generic lattice symbol `≤`, because subset is the relation you already have in your head from `error_set` subsumption.
+
+Here's the part that's actually the point of this letter, not the plumbing: I did not write one theorem saying "the grade is a join-semilattice with a bottom." I wrote eleven separate, named theorems: `join_assoc`, `join_comm`, `join_idem`, `bot_join`, `join_bot`, `le_join_left`, `le_join_right`, `join_le`, `join_mono`, `le_refl'`, `le_trans'`, `bot_le`, `join_eq_right_of_le`, each one a single algebraic fact, each with its own name. The reason is that every later law in this series (associativity for the monad, commutativity for "applicative equals monad," idempotence for "traversal grade doesn't depend on length") is going to need **some** of these facts and not others, and I want the model to be able to say exactly which. If I'd bundled them into one "grade is a pomonoid" (a partially ordered monoid) instance, every later proof would reach for the bundle and I'd never learn which piece was load-bearing. So five of these carry an extra tag in their doc-comment (`PROPERTY: associative`, `commutative`, `idempotent`, `unit`, `order`) that a later step in this series will grep for, to build an actual table of which law needs which property. That table doesn't exist yet in the C++ design at all.
+
+
+# What the checker refused
+
+The first refusal was exactly the one I expected, and it's the most C++-unfamiliar thing in this letter. Lean would not let me write `Finset Err` for an arbitrary type `Err` without also handing it a `DecidableEq Err` instance, a proof, essentially, that the equality test on `Err` always terminates with a yes or no answer. In C++, when you write `error_set<parse_error, range_error>`, distinctness of the two error types is free: they are different types, full stop, decided at compile time by the type system with no work from you. Lean's `Finset` isn't built on type-level distinctness: it's a genuine runtime (or `decide`-time) data structure, a multiset with a proof of no duplicates, and to de-duplicate at all it needs an actual decision procedure for "are these two elements equal." So the very first line of the file has to say, explicitly, "assume I can tell any two elements of this type apart," a hypothesis C++ never has to state because its answer is baked into the language's notion of a type.
+
+The second refusal was pettier and taught me less, but cost more time to track down: two of the eleven lemma statements, the ones for \`join\` with the empty set on either side, wouldn't find their Mathlib lemma names. \`Finset.empty\_union\` and \`Finset.union\_empty\` exist, but not in the same file that the earlier bootstrap step had imported for me; they live one directory deeper, in \`Mathlib.Data.Finset.Lattice.Lemmas\`, one level past where the general union/subset lemmas I'd already used successfully were defined. Widening one import line fixed it. Small, but it's the first concrete case of something I expect to keep happening throughout this series: knowing that a fact is true about \`Finset\` doesn't tell you which file it's filed under, and Mathlib's directory structure isn't obvious from the mathematical statement alone.
+
+
+# What changed
+
+\`Graded/Grade.lean\` now defines the grade and all eleven named lemmas, each proved by a one-line appeal to the matching Mathlib \`Finset\` lemma: no lemma is re-derived from more primitive facts, because the citation **is** the deliverable, not the proof term. I deliberately did not register any of this as a Mathlib type-class instance (\`SemilatticeSup\` and similar exist and would fit), because an instance would let Lean's \`simp\` tactic reach for these properties automatically and invisibly in later proofs, which would defeat the entire point of being able to grep for which law cites which name. \`Tests/Grade.lean\` instantiates all eleven at a concrete three-error-kind enum, plus one \`#guard\` that actually computes \`join\` on two singleton sets and confirms commutativity by evaluation as well as by the proof term type-checking.
+
+
+# Back in C++
+
+\`error\_set\` itself never states which of these eleven properties it relies on, anywhere. It's implemented once, as a struct with union, subset, and empty-set operations that happen to satisfy all of them, and every piece of code that composes grades (every \`bind\`, every place two error sets get merged) leans on some subset of these properties without ever writing down which subset. This letter is the first place any of that gets named. The five tagged properties (associative, commutative, idempotent, unit, order) are the vocabulary the rest of this series will use to say, for each monad and applicative law still to come, which of these five \`error\_set\` actually needs. Right now that's an open question even for the laws I already believe hold; naming the properties is the precondition for answering it precisely instead of by appeal to "well, it's clearly commutative."
+
+&ndash;SMD

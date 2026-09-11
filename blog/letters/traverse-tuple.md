@@ -1,0 +1,55 @@
+# Letter 8: Tuples are where the grade is really computed
+
+Steve,
+
+
+# What I set out to do
+
+Last time I modelled `traverse` over a `std::vector`: one function applied uniformly to every element, one error set for the whole container, no matter how long it is. This time I wanted the other shape `transpose` handles: a `std::tuple` where every slot has its own `expected` type. Think `transpose(std::tuple<expected<int, error_set<parse>>, expected<int, error_set<range>>, expected<Unit, error_set<io>>>)`, which should give you back `expected<std::tuple<int, int, Unit>, error_set<parse, range, io>>`. Every element here has a **different** payload type and a **different** error set. There's no single uniform grade to fold over a runtime length, the way there was for the vector. The result's error set is fixed by the tuple's **shape** (how many slots, and which error set each one carries), and that shape is known at compile time. So the grade isn't something you fold at runtime at all; it's something you compute once, from the types.
+
+I wanted to know exactly what that computation needs, and in particular whether it needs the same "union with itself is itself" fact the vector case spent so much effort on.
+
+
+# What the checker refused
+
+The representation came first, and it fought back before any theorem did. My first attempt defined the tuple as an honest indexed family: one constructor for an empty tuple, one for "one more graded element on the front," carrying the element's own type and error set as extra, per-slot information. The checker rejected the very declaration, not a proof: it said the constructor needed a universe (a "how big can this type be" classification Lean tracks so it can't build paradoxes) one level higher than the one I'd written.
+
+The reason, once I worked through it, made sense. A `Sigma` type (the usual "a value paired with a proof about it") gets to be cheap about universes because its type parameter is fixed once, for the whole type. My tuple's per-slot type wasn't fixed once; a fresh one shows up at every slot, which is exactly the point (that's what makes it heterogeneous). Lean's rule for that shape says: if your data structure can produce **fresh types** at each step, the structure itself has to live one universe above the types it produces, or you could use it to smuggle a type into a place types aren't supposed to go. It's the same kind of guard that stops you writing a "type of all types" that contains itself.
+
+```lean
+def GList : List (Grade Err) → List (Type v) → Type (max u v)
+  | [], [] => PUnit
+  | g :: gs, α :: αs => Graded g α × GList gs αs
+  | [], _ :: _ => PEmpty
+  | _ :: _, [] => PEmpty
+```
+
+I sidestepped the universe tax instead of paying it. Rather than declaring the tuple as a genuine indexed type (with its own constructors, which is what triggers the rule above), I wrote it as an ordinary recursive function computing a type: the empty tuple is the one-value type `PUnit`; a tuple with one more slot on front is a pair of that slot's value and the rest of the tuple; a length mismatch between the two index lists (which never actually happens, but Lean's pattern matching wants every case covered) gets the empty, uninhabited type. A plain function computing which type to use doesn't trigger the "fresh types at each step" rule at all: it's not a data structure that produces types, it's a description of one. I gave it constructor-shaped names, `GList.nil` and `GList.cons`, purely so the rest of the code reads the way it would if it really were the indexed family I first tried.
+
+
+# What changed
+
+With the representation settled, the two theorems about the grade split the same way the vector case's did, but for a different reason. Reordering a tuple's element types shouldn't change the union of their error sets: that's the fact that licenses your compiler treating `error_set<parse, range>` and `error_set<range, parse>` as the same type. Proving that needed only that union is commutative and associative: nothing about a set absorbing a duplicate of itself, because there's no duplicate to absorb; reordering doesn't remove anything.
+
+```lean
+theorem joinAll_perm {gs gs' : List (Grade Err)} (h : gs ~ gs') :
+    joinAll gs = joinAll gs' := by
+  induction h with
+  | nil => rfl
+  | cons g _ ih => simp only [joinAll_cons, ih]
+  | swap g g' gs =>
+      simp only [joinAll_cons]
+      rw [← Grade.join_assoc, ← Grade.join_assoc, Grade.join_comm g g']
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+```
+
+`h : gs ~ gs'` says the two lists are permutations of each other, built up from four moves: do nothing, keep an element and permute the rest, swap the front two, or chain two permutations together. Each case of `induction ... with` handles one move: `swap` is the only one that touches order, and it needs just the two facts I said: reassociate the union so the front two elements sit next to each other (`join_assoc`), then swap them (`join_comm`).
+
+Idempotence (the same fact the vector case needed for a **different** reason) only came back once I asked a second, smaller question: does removing a genuinely duplicate error set from the list change anything? It doesn't, but proving that does cost the "union with itself is itself" fact, at the exact point where a repeated error set collapses back into its one occurrence. So the split is real and it's not the same split as last time: order-independence is free, removing an actual duplicate is not.
+
+
+# Back in C++
+
+This is the theorem underneath your compiler's canonicalization step. When it sorts `error_set<Y, X>` into the same type as `error_set<X, Y>`, sorting is **an implementation** of order-independence: one convenient way to make two things that ought to be equal actually come out equal at the type level. What makes any such implementation legitimate at all is commutativity and associativity of the union underneath it: those are what say the two type arguments were interchangeable in the first place. The sorting itself could be replaced with something else (a hash, a canonical tree shape, whatever) and the tuple's `transpose` would still be sound, because the thing doing the work is the algebra, not the sorting. I hadn't separated those two ideas this cleanly before sitting down to prove it.
+
+&ndash;SMD

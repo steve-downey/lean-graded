@@ -6,3 +6,8 @@ __pycache__/
 
 # make cpp-probes builds the vendored transpose probe harness out of tree
 /.build/
+
+# Repository-local Emacs packages used by the Org -> GFM exporter.
+/.emacs.d/eln-cache/
+/.emacs.d/elpa-*/
+/.emacs.d/elpa/

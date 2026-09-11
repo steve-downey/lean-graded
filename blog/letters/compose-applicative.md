@@ -1,0 +1,51 @@
+# Letter 12: The composition law was about a structure we hadn't built
+
+Steve,
+
+
+# What I set out to do
+
+Last time I told you the composition law was false, and I stand by that, but I'd been sloppy about which law. The statement I disproved flattened each nested `expected` down to one error set before comparing two ways of running a container through it. The classical law (the one every textbook on this pattern actually states) never flattens anything. It keeps the two layers apart: an outer `expected<_, E1>` wrapping an inner `expected<_, E2>`, each combined with its own kind of sibling value independently, the outer layers combined among themselves, the inner layers combined among themselves, never merged into one error set. Nobody had built that structure here yet. This letter builds it and asks the real question: parse a whole container where each element's result is itself a further computation that can fail its own way, without collapsing the two failure kinds into one set first: does **that** agree with parsing the container in two passes, one per layer?
+
+
+# What the checker refused
+
+The first refusal was embarrassing. I defined the nested-and-still- separate carrier and its combining operation like this:
+
+```lean
+def Comp (g h : Grade Err) (α : Type u) : Type u := Graded g (Graded h α)
+def Comp.map (f : α → β) : Comp g h α → Comp g h β := map (map f)
+```
+
+`Comp g h α` is just two of the existing `expected`-like carriers, one inside the other, with the outer error set `g` and inner error set `h` kept as two separate labels instead of merged. `Comp.map` should apply a function through both layers. Lean rejected it as an infinite recursion. The reason: because I'd named my new function `Comp.map`, the bare word `map` inside its own body resolved to **itself**, not to the `map` I'd already built for a single layer. It's as if you wrote a member function `transform` that called a free function also named `transform`, and your compiler quietly picked the member function it was still in the middle of defining. I had to spell out which `map` I meant, every time, for the rest of the file.
+
+The second refusal was more interesting, and I didn't see it coming. Once I had the combining operation and its four expected laws (apply a function to a value, combine two already-computed things, and so on), each one turned out to need nothing beyond what the single-layer version needed: no new assumption relating the outer error set to the inner one. That part went smoothly. What didn't was a lemma asking whether "flatten" (the operation that **does** squash the two layers into one) respects the combining operation. I expected it to need the two grades to be comparable somehow. Instead I found a genuine disagreement:
+
+```lean
+-- ff's outer succeeds, but its payload already failed;
+-- xx's outer fails outright.
+#eval renderComposed (traverseComp step (List.take 1 counterXs))  -- ok, inner failure
+#eval renderFlat (traverseComp step counterXs |> flatten)         -- reports xx's failure
+#eval renderFlat (traverse (fun a => flatten (step a)) counterXs) -- reports ff's failure
+```
+
+Combining first and flattening the result reports whichever **outer** layer failed; flattening each piece first and then combining reports whichever failure is exposed **soonest**, and those aren't the same failure when the outer piece that failed is the second one being combined, not the first. It's the same shape of trap as last letter's, one level removed: flattening isn't neutral, so doing it before or after combining is a real choice with a real answer, not bookkeeping.
+
+
+# What changed
+
+The container-traversal law, stated against the two-layer structure with nothing flattened, holds outright: no extra assumption, no exception.
+
+```lean
+theorem traverseComp_eq (f : α → Graded g β) (k : β → Graded h γ) (xs : List α) :
+    traverseComp (fun a => map k (f a)) xs = map (traverse k) (traverse f xs)
+```
+
+Read the two sides as two ways of processing a list where each element first goes through `f` (which can fail with an error from set `g`) and then, on success, through `k` (which can fail with an error from set `h`). The left side processes the whole list through the combined step, once. The right side processes the whole list through `f` first, then maps `k`'s own whole-list version over whatever came out. They agree, exactly, with the two error sets kept apart the entire time. The lemma about flattening, from the previous paragraph, I kept too, but honestly: as a hypothesis-guarded fact, true only when the case above doesn't arise, which is the precise shape of what flattening throws away.
+
+
+# Back in C++
+
+Nesting `expected<expected<T, E1>, E2>` and processing a whole container of them without ever collapsing the two error sets is exactly as safe as composing two separate validation passes always felt like it should be, now it's a proved fact instead of a feeling. The catch is specifically about the shortcut everyone takes without noticing: collapsing `expected<expected<T,E1>,E2>` to `expected<T, E1 ∪ E2>` is fine on a single value, but doing it **before** you've decided whether you're combining per-element or across the whole container changes which failure you see, when a later element's inner stage and an earlier element's outer stage can both fail. If you always flatten immediately at each call site, you're safe. If you gather a container of these, flattening only where you need to report a final answer, check first which pass (outer or inner) you actually mean to run to completion before the other one starts.
+
+&ndash;SMD

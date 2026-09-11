@@ -1,4 +1,4 @@
-.PHONY: verify nosorry letters laws test-coverage axioms all cpp-probes
+.PHONY: verify nosorry letters laws test-coverage axioms all cpp-probes blog-md
 all: verify nosorry letters laws test-coverage axioms
 verify:
 	lake build > build.log 2>&1 || { tail -n 20 build.log; exit 1; }
@@ -40,3 +40,6 @@ cpp-probes:
 	  > $(CPP_PROBES_BUILD)/build.log 2>&1 \
 	  || { tail -n 40 $(CPP_PROBES_BUILD)/build.log; exit 1; }
 	@$(CPP_PROBES_BUILD)/tests/beman/transpose/beman.transpose.tests.probe_harness
+
+blog-md:
+	@$(MAKE) -C blog/letters blog-md

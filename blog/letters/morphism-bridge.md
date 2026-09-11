@@ -1,0 +1,55 @@
+# Letter 26: I checked it in Lean and still got it wrong
+
+Steve,
+
+
+# What I set out to do
+
+In Letter 21 I built the second of two records describing a mapping between graded designs. The first says a grade map preserves unions and the empty grade, and the carrier map commutes with `and_then` and `pure`. The second, the caller-nominated-grade version, asks only that the grade map be monotone, and gets laws with no casts in them.
+
+I then reported that the bridge between them was one-directional, and that even the direction that worked stopped at the grade map. Turning a whole morphism of the first kind into one of the second, I said, would need the carrier map to commute with the widening conversion, and nothing in the first record says anything about widening. So renaming, the one example anybody actually uses, worked only because renaming happens to commute with widening as a separately proved fact.
+
+Going back over the model I decided that argument was suspicious. It correctly identifies a missing fact and then concludes the fact can't be had. Those are different claims. So I set out to add the missing fact as a field and see how far the lift got.
+
+
+# What the checker refused
+
+Nothing, and that's the problem, because it hadn't refused the first time either.
+
+I had checked this before, in Lean, not by arguing. That earlier check built the lift and found it needs **two** hypotheses: the widening one, and a second, subtler one saying the carrier map relabels errors the same way regardless of the payload type. That second obligation is real. It shows up because the sequencing law is stated at result type β on one side and argument type α on the other, so a per-payload-type error action isn't enough.
+
+This time the same lift needed one hypothesis. Both checks compiled. Neither was wrong about what it proved. The difference is in how the proof goes, and I want that written down, because it's the part I'll forget.
+
+The earlier proof discharged the sequencing law by case-splitting on the carrier: is this a success or a failure? The failure branch is where the two payload types are staring at each other, and that's what forces the second obligation. The new proof never splits. It goes through a small theorem I hadn't written before:
+
+```lean
+theorem bindK_eq_widen_bind (hg : g ⊆ k) (hh : h ⊆ k) (x : Graded g α)
+    (f : α → Graded h β) :
+    bindK hg hh x f = widen (Grade.join_le hg hh) (bind x f)
+```
+
+Read it as: sequencing at a grade the caller nominated is the same as sequencing at the exact union and then widening. Once both sides of the law are in that form, you push the carrier map through the outer widening with the new field, rewrite underneath with the law you already had, and the cast the union version carries gets absorbed. There is no branch, so there is nowhere for the payload types to disagree.
+
+So the second obligation was never a fact about the two records. It was a fact about the route I took through them. What you check is the route you took, and a Lean proof is evidence about a theorem, not about the shortest argument for it.
+
+
+# What changed
+
+The first record gets one new field: the carrier map commutes with widening. Renaming supplies it from a fact proved back in Letter 10. With that field, the lift is total, and the one example is no longer special. It is now **defined** as the image of the general lift, and two one-line theorems record that this changed no term at all.
+
+One thing came free that I expected to pay for. The carrier map preserves successes at every grade, not just at the empty grade where the record states it, because a success at any grade is a widened empty-grade success and the new field carries it up.
+
+What has not changed is the converse. There is still no way back: the counter-instance from Letter 21, a map sending every grade to one fixed nonempty grade, satisfies every field of the weaker record and refutes the stronger one's requirement about the empty grade. That proof stands and I kept it.
+
+
+# Back in C++
+
+Suppose you're writing an adapter between two error designs. A library reports its own error set, you want to map those onto yours, and you want your adapter to be well behaved rather than merely compiling.
+
+The obligations are: your type-level mapping takes unions to unions and the empty set to the empty set, and your value-level mapping commutes with `and_then` and with `pure`. That is the list I would have given you before this letter, and it's incomplete.
+
+The missing one is that your mapping has to commute with the **implicit widening conversion**. If a value at a small error set converts silently to the same value at a larger one, your adapter has to give the same answer whether you adapt first and widen after, or widen first and adapt after.
+
+It is easy to leave off precisely because it's the conversion you never write. It happens on its own, at call boundaries, wherever a narrower `expected` meets a wider one. And it does not follow from the other obligations: nothing about `and_then` or `pure` constrains how your adapter treats a conversion neither of them performs. If you're writing that adapter, that's the law to test.
+
+&ndash;SMD

@@ -1,0 +1,36 @@
+# Letter 21: The wall two letters predicted turned out to be a field list
+
+Steve,
+
+
+# What I set out to do
+
+Letters 17 and 18 built a cast-free layer beside `and_then` and `apply`, and both of them, in passing, predicted this letter would be different. The reason was structural, not procedural. Every other cast in this model sits inside a **theorem's statement**, something you can try to dissolve by picking a better hypothesis. The morphism record, `GradedHom`, carries its cast inside a **field's type**: `hom_bind`'s signature literally mentions `cast (gmap_join g h)`, so the cast isn't decorating the law, it's load-bearing for the record to typecheck at all. You can't ask "does this go away at a sufficient grade" about a field the way you ask it about a theorem, because the field has to exist for the structure to compile in the first place. That looked like a different kind of problem, one an amendment would be needed for, not a proof.
+
+This letter is the answer to that prediction, and the answer is: build the second structure anyway, and see what obligation it actually needs.
+
+
+# What the checker refused
+
+Nothing large. Once I wrote the new structure, `GradedHomK`, with `bindK` in place of `bind` and a single monotonicity field `gmap_mono` in place of the pair `gmap_join=/=gmap_bot`, most of it elaborated on the first try, including the two pieces two earlier letters had specifically worried about: the definition itself, and the concrete instance `renameHomK` (the same renaming function as before, repackaged). One leaf held out. Proving that `renameHomK` satisfies its own `hom_bindK` field, in the case where the input succeeds:
+
+```lean
+| ok a =>
+    rw [bindK_ok, rename_ok, bindK_ok, rename_widen]
+```
+
+My first attempt tried to case-split on what the continuation `f a` returns before reducing anything. That failed, because `f a` doesn't appear anywhere in the goal yet; it's hidden two layers down inside an unreduced `bindK`, and Lean won't hunt inside a `def` to find something to split on. The fix, once I saw it, was the same move earlier letters in this series have made more than once: unfold `bindK` first with its own reduction lemma, which exposes `f a` as a real subterm, then let the naturality fact `rename_widen` close the goal directly, with no case split needed at all. It's a small trap, and it's the same trap every time: the tactic that looks like it should case on a value can only do that once the value is actually sitting in the goal, not buried inside an unevaluated application.
+
+
+# What changed
+
+`GradedHomK` drops `gmap_join` and `gmap_bot` as fields and replaces them with `gmap_mono`: whenever your grade map sends smaller grades into smaller grades, it can be a morphism. Both sides of the law `hom_bindK` land in the exact same target grade automatically, for any `k` big enough to hold the inputs, so there's nothing left needing a cast to identify. Two ways I checked this wasn't just a definition that happened to typecheck. First, I asked how much of `GradedHom` carries over: exactly one fact, that any homomorphism is also monotone (three lines, citing the homomorphism field once). Nothing else transfers, because a homomorphism's own law only talks about the **exact** joined grade, and the sufficient-grade law has to hold at **every** sufficient grade, including ones the homomorphism law says nothing about.
+
+Second, I tried to build something the old structure would reject that the new one accepts. A map that sends every input grade to one fixed nonempty output grade, and every error to one fixed output error, regardless of what actually failed. It's monotone (trivially: the output never changes). It happens to preserve unions (both sides collapse to the same fixed grade). It does not preserve the empty grade, because the fixed output grade isn't empty. So it can never be extended into the old structure, which needs both. But every law the new structure asks for still holds, because the function is throwing away enough information that there's nothing left for either side of either law to disagree about. That's the concrete case that makes the finding a fact about the design rather than a fact about my proof technique.
+
+
+# Back in C++
+
+P3200 never states what a `transform_error`-shaped conversion has to satisfy to compose correctly with `and_then` and friends. This series' first pass at the question, several letters back, answered it by noticing that renaming error kinds via a plain function happens to preserve unions and the empty set for free, and treated that as the requirement. It's true, and it's more than what's actually needed. The requirement the type checker enforces, once you ask the operations to land at a caller-nominated bound instead of a freshly computed one, is only that the conversion doesn't shrink a smaller error set into a bigger one out of order. Any renaming a real codebase would write already does that. The extra property, preserving unions exactly, was never something a caller depended on; it was a side effect of how the old design computed its result type. A narrower requirement doesn't make the C++ design worse. It means whoever eventually specifies this gets to write a smaller, easier-to-satisfy rule, and reject fewer reasonable implementations while doing it.
+
+&ndash;SMD

@@ -1,0 +1,35 @@
+# Letter 10: Renaming your errors is a homomorphism
+
+Steve,
+
+
+# What I set out to do
+
+Ten letters in, I'd built up `traverse`, and `traverse` comes with a promise I hadn't cashed yet: it's supposed to be "natural" with respect to whatever you do to the thing it's traversing into. Concretely: you have a `std::vector<std::string>`, a function that parses each one into `expected<int, error_set<Parse>>`, and you traverse the vector. Separately, you have a `transform_error`-style operation that renames or coarsens the error set, say collapsing `error_set<Parse, Range>` down to a single `error_set<Bad>` because the caller doesn't care which validation step failed, only that one did. The promise is: it doesn't matter whether you rename each element's result and then combine them, or combine them and then rename the whole thing once. Before I could even ask whether that's true, I had to answer a question the C++ side has never had to answer out loud: what **is** "renaming," precisely enough that a checker can hold you to it?
+
+
+# What the checker refused
+
+The definition itself went in without a fight: a function `φ` on error kinds, lifted to error sets by mapping `φ` over the set, and lifted to a graded value by leaving a success alone and pushing an error's value (and its membership proof) through `φ`. What did fight me was something I didn't expect to be a fight at all: restating one of Mathlib's own lemmas.
+
+```lean
+theorem mem_rename {φ : Err → Err'} {e : Err} {g : Grade Err} (he : e ∈ g) :
+    φ e ∈ rename φ g :=
+  Finset.mem_image_of_mem φ he
+```
+
+`rename` here is just "map `φ` over the set": Mathlib already has the underlying fact, `Finset.mem_image_of_mem`, that says the image of a set contains `φ e` whenever the set contained `e`. I first tried using that Mathlib lemma directly, inline, everywhere I needed to build an error value after renaming. It typechecked at every individual call site and then broke, mysteriously, three lemmas later, with an error about two things being "not type-correct" that were, by every definition I could see, the same set. What was happening: my "renaming" is **defined as** Mathlib's "image of a set," so the two are interchangeable as far as truth goes, but the checker doesn't track **which name** produced a value, only what it reduces to, and when it built an error value straight from the Mathlib lemma, it filed that value away under Mathlib's name for the set, not mine. Every later lemma stated in terms of **my** name for the set then failed to recognize its own argument, even though the two names denote the same set. Wrapping the borrowed fact in one named theorem of my own (the snippet above) was enough: after that, every value built from it carries **my** name, and everything downstream matches.
+
+
+# What changed
+
+Once that was sorted, the rest came apart cleanly along a seam I hadn't predicted. Renaming a **plain** value (mapping a function over the payload, or narrowing/widening the error set) needs nothing extra: the renamed version is exactly as well-behaved as the original, no bookkeeping. But renaming something built by **combining two** graded values (an `and_then`, an independent-fields combinator) needs one extra step: proving that renaming distributes over that combination the same way it distributes over the error set's own union, because the combined value's error set genuinely is the union of the two inputs', and renaming both inputs first, then taking their union, has to visibly equal renaming the union directly. I expected, going in, that this might need the same hedge I'd already seen twice ("this only holds when at most one side failed"), because that hedge shows up whenever two independently-graded things get compared. It never came up here. Renaming isn't comparing two things against each other; it's transporting one thing through a fixed map, so there's only ever one side to worry about.
+
+The one open question the design had left dangling (does the map on error kinds need to be one-to-one, or does it need to hit every target kind) resolved itself by just not showing up. Every law here holds for an arbitrary `φ`, including the deliberately many-to-one one I tested against (both `Parse` and `Range` collapsing to the same `Bad`). Nothing needed to recover which source kind you started from, and nothing needed every target kind to be reachable.
+
+
+# Back in C++
+
+`transform_error` (the operation that turns `expected<T, error_set<Parse, Range>>` into `expected<T, error_set<Bad>>` by sending every source error kind to one target kind) is a homomorphism of exactly the structure `error_set` has: mapping the empty set gives the empty set, and mapping a union gives the union of the mappings. You get that for free from `std::set::insert`-style set images; you don't need your renaming function to be reversible, and you don't need it to cover every possible target error. And it commutes with everything else you'd do to a graded value first: map the payload, widen or narrow the error set, chain it with `and_then`, or run it across a whole container with `transpose`. If you write a coarsening function today, you're already relying on all of that without a name for it. Now there's a name, and a reason it was safe.
+
+&ndash;SMD

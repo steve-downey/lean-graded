@@ -1,0 +1,62 @@
+# Letter 31: Three verbs in the harness had nothing to point at
+
+Steve,
+
+
+# What I set out to do
+
+For thirty letters the C++ side of this project was a column in a table. Every law with a consequence for the implementation got one equation in C++ vocabulary, the generated harness listed them all, and the harness said in its own header that nothing there ran C++. That was honest, and it was also a debt. This week transpose itself arrived in the tree, so I could stop describing the obligations and discharge them: one test case per equation, each named for the Lean theorem it came from, so that you can grep either side for the other.
+
+The rule I set myself was the one the Lean tests already live under. Fixtures are the labour. Three distinct grades under every associativity claim. Distinct grades on both sides of every commutativity claim. Zero, one and several failures under the accumulating traversal, with one kind repeated so that the left-bias is visible. A renaming that sends two kinds to one, so a morphism law that only held for injective renamings would fail.
+
+
+# What the checker refused
+
+The checker this time was GCC and Catch2, and it refused three things I had assumed I could write.
+
+First, `first_error`. In Lean the accumulating carrier is a list of errors in source order, and the projection to the short-circuiting carrier takes the head. Two theorems say the accumulating and the short-circuiting traversals agree through that projection. When I went to write the projection in C++ there was nothing to write it with. The accumulating object keeps one witness per error type, the leftmost of each, laid out in the sorted order of the types, not the order in which they failed. Which type failed first is gone. I could not write the projection, so I could not write the equation. What I could write is what the equation implies for each type: the witness kept for the kind that the short-circuit result carries is that very error, and when exactly one operand fails the two results are equal outright. That is what the probes check. It is weaker, and the Lean side now owes the weaker statement, over a carrier shaped like the C++ one.
+
+Second, the composed applicative. Building it from transpose's two objects was easy, and the four composed applicative laws went through against it. But one theorem wants a traversal under the composed applicative, and `traverse` takes a policy object for exactly that purpose. Handing it the composed object failed the concept. The reason is that `traverse` asks the carrier type what its element is, through `value_type`, and for an expected nested inside an expected the answer is the inner expected. The composed applicative thinks the element is the value inside both. A policy has no way to say so. I checked the equation against a hand-written fold over the same two objects, and wrote down that the policy surface lets the carrier name the element and never the object.
+
+Third, the empty grade. One law says that traversing with a function that cannot fail is just a transform. At the empty grade the C++ carrier is the bare value, which is not a context at all, and the explicit uniform spelling is refused too, because re-indexing it at its own grade hands back the bare value and the applicative object concept asks for that re-indexing to exist. Both refusals are the design doing what it decided to do. So there is no C++ left side, and I pinned the two refusals as negative static assertions next to a positive control instead of pretending to compare anything.
+
+And one refusal I earned. Catch2 aborted inside `std::expected::error()`. My fixture for the associativity probe was supposed to fail in the third continuation, and a string of three characters is not longer than three. The standard library was telling me the value had succeeded. A fixture that fails to fail passes every law silently; the abort was the only thing in the room that noticed.
+
+
+# What changed
+
+Nothing in the implementation, deliberately. The change is that the harness column has a reader now. Every equation either runs or is pinned as the specific compile-time refusal that stands in for it. Two side conditions that the Lean proofs carry, at most one error when flipping application order and the one-sided condition on flattening after a composed apply, turned out to be exhibitable as inequalities in C++, which says more than checking the licensed cases alone. And the claim Lean explicitly declined to make, that `error_set<A, B>` and `error_set<B, A>` are one type, got the only check that can make it.
+
+
+# Back in C++
+
+That check is a linker. One translation unit declares
+
+```cpp
+auto cross_tu_permuted(
+    const std::expected<int, error_set<err_io, err_parse, err_range>> &x)
+    -> int;
+```
+
+and a second one defines
+
+```cpp
+auto cross_tu_permuted(
+    const std::expected<int, error_set<err_parse, err_range, err_io>> &x)
+    -> int {
+    return x.has_value() ? *x : -1;
+}
+```
+
+The types are not shared through a header, because a shared header would make the two agree by construction. If the alias sorted its pack differently on either side, the mangled names would differ and the test binary would not link. It links. That is the whole of the type-identity argument, and it is the argument Lean said was not its to make.
+
+The per-kind form of the accumulation law is the thing to carry back to your own code. If a validating pass and a fail-fast pass share an error type, the invariant you can actually assert is not that the validating pass's first error is the fail-fast pass's error. It is this:
+
+```cpp
+REQUIRE(accumulated.error().witness<err_range>() ==
+        short_circuited.error().witness<err_range>());
+```
+
+Whatever kind the fail-fast pass stopped on, the validating pass kept the same witness for that kind. If you need the first kind, keep the order yourself, because the set will not.
+
+&ndash;SMD

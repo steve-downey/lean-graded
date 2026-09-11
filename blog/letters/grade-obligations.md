@@ -1,0 +1,37 @@
+# Letter 14: What a grade has to be, and what you lose when it isn't
+
+Steve,
+
+
+# What I set out to do
+
+Fourteen letters ago I started writing down, for every law, which property of the error set its proof needed: "this one needs the union to have a unit," "this one needs a set unioned with itself to give the set back." By now that's a fair-sized table. What it never was, until today, is a promise. Nothing forced any proof to stay inside the properties I'd written down for it: the error set is a concrete type in this development, so a proof that secretly reached for some extra fact about it would still have compiled, and I'd have been none the wiser. P3200 itself says the error set shouldn't be the only kind of thing that can play this role. I wanted to find out what else could, and, more sharply, what the table of properties actually **buys**, layer by layer, if you take each one away.
+
+So I pulled the two functions that do all the arithmetic (fold one error set over a list, fold a list of different error sets together) out of the concrete type entirely, restated them over three levels of "whatever error-set-like thing you like," and then built a second, genuinely different instance of the loosest level to see what breaks.
+
+
+# What the checker refused
+
+The three levels are: an ordered thing with an associative, unit-having combine (I called it a "pomonoid", a partially ordered monoid); the same thing with the combine commutative; the same thing again with the combine idempotent ("combining something with itself changes nothing," which is exactly what makes a union of error sets special). My first attempt at the base level copied every property my error-set module already had, including "if two sets are both already inside some bigger set, so is their union." That property is true for unions specifically: it's **because** union is a genuine least-upper-bound operation, but it is not true of every ordered combine. The natural numbers under addition, with the usual order, are exactly the kind of "ordered, commutative, has a unit, respects the order" structure I wanted as my second example, and they refute it outright: 1 is at most 1, twice over, but 1 + 1 is not at most 1.
+
+```lean
+theorem foldG_le (g : G) : ∀ (xs : List α), Pomonoid.le (foldG g xs) g
+  | [] => by rw [foldG_nil]; exact Pomonoid.bot_le g
+  | x :: xs => by
+      rw [foldG_cons]
+      exact join_le (Pomonoid.le_refl' g) (foldG_le g xs)
+```
+
+I'd expected this one ("the fold never grows past the starting set") to need nothing but the base level, because that's exactly how the cheap, concrete proof for error sets reads. It doesn't generalize. Once "if both inputs fit under a bound, so does their combine" is gone from the base level (it has to be gone, or addition can never be an instance), recovering it takes two smaller facts working together, respecting the order, and combining something with itself giving that thing back, and the second one only exists at the top, idempotent level. So this theorem needs the **same** level as the one I was sure would be the only one that did.
+
+
+# What changed
+
+That was the real result, and it sharpened rather than weakened the table. "A union never grows past its bound" and "a union of a nonempty list equals exactly the starting set, no matter how long the list" turn out to cost the **same** thing generically (idempotence) even though for the concrete error-set type the first one has a cheap direct proof that never touches idempotence at all. Only the third fact, "reordering a list of different sets before combining them doesn't change the answer," stays free of idempotence, needing only commutativity, exactly as expected. Addition on the naturals confirmed the split precisely: reordering three numbers before adding them agrees regardless, but folding the number 1 over a three-element list gives 3, not 1: the running total keeps growing instead of standing still. For error sets that growth is exactly what would force a `traverse` over a container to mention the container's length in its return type, which C++ generic code cannot do.
+
+
+# Back in C++
+
+P3200 says `error_set` isn't meant to be the only thing that can serve as a grade, and now there's an actual checklist for whatever else you'd try: it needs to combine associatively with a unit, order-compatibly; if you want two different grades to combine the same way regardless of which order you write them in, you need commutativity too; and if you want `transpose` over a range to have a fixed return type at all (not one that mentions how many elements the range holds), your grade's combine has to be idempotent, full stop. Counting failures instead of naming them is a perfectly good, perfectly ordered way to track errors, and it is disqualified from ever appearing in a `transpose` signature for exactly this reason: the grade would have to grow with the range, and C++ has no way to write a return type that does that.
+
+&ndash;SMD

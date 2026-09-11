@@ -1,0 +1,45 @@
+# Letter 16: What I'd tell the committee
+
+Steve,
+
+
+# What I set out to do
+
+Sixteen letters ago I asked one question: for every law you'd write down about a graded `expected`, which property of the grade does the proof actually spend? Not "the grade is a join-semilattice with a bottom," the bundle you'd reach for without thinking, but the precise piece: this law needs a unit, that one needs the join to commute, this other one needs a set unioned with itself to give the set back. Letter 15 turned that question into a table instead of a running commentary: a script that reads every theorem's own proof and reports which of these properties it actually cites, 146 rows, checked against the code instead of against my memory of writing it. This letter is what I'd hand the committee if they asked "so what did you actually learn."
+
+
+# What the checker refused
+
+Nothing; this one is a summary, not a proof letter. Everything below was already checked, in the sixteen letters before it. What I'm refusing here is the temptation to round it off into something tidier than it is.
+
+
+# What changed
+
+The table sorts into three tiers, and they nest the way you'd hope. Unit and associativity alone get you the monad and almost all of the applicative: `bind`'s three laws, and every four-law applicative instance built the same way, across three independently-built carriers (the single-error one, the accumulating one, the nested-composite one), never touch commutativity. Add commutativity and you get order-independence: reordering a tuple's element types, or two ways of building the same union, agree. Add idempotence, the one `error_set` gets for free from being a genuine set, and you get length-independence: a `traverse` signature that doesn't have to mention how many elements the container held. Three layers, stated as Lean classes rather than three separate facts about `Finset`:
+
+```lean
+class Pomonoid (G : Type u) where
+  join : G → G → G
+  bot  : G
+  le   : G → G → Prop
+  -- associativity, unit laws, a partial order, and join_mono
+
+class IsCommPomonoid (G) extends Pomonoid G where
+  join_comm : ∀ a b, join a b = join b a
+
+class IsIdemPomonoid (G) extends IsCommPomonoid G where
+  join_idem : ∀ a, join a a = a
+```
+
+Building a second, genuinely different instance at the loosest layer (the natural numbers under addition, ordered the usual way) is what turned this from a restatement of the obvious into an actual test: addition satisfies every field of `Pomonoid` and still refutes the fact that a union of two bounded things stays bounded, which `error_set` gets for free and which this hierarchy therefore has to derive rather than assume. Deriving it costs `IsIdemPomonoid`, not bare `Pomonoid` as I'd first guessed, because recovering "if both inputs fit under a bound, so does their join" needs idempotence once it's no longer built in as a primitive fact about sets.
+
+The condition worth remembering hardest, because it looks like one finding and is really four, is "at most one side actually failed." It's load-bearing in `ap_flip`, where `ap` and its argument-first twin `apFlipped` disagree on **which** error survives without it. It's stated but turns out not to be needed in the accumulating applicative's `toGraded_grade`, because concatenation already puts the function's error first, matching what the sequencing-built `ap` always keeps. It's vacuously true in `flatten_comm`, because a nested `expected` can only ever hold one live error to begin with, so there was never a second one to disagree about. And it reappears as a different, three-way condition in `flatten_ap`, ruling out the one case where two different short-circuit orders would otherwise disagree. Four sites, four different answers, not the same caveat copied four times.
+
+Underneath all of it sits a finding from a different corner of the project: an abstract grade needs only decidable equality (can you tell two error kinds apart), but the **sorted, canonical** representation `error_set` actually uses needs a full linear order (can you always say which of two distinct kinds comes first). Every earlier letter's `Finset` model got away with less than the real canonicalization mechanism requires, because a `Finset` never has to sort anything. That gap between what the abstract grade needs and what one concrete representation of it needs is worth carrying into any future grade design, not just this one.
+
+
+# Back in C++
+
+Whether writing all of this twice, once in C++ without a proof checker and once in Lean with one, was worth the letters it took: yes, but not for the reason I expected going in. I expected to find bugs. I found exactly one real one worth the name (the flattened traversal composition law, refuted in one letter and replaced by the correct, unflattened law two letters later), and it was a bug in what I'd assumed the design promised, not in any code. What I got instead was cheaper and more useful than a bug report: a checklist. If P3200 or a later paper wants a grade that isn't `error_set`, unit and associativity alone gets the monad; add commutativity for reordering guarantees; add idempotence for a `traverse` signature that doesn't grow with its input. And one question this series raises but doesn't close: whether idempotence is really a separate cost, or whether it falls out for free the moment you insist a grade's join is a genuine least upper bound. I don't know yet, and I'd rather tell you that plainly than round it off into a cleaner story than the sixteen letters actually support.
+
+&ndash;SMD
