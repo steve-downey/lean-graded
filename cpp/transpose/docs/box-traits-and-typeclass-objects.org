@@ -1,0 +1,615 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Box Traits and Typeclass Objects: Two Shapes for the Same Problem
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE: Comparing beman.monadics and the Typeclass Object Pattern
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+DESCRIPTION:
+#+KEYWORDS:
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+HTML_HEAD:
+#+HTML_HEAD_EXTRA:
+#+SUBTITLE:
+#+INFOJS_OPT:
+
+#+begin_abstract
+Two C++ libraries solve the same problem --- open extension for types you do not own --- with different shapes.
+~beman.monadics~ uses a traits struct with a deduction cascade.
+The typeclass-object pattern uses a variable template with CRTP-derived operations.
+The Haskell type hierarchy explains why the shapes differ and where they complement each other.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+* Two Libraries, One Problem
+
+C++23 added ~and_then~, ~transform~, ~or_else~, and ~transform_error~ as member functions on ~std::optional~ and ~std::expected~.
+Member functions cannot be added to types you do not own.
+~std::shared_ptr~ cannot get an ~and_then~.
+~absl::StatusOr~ cannot get a ~transform~.
+Boost, Folly, and every in-house result type are shut out.
+
+Two libraries address this independently.
+
+~beman.monadics~ proposes ~box_traits<T>~ --- a traits struct specialized per type, providing static functions (~has_value~, ~value~, ~error~, ~make~, ~make_error~).
+The four monadic operations become free functions that work for any adapted type.
+
+The typeclass-object pattern in this repository uses ~*_typeclass<T>~ --- a variable template specialized per type, producing an object with member functions (~fold_map~, ~traverse~, ~invoke~).
+A CRTP base derives many operations from one or two primitives.
+
+Same impulse.
+Different shapes.
+Worth understanding why.
+
+* What box_traits Does
+
+A "box" is any type that holds a value or signals absence.
+The traits struct tells the library how to interact with it:
+
+#+begin_src cpp
+template <typename T>
+struct beman::monadics::box_traits<std::optional<T>> {
+    [[nodiscard]] static constexpr auto error() { return std::nullopt; }
+};
+#+end_src
+
+One line.
+~optional~ already has ~has_value()~, ~value()~, and ~value_type~.
+The library deduces those.
+It only needs to know what "absent" looks like.
+
+For ~std::expected~, one line suffices too --- for a different reason:
+
+#+begin_src cpp
+template <typename T, typename E>
+struct beman::monadics::box_traits<std::expected<T, E>> {
+    [[nodiscard]] static constexpr auto make_error(auto&& e) {
+        return std::expected<T, E>{std::unexpect, std::forward<decltype(e)>(e)};
+    }
+};
+#+end_src
+
+~expected~ already has ~has_value~, ~value~, ~error~, ~value_type~, ~error_type~, and two template parameters the library uses for rebind.
+It just cannot construct an error state without the ~std::unexpect~ tag.
+
+After that single specialization, pipe syntax works:
+
+#+begin_src cpp
+auto result = std::optional{42}
+    | bms::and_then([](int v) { return std::optional{v * 2}; })
+    | bms::transform([](int v) { return v + 1; })
+    | bms::or_else([]() { return std::optional{0}; });
+#+end_src
+
+The deduction cascade is the distinctive feature.
+For each capability (value_type, has_value, value, error, make, make_error, rebind, rebind_error), the library tries: explicit traits specialization, then the type's own members, then template parameter deduction.
+You only supply what it cannot find on its own.
+
+* What the Typeclass Object Does
+
+The typeclass-object pattern has no deduction cascade.
+You provide everything.
+But you provide very little, and you get a lot.
+
+The Foldable instance for a fixpoint tree provides one function --- ~fold_map~:
+
+From [[file:../examples/binary_tree.hpp][=examples/binary_tree.hpp=]]:
+
+#+begin_src cpp
+struct BinaryTreeFoldableImpl {
+    template <class F>
+    auto fold_map(this auto&& self, F&& f,
+                  const example::BinaryTree<T>& t) { /* ... */ }
+};
+
+struct BinaryTreeFoldableMap : Foldable<BinaryTreeFoldableImpl> {
+    using BinaryTreeFoldableImpl::fold_map;
+};
+
+template <class T>
+inline constexpr auto beman::transpose::foldable_typeclass<example::BinaryTree<T>> =
+    BinaryTreeFoldableMap{};
+#+end_src
+
+From that single ~fold_map~, the CRTP base ~Foldable<Impl>~ derives: ~length~, ~to_vector~, ~fold_left~, ~fold_right~, ~any_of~, ~all_of~, ~empty~, ~find_first~, ~combine_all~, and ~fold~.
+
+One hook.
+Ten derived operations.
+
+The looked-up object is a value.
+It can be used implicitly, passed as an explicit argument, or bound as an NTTP default --- three lookup modes.
+
+* Where They Agree
+
+Both are non-intrusive.
+Both require explicit opt-in.
+Both use static dispatch with no virtual calls and no type erasure.
+
+~box_traits~ defaults to an undefined primary template --- you must specialize.
+~beman::transpose::foldable_typeclass~ defaults to ~std::false_type~ --- you must specialize.
+
+Neither silently adopts types that happen to have the right member names.
+This is deliberate.
+~beman.monadics~ requires the specialization even for types that already expose a fully compatible interface, precisely to prevent accidental adoption with wrong semantics.
+
+* Where They Differ
+
+| Aspect | ~box_traits~ | typeclass object |
+|--------|-------------|-----------------|
+| Lookup | class template | variable template |
+| Specialization type | always the same struct | can be unrelated types |
+| Operations | static functions | instance member functions |
+| Derived operations | none --- free functions over traits | CRTP derives many from few |
+| Deduction | cascade: traits → members → template params | none --- you provide everything |
+| Grouping | one struct for all box ops | one typeclass per concept |
+| Call-site override | no | yes --- explicit object or NTTP |
+| Pipe syntax | ~operator|~ via hidden friend | call through looked-up object |
+
+The variable template is the key structural difference.
+A class template specialization must always produce an instance of the same class template.
+~box_traits<optional<int>>~ and ~box_traits<expected<int, string>>~ are both ~box_traits~ specializations.
+
+A variable template specialization can produce any type.
+~beman::transpose::foldable_typeclass<vector<int>>~ and ~beman::transpose::foldable_typeclass<example::BinaryTree<T>>~ can be completely different types.
+The only constraint is that they provide ~fold_map~.
+This is what enables the CRTP pattern --- each type gets its own Map class, inheriting from its own Impl, with its own ~using~ declarations selecting primitive operations.
+
+* The Haskell Frame
+
+The theoretical structure behind both libraries maps onto Haskell's type hierarchy.
+This is not decoration.
+It explains why the shapes differ, and where each fits.
+
+** box_traits Maps onto MonadError
+
+~box_traits~ captures a type that holds a value or an error, with operations for both paths.
+In Haskell, this is ~MonadError~:
+
+#+begin_src haskell
+class Monad m => MonadError e m | m -> e where
+    throwError :: e -> m a
+    catchError :: m a -> (e -> m a) -> m a
+#+end_src
+
+The ~box_traits~ operations map directly:
+
+| ~box_traits~ | Haskell |
+|-------------|---------|
+| ~and_then~ | ~>>=~ (bind) |
+| ~transform~ | ~fmap~ |
+| ~or_else~ | ~catchError~ |
+| ~transform_error~ | ~first~ from ~Bifunctor~ |
+| ~make~ | ~pure~ / ~return~ |
+| ~make_error~ | ~throwError~ |
+
+** transform_error Is Bifunctor.first
+
+~transform_error~ applies a function to the error channel, leaving the value unchanged.
+In Haskell, this is ~Data.Bifunctor.first~:
+
+#+begin_src haskell
+class Bifunctor p where
+    bimap  :: (a -> b) -> (c -> d) -> p a c -> p b d
+    first  :: (a -> b) -> p a c -> p b c
+    second :: (c -> d) -> p a c -> p a d
+#+end_src
+
+~std::expected<T, E>~ is a bifunctor: it has two type parameters, and you can transform either independently.
+~transform~ is ~second~ (transform the value).
+~transform_error~ is ~first~ (transform the error).
+
+But ~std::optional<T>~ is not a bifunctor.
+It has one type parameter.
+There is no error to transform.
+
+** optional Is Bifunctor.Join
+
+~Data.Bifunctor.Join~ collapses a bifunctor into a functor by identifying both parameters:
+
+#+begin_src haskell
+newtype Join p a = Join { runJoin :: p a a }
+#+end_src
+
+~optional~ is ~Join expected~ in spirit.
+~expected<T, E>~ has two type parameters.
+~optional<T>~ has one --- the error channel is collapsed to a structural sentinel (~nullopt~).
+
+~beman.monadics~ detects this mechanically.
+When ~error()~ is nullary (returns a constant without reading the box), the library knows there is no real error channel.
+~transform_error~ is automatically disabled.
+When ~error(box)~ is unary (reads the error from the box), the error channel is real.
+
+This is the ~Bifunctor~ vs ~Bifunctor.Join~ distinction, expressed as an arity check on a static function.
+
+** Is This Actually a Monad?
+
+Not exactly.
+It is a bundle of several well-known algebraic structures, plus case analysis.
+The question is whether the bundle is principled.
+
+*** What box_traits actually requires
+
+~box_traits~ asks for:
+- Constructors: ~make~ (inject a value) and ~make_error~ (inject an error)
+- Elimination: ~has_value~, ~value~, ~error~ (case analysis / pattern matching)
+- Rebinding: ~rebind<U>~ and ~rebind_error<F>~ (change type parameters)
+
+The four operations are defined over these:
+- ~transform~ = functorial map on the value component (~Bifunctor.second~, equivalently ~fmap~)
+- ~and_then~ = monadic bind on the value component (~>>=~)
+- ~or_else~ = error recovery (~MonadError.catchError~)
+- ~transform_error~ = functorial map on the error component (~Bifunctor.first~)
+
+That is at least four algebraic structures: Functor, Monad, MonadError, and Bifunctor.
+Plus the elimination operations, which are not part of any of those.
+
+*** The eliminator: eitherM
+
+The fundamental operation underneath all four is ~either~ --- the universal eliminator for a sum type:
+
+#+begin_src haskell
+either :: (a -> c) -> (b -> c) -> Either a b -> c
+either f _ (Left  a) = f a
+either _ g (Right b) = g b
+#+end_src
+
+The monadic version, ~eitherM~, threads this through an outer monadic context:
+
+#+begin_src haskell
+eitherM :: Monad m => (a -> m c) -> (b -> m c) -> m (Either a b) -> m c
+eitherM f g x = x >>= either f g
+#+end_src
+
+In C++ over ~box_traits~, this is:
+
+#+begin_src cpp
+template <box Box>
+auto either_box(auto&& on_error, auto&& on_value, Box&& box) {
+    using Traits = get_box_traits<Box>;
+    if (Traits::has_value(box))
+        return on_value(Traits::value(std::forward<Box>(box)));
+    else
+        return on_error(Traits::error(std::forward<Box>(box)));
+}
+#+end_src
+
+All four operations are derivable from ~either_box~ plus the two constructors:
+
+- ~transform(f, box)~ = ~either_box(make_error, compose(make, f), box)~
+- ~and_then(f, box)~ = ~either_box(make_error, f, box)~
+- ~or_else(f, box)~ = ~either_box(f, make, box)~
+- ~transform_error(f, box)~ = ~either_box(compose(make_error, f), make, box)~
+
+So the true primitive basis is: { ~make~, ~make_error~, ~either_box~ }.
+Everything else is derived.
+This is the universal property of the coproduct with injections.
+
+*** The laws
+
+If the four operations are derived from ~either_box~, the laws follow from the laws of the underlying structures:
+
+*Monad laws* (for ~and_then~ / ~make~):
+1. Left identity: ~make(a) | and_then(f) == f(a)~
+2. Right identity: ~m | and_then(make) == m~
+3. Associativity: ~(m | and_then(f)) | and_then(g) == m | and_then(\x -> f(x) | and_then(g))~
+
+*MonadError laws* (for ~or_else~ / ~make_error~):
+1. Catch-throw: ~make_error(e) | or_else(f) == f(e)~
+2. Pass-through: ~make(a) | or_else(f) == make(a)~
+
+*Bifunctor laws* (for ~transform~ and ~transform_error~):
+1. Identity: ~m | transform(id) == m~
+2. Composition: ~m | transform(f . g) == m | transform(g) | transform(f)~
+3. Same for ~transform_error~
+
+*Coherence conditions* linking the operations:
+1. ~transform(f, box) == and_then(compose(make, f), box)~ --- fmap is derivable from bind + return
+2. ~transform_error(f, box) == or_else(compose(make_error, f), box)~ --- first is derivable from catchError + throwError
+
+*Elimination laws* (for ~has_value~ / ~value~ / ~error~):
+1. ~has_value(make(a)) == true~ and ~value(make(a)) == a~
+2. ~has_value(make_error(e)) == false~ and ~error(make_error(e)) == e~
+
+*** What structure is this, exactly?
+
+The structure is ~ExceptT e Identity a~, which is isomorphic to ~Either e a~:
+
+#+begin_src haskell
+newtype ExceptT e m a = ExceptT { runExceptT :: m (Either e a) }
+#+end_src
+
+When ~m = Identity~, this is just ~Either e a~ --- which is ~std::expected<a, e>~.
+
+~ExceptT~ is simultaneously:
+- A Monad (in ~a~)
+- A MonadError (with error type ~e~)
+- A Bifunctor (in both ~e~ and ~a~)
+
+And it supports case analysis via ~runExceptT~ / pattern matching.
+
+So the algebraic structure of ~box_traits~ is well-known.
+It is the exception monad over a concrete sum type, with bifunctor structure and elimination.
+The laws are the standard monad laws, MonadError laws, bifunctor laws, and coherence conditions.
+
+The reason it does not look like "just a monad" is that it exposes the elimination operation (~has_value~ / ~value~ / ~error~), which monads do not require.
+That is a design choice, not a deficiency.
+You need elimination to implement the operations; whether you also expose it to users is a separate question.
+~box_traits~ exposes it because C++ types already expose it (optional has ~has_value()~, expected has ~has_value()~, pointers have ~operator bool~), and hiding it would serve no practical purpose.
+
+*** Where optional fits
+
+~std::optional<T>~ is the degenerate case where the error type is a singleton (~std::nullopt_t~ has exactly one value).
+
+In Haskell: ~Maybe a ≅ Either () a~.
+~MonadError () Maybe~ has ~throwError () = Nothing~ and ~catchError Nothing f = f ()~.
+
+The ~beman.monadics~ encoding of this is the nullary ~error()~ --- it returns a compile-time constant because the error type has only one inhabitant.
+~or_else~ for optional takes no argument (~fn()~ not ~fn(e)~) because there is nothing to pass.
+~transform_error~ is disabled because transforming a singleton type is a no-op.
+
+This is ~Bifunctor.Join~ applied to the exception monad: collapse both type parameters to one, making the error type implicit.
+
+** Rust's Prior Art: Result, Option, and the Try Trait
+
+Rust has been through this design exercise already, in public, over many years.
+The result is worth studying.
+
+*** Result<T, E> and Option<T> share the surface
+
+Rust's ~Result<T, E>~ provides exactly the four operations:
+
+| Rust | ~box_traits~ | Haskell |
+|------|-------------|---------|
+| ~map~ | ~transform~ | ~fmap~ / ~Bifunctor.second~ |
+| ~and_then~ | ~and_then~ | ~>>=~ (bind) |
+| ~or_else~ | ~or_else~ | ~catchError~ |
+| ~map_err~ | ~transform_error~ | ~Bifunctor.first~ |
+
+Plus extractors (~unwrap_or~, ~unwrap_or_else~), inspectors (~inspect~, ~inspect_err~), and ~flatten~.
+
+And Rust's ~or_else~ on ~Result~ /can change the error type/:
+
+#+begin_src rust
+fn or_else<F, O>(self, op: O) -> Result<T, F>
+where O: FnOnce(E) -> Result<T, F>
+#+end_src
+
+The output error type ~F~ can differ from the input error type ~E~.
+~beman.monadics~ does not currently allow this --- ~or_else~ must return the same box template.
+This is a restriction worth discussing in review.
+
+Rust's ~Option<T>::or_else~ takes a nullary closure, matching the ~beman.monadics~ pattern for types without an error channel:
+
+#+begin_src rust
+fn or_else<F>(self, f: F) -> Option<T>
+where F: FnOnce() -> Option<T>
+#+end_src
+
+*** The Try trait: Rust's box_traits
+
+Rust's unstable ~Try~ trait (RFC 3058, tracking issue [[https://github.com/rust-lang/rust/issues/84277][#84277]]) is the attempt to unify ~Result~ and ~Option~ under one abstraction.
+It is structurally almost identical to ~box_traits~:
+
+#+begin_src rust
+pub trait Try: FromResidual {
+    type Output;
+    type Residual;
+
+    fn from_output(output: Self::Output) -> Self;
+    fn branch(self) -> ControlFlow<Self::Residual, Self::Output>;
+}
+
+pub trait FromResidual<R = <Self as Try>::Residual> {
+    fn from_residual(residual: R) -> Self;
+}
+#+end_src
+
+The mapping to ~box_traits~:
+
+| Rust ~Try~ | ~box_traits~ | Role |
+|-----------|-------------|------|
+| ~Output~ | ~value_type~ | the success type |
+| ~Residual~ | (related to) ~error_type~ | what propagates on failure |
+| ~from_output~ | ~make~ | inject a value |
+| ~from_residual~ | ~make_error~ | inject an error |
+| ~branch~ | ~has_value~ + ~value~ + ~error~ | case analysis / elimination |
+
+~branch~ returns ~ControlFlow<Residual, Output>~, which is literally the ~either~ eliminator returning a tagged union.
+This is the same ~either_box~ primitive I identified above.
+
+*** The Residual trick
+
+Rust's ~Residual~ type is not just the error --- for ~Result<T, E>~, the residual is ~Result<Infallible, E>~, not bare ~E~.
+This prevents accidental cross-type ~?~ usage: you cannot use ~?~ on an ~Option~ inside a ~Result~-returning function unless there is an explicit ~FromResidual~ impl bridging them.
+
+~beman.monadics~ achieves similar safety via the explicit ~box_traits~ specialization requirement.
+Types are not silently adopted.
+But the Rust approach is more fine-grained: it separates "what propagates" (Residual) from "what the error is" (E), which allows controlled cross-type interop via ~FromResidual~ impls.
+
+*** What this tells us about theoretical soundness
+
+Rust arrived at the same algebraic structure independently:
+- Case analysis as the fundamental operation (~branch~ / ~either_box~)
+- Two constructors (~from_output~ / ~from_residual~ ≡ ~make~ / ~make_error~)
+- The four combinator methods are /not/ part of the ~Try~ trait itself --- they remain as inherent methods on ~Result~ and ~Option~
+
+That last point matters.
+Rust keeps ~and_then~, ~map~, ~or_else~, ~map_err~ as concrete methods on the types, not as generic functions derived from ~Try~.
+~Try~ only powers the ~?~ operator (early return on error).
+
+~beman.monadics~ goes further: it makes the four operations generic free functions.
+The typeclass-object pattern goes further still: it derives many operations from few.
+
+The theoretical structure is the same in all three.
+The question is only how much of the derived surface to expose generically versus per-type.
+
+*** or_else: the asymmetry
+
+In all three systems, ~or_else~ is the error-path dual of ~and_then~:
+- ~and_then~ replaces the value, preserves the error path
+- ~or_else~ replaces the error, preserves the value path
+
+Rust allows ~or_else~ to change the error type (~E \to F~).
+Haskell's ~catchError~ preserves it (~MonadError e m~ has a fixed ~e~).
+~beman.monadics~ preserves it (same box template).
+
+Allowing the error type to change is the Bifunctor-aware version.
+Preserving it is the MonadError-only version.
+The choice affects composability: if ~or_else~ can change the error type, chaining ~or_else~ calls builds up a type-level proof of recovery.
+If it cannot, you must ~transform_error~ first.
+
+This is a design question, not a correctness question.
+Both are theoretically sound.
+Rust chose flexibility.
+~beman.monadics~ chose simplicity.
+Worth discussing in review.
+
+** P1255 maybe: The Simpler Monad
+
+[[https://wg21.link/P1255][P1255R14]] proposes ~concept maybe~ and ~views::nullable~.
+The ~maybe~ concept is deliberately minimal:
+
+#+begin_src cpp
+template <class T>
+concept maybe = requires(const T t) {
+    bool(t);
+    *(t);
+};
+#+end_src
+
+Two operations.
+Contextually convertible to bool, and dereferenceable.
+That is the entire contract.
+
+~maybe~ covers ~std::optional~, pointers to object, ~std::shared_ptr~, and any user type that supports ~bool(t)~ and ~*t~.
+It does NOT cover ~std::expected~ --- there is no error type, no error access, no error construction.
+
+The free functions proposed on ~maybe~ are:
+- ~value_or(m, u)~ --- the value or a fallback
+- ~reference_or(m, u)~ --- a reference to the value or a reference to a fallback
+- ~or_invoke(m, invocable)~ --- the value or the result of calling a function
+- ~yield_if(b, t)~ --- an optional conditioned on a boolean
+
+No ~and_then~.
+No ~transform~.
+No ~transform_error~.
+No pipe syntax.
+
+*** maybe vs box: two levels of the same hierarchy
+
+~maybe~ and ~box~ are not competing proposals.
+They sit at different levels of the same type hierarchy.
+
+| | ~maybe~ (P1255) | ~box~ (beman.monadics) |
+|---|---|---|
+| Operations | ~bool(t)~, ~*t~ | ~has_value~, ~value~, ~error~, ~make~, ~make_error~, ~rebind~, ~rebind_error~ |
+| Error type | none --- absence is structural | optional: sentinel; expected: typed |
+| Haskell equivalent | ~Maybe~ | ~ExceptT e Identity~ |
+| Category theory | Functor on value, pointed (has ~pure~) | Bifunctor, Monad, MonadError |
+| Types covered | optional, pointer, shared_ptr | optional, expected, shared_ptr, pointer, StatusOr, ... |
+
+In Haskell terms, ~maybe~ is ~Maybe~ --- the free pointed functor with a zero.
+~box~ is ~Either e~ --- a bifunctor with independent value and error channels.
+
+~Maybe a ≅ Either () a~.
+Every ~maybe~ is a ~box~ where the error type is a singleton.
+
+*** This is exactly Bifunctor.Join
+
+I said earlier that ~optional~ is ~Bifunctor.Join expected~ --- the error type collapsed to a sentinel.
+P1255's ~maybe~ concept is the interface for the ~Join~ed case.
+~beman.monadics~'s ~box~ concept is the interface for the general case.
+
+The nullary/unary ~error()~ detection in ~beman.monadics~ is precisely the mechanism that detects whether a box is in the ~Join~ed (maybe) regime or the full bifunctor regime.
+When ~error()~ is nullary, the box is a ~maybe~: no real error channel, ~transform_error~ disabled.
+When ~error(box)~ is unary, the box has a real error channel.
+
+*** What this means for the review
+
+~beman.monadics~ proposes the full ~ExceptT~ abstraction.
+P1255 proposes the ~Maybe~ abstraction.
+
+The question for review is not which is right --- both are.
+The question is whether ~box_traits~ should acknowledge the split explicitly:
+1. Should there be a ~concept maybe_box~ (or similar) that is the sub-concept for nullable types without error channels?
+2. Should the four operations degrade gracefully --- ~transform_error~ already does, but should ~or_else~ also change signature (nullary vs unary) based on the error channel?
+3. The deduction cascade already handles the mechanical detection.  The concept hierarchy could make it part of the type theory.
+
+The theoretical foundation is sound.
+The structure is ~ExceptT e Identity~ with bifunctor operations, which is a well-studied object.
+The laws are known and can be tested.
+
+The open questions are practical, not theoretical:
+1. Should the four operations be the user-facing primitives, or should ~either_box~ be exposed as the true primitive with the four derived?
+2. Should the library enforce or test the laws, or is that left to ~box_traits~ implementers?
+3. The deduction cascade is a C++ convenience, not part of the algebraic structure. Its correctness depends on whether the deduced operations actually satisfy the laws --- which is assumed, not checked.
+
+** Where the Typeclass Object Sits
+
+The typeclass-object pattern does not model ~MonadError~.
+It models the algebraic hierarchy above it:
+
+- ~Functor~: ~fmap~
+- ~Foldable~: ~fold_map~
+- ~Applicative~: ~pure~ + ~apply~
+- ~Traversable~: ~traverse~
+
+These are the structural typeclasses.
+They describe what you can do with a container's shape, independent of any error channel.
+~Foldable~ does not care whether the container is an ~optional~ or a finger tree.
+~Traversable~ does not care whether the effect is ~optional~ or ~expected~ or ~Identity~.
+
+~box_traits~ operates one level down: it describes the value/error protocol of a specific container.
+The typeclass object operates one level up: it describes the algebraic structure of containers in general.
+
+* What Each Could Learn
+
+~box_traits~ could benefit from derived operations.
+Given ~transform~ (which is ~fmap~) and ~and_then~ (which is ~bind~), many operations follow mechanically: ~flatten~ is ~and_then(id)~, ~transpose~ is ~traverse(id)~, ~ap~ is derivable from ~bind~ + ~pure~.
+The paper already shows ~flatten~ and ~value_or~ as user-defined extensions.
+A CRTP base could make these automatic.
+
+The typeclass object could benefit from the deduction cascade.
+Right now, every Foldable instance must provide ~fold_map~ explicitly, even for types that already have an obvious structure.
+A cascade that tries the type's own members first --- like ~box_traits~ does --- would reduce boilerplate for well-structured types.
+
+Both would benefit from the alternate-core pattern.
+~beman.monadics~ currently requires all four operations to be free functions, with no way for a type to say "I naturally express ~and_then~ but not ~transform~; derive the latter."
+The typeclass-object pattern already supports this: the ~using~ declaration in the Map struct selects which operations are primitive and which are derived.
+
+* These Are Not Competing Approaches
+
+~box_traits~ is the right shape for value-or-error types.
+The abstraction is narrow --- has_value, value, error, make --- and the deduction cascade handles the zoo of existing types (optional, expected, shared_ptr, raw pointers, absl::StatusOr, in-house result types).
+The operations are fixed and well-known.
+
+Typeclass objects are the right shape for algebraic structure.
+Functor, Foldable, Applicative, Traversable need derived operations and law-based testing.
+The CRTP base and alternate-core machinery exist to support that.
+The operations grow with the concept.
+
+A standard library could have both.
+~box_traits~ adapts types into the value-or-error world.
+Typeclass objects let generic algorithms work across containers with different shapes.
+They solve different problems at different levels of abstraction.
+
+The Haskell hierarchy has both too.
+~MonadError~ lives at the concrete level.
+~Functor~, ~Foldable~, ~Traversable~ live at the structural level.
+The fact that C++ is arriving at similar shapes independently is not a coincidence.

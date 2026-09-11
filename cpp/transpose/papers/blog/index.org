@@ -1,0 +1,40 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:nil p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Transpose, Traverse, and Typeclass Objects
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+SUBTITLE: A series on structure, context, and the customization point C++ keeps reinventing
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+
+#+begin_abstract
+One operation --- ~transpose~ --- turns out to hide a whole customization mechanism behind it.
+The series starts from a loop everyone has written, names the two typeclasses underneath, shows what it costs a type to opt in and an algorithm to consume it, and ends among the prior art that kept reinventing the same idea.
+Read it in order, or jump to the part you need.
+#+end_abstract
+
+* Contents
+
+1. [[file:transposing-structure-and-context.org][Transposing Structure and Context]] --- one operation hiding inside a loop you have written a dozen times.
+2. [[file:how-traverse-and-transpose-work.org][Context is Applicative, Structure is Traversable]] --- the two typeclasses behind the one verb.
+3. [[file:adapting-a-type-to-a-typeclass.org][Adapting a Type to a Typeclass]] --- three lines to opt in, and you never reopen anyone's class.
+4. [[file:writing-algorithms-with-typeclass-objects.org][Writing Algorithms with Typeclass Objects]] --- one algorithm, every instance, no ADL and no registry.
+5. [[file:prior-art-typeclasses-in-cpp.org][Prior Art: How Others Have Brought Typeclasses to C++]] --- FC++, ~cat~, libfn, Flux, and the customization point that keeps getting reinvented.
+
+* With running code
+
+A second arc: the same operations demonstrated from compiled examples, with the program output captured in the posts.
+
+6. [@6] [[file:graded-gadgets.org][Graded Gadgets]] --- indexing fallible computation by the set of errors it can raise; ~error_set~, lazy joins, and ~recover~.
+7. [[file:transpose-at-work.org][Transpose at Work]] --- ~transpose~ run over optionals, senders, and hardware SIMD lanes, with receipts.
+8. [[file:traverse-does-all-the-work.org][Traverse Does All the Work]] --- ~transpose~ is ~traverse~ with identity, and an applicative object is the whole contract.

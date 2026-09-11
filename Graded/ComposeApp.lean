@@ -90,14 +90,14 @@ def Comp.castGH (eg : g = g') (eh : h = h') : Comp g h α → Comp g' h' α :=
 
 theorem Comp.map_id (x : Comp g h α) : Comp.map (@id α) x = x := by
   simp only [Comp.map]
-  cases x with
+  cases x using Graded.rec' with
   | ok y => exact congrArg Graded.ok (Graded.map_id y)
   | err e he => rfl
 
 theorem Comp.map_comp (f : α → β) (k : β → γ) (x : Comp g h α) :
     Comp.map (k ∘ f) x = Comp.map k (Comp.map f x) := by
   simp only [Comp.map]
-  cases x with
+  cases x using Graded.rec' with
   | ok y => exact congrArg Graded.ok (Graded.map_comp f k y)
   | err e he => rfl
 
@@ -143,7 +143,7 @@ theorem Comp.ap_ok_err (F : Graded h (α → β)) (e : Err) (he : e ∈ g') :
 theorem Comp.ap_pure_id (x : Comp h j α) :
     Comp.castGH (Grade.bot_join h) (Grade.bot_join j)
         (Comp.ap (Comp.pure (@id α) : Comp Grade.bot Grade.bot (α → α)) x) = x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok y =>
     show Comp.castGH (Grade.bot_join h) (Grade.bot_join j)
         (Comp.ap (Comp.pure (@id α)) (Graded.ok y)) = Graded.ok y
@@ -168,7 +168,7 @@ theorem Comp.ap_interchange (u : Comp g h (α → β)) (a : α) :
     Comp.castGH (Grade.join_bot g) (Grade.join_bot h) (Comp.ap u (Comp.pure a)) =
       Comp.castGH (Grade.bot_join g) (Grade.bot_join h)
         (Comp.ap (Comp.pure (fun f => f a) : Comp Grade.bot Grade.bot ((α → β) → β)) u) := by
-  cases u with
+  cases u using Graded.rec' with
   | ok F =>
     show Comp.castGH (Grade.join_bot g) (Grade.join_bot h)
         (Comp.ap (Graded.ok F : Comp g h (α → β)) (Comp.pure a)) =
@@ -196,7 +196,7 @@ theorem Comp.ap_comp (u : Comp g h (β → γ)) (v : Comp g' h' (α → β)) (w 
             (Comp.pure Function.comp : Comp Grade.bot Grade.bot ((β → γ) → (α → β) → α → γ))
             u) v) w) =
       Comp.ap u (Comp.ap v w) := by
-  cases u with
+  cases u using Graded.rec' with
   | err e he =>
     show Comp.castGH _ _
         (Comp.ap (Comp.ap (Comp.ap (Comp.pure Function.comp)
@@ -205,7 +205,7 @@ theorem Comp.ap_comp (u : Comp g h (β → γ)) (v : Comp g' h' (α → β)) (w 
     simp only [Comp.pure, Comp.ap_ok_err, Comp.ap_err_left, Comp.castGH, Graded.map,
       Graded.cast_err]
   | ok F =>
-    cases v with
+    cases v using Graded.rec' with
     | err e he =>
       show Comp.castGH _ _
           (Comp.ap (Comp.ap (Comp.ap (Comp.pure Function.comp) (Graded.ok F : Comp g h (β → γ)))
@@ -214,7 +214,7 @@ theorem Comp.ap_comp (u : Comp g h (β → γ)) (v : Comp g' h' (α → β)) (w 
       simp only [Comp.pure, Comp.ap_ok_ok, Comp.ap_ok_err, Comp.ap_err_left, Comp.castGH,
         Graded.map, Graded.cast_err]
     | ok G =>
-      cases w with
+      cases w using Graded.rec' with
       | err e he =>
         show Comp.castGH _ _
             (Comp.ap (Comp.ap (Comp.ap (Comp.pure Function.comp) (Graded.ok F : Comp g h (β → γ)))
@@ -277,23 +277,23 @@ theorem Comp.traverseComp_cons (f : α → Comp g h β) (x : α) (xs : List α) 
     Comp.castGH (Grade.join_idem g) (Grade.join_idem h)
       (Comp.map2 (· :: ·) (f x)
         (Comp.widenGH (foldGrade_le xs) (foldGrade_le xs) (Comp.traverseRaw f xs)))
-  cases hfx : f x with
+  cases hfx : f x using Graded.rec' with
   | err e he =>
       simp only [Comp.widenGH, Comp.map2, Comp.ap, Comp.map, Graded.map2, Graded.map,
         Graded.widen, Graded.ap_err_left, Comp.castGH, Graded.cast_err]
   | ok F =>
-      cases htx : Comp.traverseRaw f xs with
+      cases htx : Comp.traverseRaw f xs using Graded.rec' with
       | err e he =>
           simp only [Comp.widenGH, Comp.map2, Comp.ap, Comp.map, Graded.map2, Graded.map,
             Graded.widen, Graded.ap_ok_err, Comp.castGH, Graded.cast_err]
       | ok Y =>
-          cases hF : F with
+          cases hF : F using Graded.rec' with
           | err e he =>
               simp only [Comp.widenGH, Comp.map2, Comp.ap, Comp.map, Graded.map2, Graded.map,
                 Graded.widen, Graded.ap_ok_ok, Graded.ap_err_left, Comp.castGH, Graded.cast_err,
                 Graded.cast_ok]
           | ok f' =>
-              cases hY : Y with
+              cases hY : Y using Graded.rec' with
               | err e he =>
                   simp only [Comp.widenGH, Comp.map2, Comp.ap, Comp.map, Graded.map2, Graded.map,
                     Graded.widen, Graded.ap_ok_ok, Graded.ap_ok_err, Comp.castGH, Graded.cast_err,
@@ -325,12 +325,12 @@ theorem traverseComp_eq (f : α → Graded g β) (k : β → Graded h γ) (xs : 
       rfl
   | cons x xs' ih =>
       rw [Comp.traverseComp_cons, ih, traverse_cons]
-      cases hfx : f x with
+      cases hfx : f x using Graded.rec' with
       | err e he =>
           simp only [Graded.map, Comp.map2, Comp.ap, Comp.map, Graded.map2, Graded.ap_err_left,
             Comp.castGH, Graded.cast_err]
       | ok a =>
-          cases hxs : traverse f xs' with
+          cases hxs : traverse f xs' using Graded.rec' with
           | err e he =>
               simp only [Graded.map, Comp.map2, Comp.ap, Comp.map, Graded.map2, Graded.ap_ok_err,
                 Comp.castGH, Graded.cast_err]
@@ -386,11 +386,11 @@ theorem flatten_ap (ff : Comp g h (α → β)) (xx : Comp g' h' α)
       (∃ X, xx = Graded.ok X)) :
     flatten (Comp.ap ff xx) =
       Graded.cast (Comp.grade_reassoc g g' h h') (ap (flatten ff) (flatten xx)) := by
-  cases ff with
+  cases ff using Graded.rec' with
   | err e he =>
-    cases xx with
+    cases xx using Graded.rec' with
     | ok Y =>
-      cases Y with
+      cases Y using Graded.rec' with
       | ok a =>
         simp only [Comp.ap_err_left, flatten, ap_err_left]
         rw [Graded.cast_err]
@@ -401,9 +401,9 @@ theorem flatten_ap (ff : Comp g h (α → β)) (xx : Comp g' h' α)
       simp only [Comp.ap_err_left, flatten, ap_err_left]
       rw [Graded.cast_err]
   | ok F =>
-    cases xx with
+    cases xx using Graded.rec' with
     | err e he =>
-      cases F with
+      cases F using Graded.rec' with
       | ok f' =>
         simp only [Comp.ap_ok_err, flatten, ap_ok_err]
         rw [Graded.cast_err]
@@ -411,9 +411,9 @@ theorem flatten_ap (ff : Comp g h (α → β)) (xx : Comp g' h' α)
         exfalso
         rcases hcond with ⟨_, _, hff⟩ | ⟨_, hff⟩ | ⟨_, hxx⟩ <;> simp_all
     | ok X =>
-      cases F with
+      cases F using Graded.rec' with
       | ok f' =>
-        cases X with
+        cases X using Graded.rec' with
         | ok a =>
           simp only [Comp.ap_ok_ok, flatten, ap_ok_ok]
           rw [Graded.cast_ok]
@@ -421,7 +421,7 @@ theorem flatten_ap (ff : Comp g h (α → β)) (xx : Comp g' h' α)
           simp only [Comp.ap_ok_ok, flatten, ap_ok_err]
           rw [Graded.cast_err]
       | err e he =>
-        cases X with
+        cases X using Graded.rec' with
         | ok a =>
           simp only [Comp.ap_ok_ok, flatten, ap_err_left]
           rw [Graded.cast_err]

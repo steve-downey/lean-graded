@@ -1,0 +1,145 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Graded Gadgets
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+SUBTITLE: Indexing fallible computation by the set of errors it can raise
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+BIBLIOGRAPHY: ./references.bib
+
+*DRAFT --- pending author revision*
+
+#+begin_abstract
+Combining an ~expected<int, errc>~ with an ~expected<int, io_errc>~ used to be ill-formed; the applicative demanded that every operand agree on the error type.
+Now it compiles, and the result type is computed for you: ~expected<int, error_set<errc, io_errc>>~.
+The index doing the work is a /grade/: a finite set of error types under union, tracked through every composition and narrowed back down by ~recover~.
+This post shows the gadgets running, with the compiler checking the deductions and the program output as receipts.
+The code is from [[https://github.com/bemanproject/transpose][=beman.transpose=]] and builds today.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+*Next:* [[file:transpose-at-work.org][Transpose at Work]] --- *Up:* [[file:index.org][Contents]]
+
+* Two libraries, two error types
+
+Your parser fails with ~std::errc~.
+The stream layer under it fails with ~std::io_errc~.
+The moment one computation needs a value from each, you are hand-writing the error plumbing: a ~variant~, a conversion layer, or a lowest-common-denominator error code that forgets which subsystem actually failed.
+
+The applicative ~invoke~ from [[file:how-traverse-and-transpose-work.org][earlier in this series]] used to refuse this outright.
+Every operand had to be an ~expected~ with the same error type.
+That refusal turns out to be the opportunity: the combination was ill-formed, so giving it a meaning breaks no existing code.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::c74dfc6a-4ae4-4f21-82fa-2097a17d8b87]] :lines 2- :src cpp :end "c74dfc6a-4ae4-4f21-82fa-2097a17d8b87 end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example mixing
+#+end_src
+
+The ~static_assert~ is the point.
+Nobody wrote ~error_set<errc, io_errc>~ at the call site; the deduction computed the union of what each operand could raise, and the failing operand kept its identity inside it.
+
+* error_set is a type, not a trick
+
+The union needs a spelling, and the spelling has to not care about order.
+~error_set~ canonicalizes at construction: the pack is sorted and deduplicated, so however two grades meet, the same set is the same type.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::70faaeb2-f44d-44d8-8fdc-abf8ce74d7ef]] :lines 2- :src cpp :end "70faaeb2-f44d-44d8-8fdc-abf8ce74d7ef end"
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::5c70a8c3-c9d4-433d-9f11-2c433cfef7df]] :lines 2- :src cpp :end "5c70a8c3-c9d4-433d-9f11-2c433cfef7df end"
+
+Sorting types requires ordering them, which the language does not yet provide; the implementation orders by type name as an interim stand-in for P2830 reflection-based ordering, and static-asserts that no two members render to the same name.
+
+The value side is just as deliberate.
+An ~error_set~ value is a /witnessed subset/: one ~optional~ slot per member type, at most one witness each.
+The type says "may raise these"; a value says "did raise these", and did-raise is always a subset of may-raise.
+There's no discriminated union inside, and no allocation.
+
+* The empty grade is spelled T
+
+A plain ~int~ has no error types to contribute.
+Its grade is the empty set, and joining with the empty set is a no-op, so mixing a bare value into a graded computation leaves no trace in the deduced type.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::a1b0528a-16f7-4a62-9ae8-684b05fbc8ed]] :lines 2- :src cpp :end "a1b0528a-16f7-4a62-9ae8-684b05fbc8ed end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example lazy-join
+#+end_src
+
+This is what keeps grading additive rather than viral.
+An unmixed pipeline of ~expected<T, E>~ never acquires an ~error_set<E>~ in its spelling; the singleton set exists at the type-bookkeeping level, but the carrier keeps the type you wrote.
+Code that never mixes error types never sees any of this.
+
+* Two composition disciplines
+
+When several operands fail, what should the error be?
+The default object keeps the answer ~expected~ has always given: the leftmost failure wins and the rest are never examined.
+A second object, reached through ~accumulating_applicative_typeclass~, visits every operand and keeps one witness per distinct error type.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::ae466cba-1a93-4a1d-b148-497958a86145]] :lines 2- :src cpp :end "ae466cba-1a93-4a1d-b148-497958a86145 end"
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::045991c1-1dd4-4f93-af8a-b3ac53ce7702]] :lines 2- :src cpp :end "045991c1-1dd4-4f93-af8a-b3ac53ce7702 end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example accumulate
+#+end_src
+
+The accumulated ~error_set~ value /is/ the evidence; there is no side channel of diagnostics.
+And the accumulating object has no ~bind~.
+Sequencing needs the first computation's value to feed the continuation, and there isn't one when that computation failed; asking for it is a compile error whose message says so.
+
+* recover narrows the grade
+
+Grades widen at every mixing point, so there had better be a way back down.
+~recover<E...>~ handles the named alternatives and subtracts them from the grade: handle one member and the set shrinks, handle all of them and you are left holding a plain value.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::fb4194b2-a5cf-43eb-bed8-d50c09601efd]] :lines 2- :src cpp :end "fb4194b2-a5cf-43eb-bed8-d50c09601efd end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example recover
+#+end_src
+
+The same set-difference happens at both levels.
+The type loses the handled members; the value loses their witnesses.
+And the empty grade is spelled ~int~, not ~expected<int, error_set<>>~, so fully recovering really does hand you back an ordinary value.
+
+* Over a whole traversal
+
+The gadgets compose with the rest of the library.
+~traverse~ maps a fallible function over a vector and transposes the failures out; the grade of the per-element function becomes the grade of the whole traversal, and the accumulating object slots in as an ordinary trailing argument.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/graded-gadgets::examples/graded_gadgets_example.cpp::8ec1b0e5-e4e8-4dbb-8644-6293fc959e42]] :lines 2- :src cpp :end "8ec1b0e5-e4e8-4dbb-8644-6293fc959e42 end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.graded_gadgets_example traverse
+#+end_src
+
+One pass over the data, every distinct failure collected, and the result type says so.
+
+* Where the idea comes from
+
+Indexing a computation's type by an effect drawn from an ordered monoid is Katsumata's parametric effect monads [cite:@katsumata2014parametric]; the applicative side of the family goes back to McBride and Paterson [cite:@mcbride2008applicative].
+Here the algebra is a bounded join-semilattice: finite sets of types, union as join, the empty set as bottom, subset as the order.
+The framework layer is written against that algebra and nothing else (a ~grade_semilattice~ concept, join, bottom, and a subsumption order), with ~error_set~ as one model.
+
+A second, deliberately trivial model (a two-point lattice, "never fails" and "may fail") lives in the test suite as a leak detector.
+Any place the framework secretly assumes it is talking about errors, the two-point model fails to slide in, and it caught a real one during development.
+The semilattice laws themselves are checked by a ~consteval~ harness, once per model, instead of being restated in every constraint.
+
+The laws are cheap to state and the gadgets are small.
+What they buy is a compiler that tracks which errors a composition can raise, per composition, with no annotations on the happy path.
+I didn't expect the whole thing to fit in three headers.
+
+#+print_bibliography:

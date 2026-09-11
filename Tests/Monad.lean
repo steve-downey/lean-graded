@@ -38,4 +38,29 @@ example (h₁ : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
 -- `checkRange` via `bind` reduces to the expected value.
 #guard render (bind (parseNat "42") checkRange) = "ok 42"
 
+-- ---------------------------------------------------------------------
+-- The three transport lemmas, at a **nontrivial** grade equality: the
+-- computed union `{parse} ∪ {range}` against the literal `{parse, range}`.
+-- `cast rfl` would satisfy all three of these for a broken `cast`, so the
+-- fixture matters more than the statement.
+
+private theorem hU :
+    Grade.join ({E.parse} : Grade E) {E.range} = ({E.parse, E.range} : Grade E) := by decide
+
+example (a : Nat) :
+    Graded.cast hU (Graded.ok a : Graded (Grade.join ({E.parse} : Grade E) {E.range}) Nat)
+      = Graded.ok a :=
+  cast_ok hU a
+
+example (he : E.parse ∈ Grade.join ({E.parse} : Grade E) {E.range}) :
+    Graded.cast hU (Graded.err E.parse he
+        : Graded (Grade.join ({E.parse} : Grade E) {E.range}) Nat)
+      = Graded.err E.parse (hU ▸ he) :=
+  cast_err hU E.parse he
+
+example (h₁ : ({E.parse} : Grade E) ⊆ Grade.join ({E.parse} : Grade E) {E.range})
+    (x : Graded ({E.parse} : Grade E) Nat) :
+    Graded.cast hU (widen h₁ x) = widen (hU ▸ h₁) x :=
+  cast_widen h₁ hU x
+
 end Tests

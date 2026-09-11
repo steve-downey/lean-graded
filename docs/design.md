@@ -42,7 +42,12 @@ The grade is `error_set<Es...>`: a set of error *types*, ordered by
 inclusion, joined by union; ∅ is the unit. It is a nominal type, not a bare
 pack. Canonicalization is *type-level identity*: `error_set<A,B>` and
 `error_set<B,A>` are the same type, via a public alias delegating to a
-sorted detail carrier. An instance holds **one** error value, whose type is
+sorted detail carrier. That sentence states what the **C++ design
+intends**; it is not something this model proves. What Lean proves is the
+normal-form mathematics beneath it — see
+[representation](#representation), and its boundary note for the list of
+C++ claims (alias identity, mangling, cross-TU agreement) that remain
+`static_assert` obligations. An instance holds **one** error value, whose type is
 in the set; value equality is variant-style.
 
 The carrier at grade `Es` is `expected<T, error_set<Es...>>`; at grade ∅ it
@@ -681,6 +686,66 @@ combined by `Accum.map2` into `validateTwoFields`. With both fields bad,
 [Examples.Validation.E.parse, Examples.Validation.E.range]"` — both
 errors present, the thing `Graded`'s carrier cannot show.
 
+### Accum: traversal, added by [accum-traverse]
+
+The accumulating carrier went fifteen steps without a traversal, which is
+conspicuous: collecting every independent failure is the only reason it
+exists, and a list of independent checks is where that happens. The gap
+is closed in `Graded/AccumTraverse.lean` — a separate module, because
+`Graded.Morphism` imports `Graded.Accum` and `Graded.Sufficient` imports
+`Graded.Morphism`, so `Graded/Accum.lean` cannot see `Graded.traverseK`
+without a cycle, and the commutation theorem below needs it.
+
+**At a nominated grade, not a fold.** `Accum.traverseK hg f` takes the
+caller's `k` and one proof `g ⊆ k`, reuses both at every position, and
+lands in `Accum k (List β)` for every list. Same shape as
+`Graded.traverseK` and the same consequence: length-independence is a
+property of the *signature*, not a theorem costing `Grade.join_idem`.
+
+**`Accum.apK` is primitive, and that is the point.** `Graded.apK` is
+defined through `bindK` — the applicative derived from the monad. This
+one cannot be: `Accum.notMonad` says there is no monad to derive it
+from, and the difference is entirely in the both-fail case, which
+sequencing cannot express. So `apK` matches on both arguments and
+concatenates, with each side's membership carried by the caller's own
+inclusion rather than by `Grade.le_join_left`/`le_join_right`. That is
+visible in the law inventory: `Accum.ap_ok_errs` is tagged `order`
+because `ap`'s definition inlines those two lemmas into its statement,
+and `Accum.apK_ok_errs` is tagged with nothing at all.
+
+**What comes out, and in what order.** `errsOf_traverseK` is the theorem
+the carrier exists for: the accumulated error list of a traversal is
+`xs.flatMap (fun x => errsOf (f x))` — every failing position
+contributes, in source order, exactly once. Zero failures give `[]`, one
+gives that position's list, `n` give all `n` concatenated left to right.
+It costs no pomonoid property whatever, being a claim about
+`List.append`: the grade is fixed at the caller's `k` throughout and
+never computed, so there is nothing for a join law to be about.
+`traverseK_ok` is the success half: an all-succeeding traversal is
+`List.map`.
+
+> **The order is part of the contract, not an artifact.** Because
+> `toGraded` takes the *first* error, left-to-right accumulation decides
+> which error a short-circuiting caller sees. `Tests/AccumTraverse.lean`
+> guards it both ways round: `[0, 5, 200]` accumulates
+> `[parse, range]` and `[200, 5, 0]` accumulates `[range, parse]`. An
+> unordered bag would be a *different carrier* with a different
+> projection policy, not this theorem with a weaker statement — the same
+> provisional note `Graded.Accum`'s own `List`-over-`Multiset` choice
+> already carries.
+
+**The payoff: `toGraded_traverseK`.** Accumulate every failure and then
+keep the first, or short-circuit at the first failure from the start —
+the same error, and on success the same list, with no side condition.
+`toGraded_grade'` already proved the projection is an unconditional
+applicative morphism; this lifts it through the list, by induction over
+`toGraded_map2K` and `toGraded_pureK`. It is the interoperability
+guarantee the C++ side gets for free: a validating `transpose` and a
+short-circuiting one agree on which error a caller sees, and they agree
+because the accumulating one appends left to right while the
+short-circuiting one keeps the leftmost — the same choice made twice,
+not a convention anyone has to maintain.
+
 ## traverse
 
 ### List: shape-independence is idempotence, spent precisely
@@ -716,12 +781,28 @@ and `foldGrade_cons_ne_nil`. That choice is itself the finding: the
 *definition* of `traverse` needs only the order — `foldGrade_le` bounds
 `foldGrade g []= ⊥` exactly as uniformly as any nonempty list, so the empty
 list needs no special case to define `traverse` at all — while the
-*precision* claim (the grade `g` isn't padding; every error kind the
-signature admits is genuinely reachable) is `foldGrade_cons_ne_nil`, and
+*annotation-normalization* claim (a nonempty traversal's stated grade is
+`g` on the nose, the grade the element function already carries, rather
+than a fold that grows with the list) is `foldGrade_cons_ne_nil`, and
 that is where idempotence is spent. Defining `traverse` the other way
 (`cast` along `foldGrade_cons_ne_nil`) would need idempotence just to
 typecheck the empty-list case, which has no elements to be idempotent
 over.
+
+**What `foldGrade_cons_ne_nil` does not say, stated because an earlier
+revision of this section said it did.** The theorem is about the
+*annotation*, not about behaviour. It does not establish that `g` is free
+of padding, and it does not establish that every error kind in `g` is
+reachable: `fun _ => .ok 0 : α → Graded {E.parse} Nat` never fails, and
+`foldGrade {E.parse} xs = {E.parse}` holds for every nonempty `xs`
+regardless. The grade is an upper bound the *signature* declares, and what
+this model proves of it is **soundness** — an error that comes out was
+admitted by the grade, which is `Graded.err`'s membership argument.
+**Completeness** — that each kind in `g` is produced by some input — is a
+property of the element function, not of the traversal; it is generally
+false, and it is stated nowhere in this development. A tightness claim
+about a C++ signature therefore has no support here, and should not cite
+this theorem.
 
 `traverse_cons (f : α → Graded g β) (x : α) (xs : List α) : traverse f (x
 :: xs) = cast (Grade.join_idem g) (map2 (· :: ·) (f x) (traverse f xs))`
@@ -1339,9 +1420,10 @@ the exact union `Grade.join g h`, along the same two inclusions `flatten`
 itself uses, and recovers `flatten` — `rfl` in every constructor case,
 the fourth genuine bridge in this file (an *operation* recovered at a
 computed grade, the same shape as `bind_eq_bindK`/`ap_eq_apK`/
-`traverse_eq_traverseK`, unlike the morphism leg's one-directional
-`GradedHom.gmap_mono`, which bridges two *structures* instead — see
-[sufficient-grade-morphism]'s handoff for why that distinction matters).
+`traverse_eq_traverseK`, unlike the morphism leg's
+`GradedHom.toGradedHomK`, which bridges two *structures* instead — see
+[morphisms](#morphisms) for why that distinction matters, and for the
+fifth bridge `bindK_eq_widen_bind`, which runs the other way).
 
 **`Comp`'s own layer: `Comp.pureK`, `Comp.map2K`, and `traverseCompK`,
 built through `Comp.apK` exactly as `traverseK` is built through `apK` —
@@ -1578,15 +1660,13 @@ currently state at all.
 
 **`renameHomK`** packages the *same* underlying `gmap`/`hom` functions
 `renameHom` does (`Grade.rename φ` and `rename φ`) — only the obligation
-attached to `gmap` differs. `gmap_mono := Grade.rename_mono φ` and
-`hom_pureK := rfl` both check without incident (`pureK a` is `fromEmpty
-a` regardless of grade, and renaming an `ok` is `ok` regardless of grade,
-so both sides reduce to `Graded.ok a` before any grade is inspected).
-`hom_bindK`'s `ok` leaf needs `bindK_ok` to expose `widen hh (f a)`
-*before* `rename_widen` can fire — a case of the same shape earlier legs
-called out: a lambda binder in the field's own statement (`fun a => hom
-(f a)`) means the rewrite has to unfold `bindK` first, not case on `f a`
-first.
+attached to `gmap` differs. It is **no longer built by hand**:
+[morphism-bridge] made `GradedHom.toGradedHomK` total, and `renameHomK`
+is now defined as `(renameHom φ).toGradedHomK`, with `renameHomK_hom`
+and `renameHomK_gmap` recording by `rfl` that the factoring changed no
+term. The hand-built version discharged `hom_bindK`'s `ok` leaf by
+exposing `widen hh (f a)` with `bindK_ok` before `rename_widen` could
+fire; the general lift needs no case split at all.
 
 **Naturality against `apK`/`map2K`/`traverseK`, cast-free.** `rename_apK`,
 `rename_map2K` and `traverseK_rename` are the sufficient-grade analogues
@@ -1598,25 +1678,48 @@ layer only because that layer's own laws produce casts for `rename` to
 commute with; the sufficient-grade layer never produces one in the first
 place.
 
-**The bridge is one-directional, and even its one direction is
-narrower than it looks.** Bridging two *structures* is not the same as
-bridging two *operations* (`bind_eq_bindK`, `ap_eq_apK`,
-`traverse_eq_traverseK`, all `rfl` at a shared instantiation).
-`GradedHom.gmap_mono` derives `GradedHomK`'s `gmap_mono` obligation from
-`GradedHom`'s `gmap_join` field (`Grade.join_eq_right_of_le` collapses the
-homomorphism equation, `Grade.le_join_left` recovers the inclusion) — that
-is the only piece that transfers. There is no converse (a monotone `gmap`
-need not preserve `join`/`bot`: see the counter-instance below), which
-the step predicted. What is *not* obvious ahead of time: even the forward
-direction stops at `gmap_mono` alone. Lifting a full `GradedHom` into a
-full `GradedHomK` — reusing `H.hom` and filling in `hom_bindK` from
-`H.hom_bind` — would need `H.hom` to commute with `widen` at an arbitrary
-sufficient grade, and `widen` ([carrier](#carrier)) is a primitive of
-`Graded`, not something `bind`/`pure` define; `GradedHom`'s two fields say
-nothing about it. `renameHomK` only exists as a full structure because
-`rename` is a *concrete* function that happens to satisfy `rename_widen`
-as a separately proved fact — an abstract `GradedHom` carries no such
-guarantee.
+**The bridge, corrected by [morphism-bridge].** Bridging two *structures*
+is not the same as bridging two *operations* (`bind_eq_bindK`,
+`ap_eq_apK`, `traverse_eq_traverseK`, all `rfl` at a shared
+instantiation). Two things are true, and an earlier revision of this
+section got the second one wrong.
+
+*There is no converse.* A monotone `gmap` need not preserve `join`/`bot`
+— see the counter-instance below — so `GradedHomK → GradedHom` is
+impossible in general. `constHomK_not_gmap_bot` is the standing witness,
+and this is unchanged.
+
+*The forward direction is total, and it costs one field.* This section
+used to say the forward direction stops at `gmap_mono`: that lifting a
+whole `GradedHom` would need `hom` to commute with `widen` at an
+arbitrary sufficient grade, that `widen` ([carrier](#carrier)) is a
+primitive `bind`/`pure` do not define, and that `renameHomK` therefore
+only existed because `rename` *happens* to satisfy `rename_widen`. The
+diagnosis was right; the conclusion did not follow. The obligation has to
+be stated, and stating it is one field — `GradedHom.hom_widen` — after
+which `GradedHom.toGradedHomK` discharges every `GradedHomK` field. It
+quantifies over the target inclusion rather than deriving it, since
+`gmap_mono` is a theorem proved after the structure exists and
+`widen_irrel` is `rfl`, so which proof is supplied cannot matter.
+`GradedHom.hom_ok` falls out along the way: `hom` preserves `ok` at every
+grade, not only at `Grade.bot` where `hom_pure` states it.
+
+*Why this was missed twice.* The proof route decides how many
+obligations you need. Discharging `hom_bindK` by case-splitting on the
+carrier exposes its `err` leaf at payload type `β` on one side and `α` on
+the other, which additionally requires `hom`'s action on errors to be
+natural in the payload — a second obligation, and the one
+[migration-review] recorded as necessary after checking the lift in Lean.
+It is not necessary. Going through `bindK_eq_widen_bind` never splits:
+both sides become a `widen` of `hom (bind x f)`, `hom_bind` rewrites
+underneath, and `widen_cast` absorbs the `cast (gmap_join g h)` the
+union-graded law carries. Payload naturality is a real property of
+carriers and it belongs to the payload-bearing work, not to this bridge.
+
+`bindK_eq_widen_bind` is itself new, and is a fourth bridge running the
+other way from the three above: those instantiate a sufficient grade at
+the computed union, this factors a sufficient-grade operation through the
+computed one.
 
 **The counter-instance: `constHomK`.** A monotone `gmap` that is not a
 join-semilattice homomorphism, with a working `hom` — the constant map
@@ -1690,9 +1793,27 @@ predicate rather than two. Declared `abbrev`, matching `Grade`'s own
 - `Canon.ofList`/`canon_perm`: `ofList` sorts a `List Err` via the
   union-of-singletons fold `joinAll` (`docs/design.md#traverse`'s Tuple
   subsection), so that `canon_perm : gs ~ gs' → ofList gs = ofList gs'` —
-  **the direct statement of "`error_set<A,B>` is `error_set<B,A>`"** —
-  can cite `joinAll_perm` rather than reproving order-independence from
-  `List.Perm` directly.
+  **the normal-form fact underneath "`error_set<A,B>` is
+  `error_set<B,A>`"**, which is not the same as that C++ claim; see the
+  boundary note below — can cite `joinAll_perm` rather than reproving
+  order-independence from `List.Perm` directly.
+
+**The boundary this section stops at.** Everything above is a fact about
+two Lean representations of one grade, and none of it is evidence about
+C++ types. `canonEquiv` is a bijection between `Finset Err` and a sorted
+list, not an alias identity; `canon_perm` says two permutations *sort to
+the same representative*, not that a compiler gives `error_set<A,B>` and
+`error_set<B,A>` a single type; and nothing in this module touches
+mangled names, ABI, or whether two translation units agree on the normal
+form. `[LinearOrder Err]` records what a sorted normal form costs beyond
+a quotient — it does not name the order the C++ carrier actually sorts
+by, and Lean cannot check that the carrier sorts by a total order at all.
+Those are `static_assert` and toolchain obligations, enumerated in
+`docs/probe-harness.md`, and they belong to the C++ implementation. The
+division is deliberate and load-bearing: **Lean owns the normal-form
+mathematics; C++ owns type identity.** Where a sentence here mentions
+`error_set`, it names the construct being modelled — never a claim proved
+about it.
 
 > **`canon_requires_linear_order`.** Not a theorem — there is no false
 > statement to refute, only a hypothesis to record. `Grade Err :=
@@ -1926,7 +2047,7 @@ morphism — needs either property.** Every consumer is a claim about a
 grade's *spelling* (that two expressions denote the same grade, or that a
 grade equals some fold), never about what an operation computes for a
 payload or an error. The operational obligation on a grade is exactly
-`Pomonoid`: associative, unital, ordered, monotone.
+`PreorderedGradeMonoid`: associative, unital, ordered, monotone.
 
 **The question this section answers.** `#cpp-counterpart` ends: "Only
 `error_set` is intended as a grade for now; the design should not make it
@@ -1965,7 +2086,7 @@ expressions denote the same grade, or that a grade equals some fold.
 | `join_mem_eq` | `Tuple.lean` | associative, commutative, idempotent | canonicalization | pure `Grade`-level: `join g (joinAll gs) = joinAll gs` — a collapse of two spellings of the same grade |
 | `foldG_cons_ne_nil` | `Obligations.lean` | idempotent, unit | canonicalization | the generic mirror of `foldGrade_cons_ne_nil`, same reading |
 | `joinAllG_perm` | `Obligations.lean` | associative, commutative | canonicalization | the generic mirror of `joinAll_perm` |
-| `join_le` | `Obligations.lean` | idempotent, order | grade-boundedness — see below | never mentions a carrier value, `bind`, `ap`, `traverse`, `widen`, or `rename`; a `Pomonoid` inequality, not an equality of two spellings either |
+| `join_le` | `Obligations.lean` | idempotent, order | grade-boundedness — see below | never mentions a carrier value, `bind`, `ap`, `traverse`, `widen`, or `rename`; a `PreorderedGradeMonoid` inequality, not an equality of two spellings either |
 | `foldG_le` | `Obligations.lean` | order (mechanically — see below) | grade-boundedness, the sharpest case — see below | |
 
 **No operational counterexample.** Every one of the fifteen non-defining
@@ -1995,9 +2116,9 @@ along it, not along the exactness fact `foldGrade_cons_ne_nil`.
 But `foldGrade_le` — the fact actually used to define `traverse` — needs
 only order (`Grade.join_le`, `Grade.bot_le`), proved directly from
 `Finset.union_subset`, no idempotence anywhere. The generic
-`Obligations.foldG_le` needs `IsIdemPomonoid` only because
+`Obligations.foldG_le` needs `IsIdemGrade` only because
 `Graded/Obligations.lean` deliberately declined to make `join_le` a
-primitive `Pomonoid` field — doing so would foreclose the `Nat`
+primitive `PreorderedGradeMonoid` field — doing so would foreclose the `Nat`
 counter-instance this module exists to run, since `Nat`'s "join" (`+`) is
 not a lattice join. With `join_le` non-primitive, the only generic route
 back to boundedness is `join_mono` plus `join_idem`
@@ -2017,7 +2138,7 @@ settles and what it does not.
 
 **A gap in the mechanical table, found while classifying this row.**
 `docs/laws.md` tags `foldG_le` only `order`, not `idempotent`, even
-though its Lean signature requires `[IsIdemPomonoid G]` and its proof
+though its Lean signature requires `[IsIdemGrade G]` and its proof
 genuinely needs `join_idem` (by calling `join_le`, which needs it). This
 is not a new parser bug: `scripts/laws-inventory.py`'s own docstring
 already disclaims seeing through a delegated call ("it does not try to
@@ -2030,65 +2151,88 @@ used for this row.
 
 ### The restructure
 
-The three-class tower (`Pomonoid` → `IsCommPomonoid` → `IsIdemPomonoid`,
-nested) becomes `Pomonoid` plus **three independent siblings**:
+Revised twice. [obligation-layering] flattened a three-class tower into
+`Pomonoid` plus three siblings, each `extends Pomonoid`.
+[grade-join-strength] then renamed the base class and reversed the
+`extends`, and this is the current shape:
 
 ```
-class Pomonoid (G : Type u) where            -- unchanged: the operational obligation
+class PreorderedGradeMonoid (G : Type u) where       -- the operational obligation
   join, bot, le, join_assoc, bot_join, join_bot, le_refl', le_trans', bot_le, join_mono
 
-class IsCommPomonoid (G : Type u) extends Pomonoid G where
-  join_comm : ∀ a b, join a b = join b a
+class IsCommGrade  (G) [PreorderedGradeMonoid G] : Prop where  join_comm
+class IsIdemGrade  (G) [PreorderedGradeMonoid G] : Prop where  join_idem
+class IsLubGrade   (G) [PreorderedGradeMonoid G] : Prop where  join_le
+class IsPartialOrderGrade (G) [PreorderedGradeMonoid G] : Prop where  le_antisymm
 
-class IsIdemPomonoid (G : Type u) extends Pomonoid G where   -- no longer extends IsCommPomonoid
-  join_idem : ∀ a, join a a = a
-
-class IsCanonicalPomonoid (G : Type u) extends Pomonoid G where
-  join_comm : ∀ a b, join a b = join b a
-  join_idem : ∀ a, join a a = a
+abbrev IsCanonicalGrade (G) [PreorderedGradeMonoid G] : Prop :=
+  IsCommGrade G ∧ IsIdemGrade G
 ```
 
-`IsCommPomonoid` and `IsIdemPomonoid` no longer nest — the classification
-above is *why*: `foldG_le`/`foldG_cons_ne_nil` cite `join_idem` alone,
-`joinAllG_perm` cites `join_comm` alone, and nothing in this module (or
-anywhere else — the three classes are used nowhere outside
-`Graded/Obligations.lean` and `Tests/Obligations.lean`) ever needs both
-at once. The old nesting was a real, if invisible, over-strong
-hypothesis: `foldG_le`/`foldG_cons_ne_nil` took `IsIdemPomonoid`, which —
-through `extends IsCommPomonoid` — silently required commutativity
-neither proof ever cites, in tension with `docs/RULES.md`'s "a theorem
-takes the weakest hypothesis that proves it." Decoupling fixes this
-without touching either theorem's name or its conclusion.
+**The rename.** `Pomonoid` named a partially ordered monoid and defined a
+preorder: its order fields are `le_refl'` and `le_trans'`, with no
+`le_antisymm`. [truth-in-labelling] corrected the prose and deferred the
+rename for a stated reason — both grades in the model at that point
+(`Finset` under `⊆`, `Nat` under `≤`) were antisymmetric, so an
+antisymmetry mixin would have been one every instance satisfied, and a
+class nothing refutes discriminates nothing. `Pack` (below) is the grade
+that refutes it, so the mixin now has content and the base class now has
+an accurate name. The fields are unchanged: sequencing needs reflexivity
+and transitivity and nothing more, and charging every operational law for
+antisymmetry is what `docs/RULES.md`'s hypothesis discipline forbids.
 
-`IsCanonicalPomonoid` bundles both axioms as its own direct fields (not
-by extending both `IsCommPomonoid` and `IsIdemPomonoid`, which would
-reintroduce a diamond back to `Pomonoid`). No theorem in
-`Graded/Obligations.lean` takes it as a hypothesis, and that absence is
-the point: it exists to *name* the bundle a real grade inhabits, not
-because any internal proof needs the conjunction. `Grade Err` gets an
-instance (`Finset` union is both commutative and idempotent); `Nat` does
-not (it has `IsCommPomonoid` alone). Read against the classification
-above, this is exactly the shape the hypothesis predicts:
-`IsCanonicalPomonoid` names "this grade's *type* promises canonical exact
-spelling" — order-independent and length-independent — as one name
-instead of two, because that is what `error_set` promises in C++, not
-because `and_then` or `apply` need it.
+**The `extends` reversal, which is an amendment.** [obligation-layering]
+made each mixin `extends Pomonoid` so instance search had one route to
+the base and no two `Pomonoid G` terms could disagree. That was right for
+the classes that existed then and cannot express the ones that exist now:
+asking for two mixins at once under `extends` means two independent
+copies of the base, which is the diamond the decision existed to prevent.
+Parameterised `Prop` mixins index the base instead of carrying it, so
+there is exactly one such term by construction, `[IsCommGrade G]
+[IsIdemGrade G]` is a well-formed conjunction, and `IsCanonicalGrade`
+stops being a class with duplicated fields and becomes an `abbrev` for
+that conjunction. The amendment, with its reason, is recorded at
+[`docs/RULES.md#amendments`](RULES.md#amendments). No hypothesis changed
+strength: a theorem that took `[IsIdemGrade G]` alone now takes
+`[PreorderedGradeMonoid G] [IsIdemGrade G]`, the same requirement with
+the base instance named rather than projected out.
 
-Every existing theorem in `Graded/Obligations.lean` remains provable
-unchanged (`make all` GREEN before and after this restructure), and both
-the `Grade`/`Finset` and `Nat` instances still resolve — `Nat` now
-additionally fails to instantiate `IsCanonicalPomonoid`, for the same
-reason it already failed `IsIdemPomonoid`.
+**Why the two new mixins are separate from the base.** `join_le` is a
+least-upper-bound fact, and [grade-obligations] deliberately kept it out
+of the base class so `Nat` under `+` could remain an instance — `1 ≤ 1`
+twice over, and `1 + 1 ≰ 1`. Stating it as `IsLubGrade` keeps that
+exclusion and lets the semilattice question be *asked* of a grade rather
+than assumed of every grade. `le_antisymm` is kept out for the mirror
+reason: it is what separates a preorder from a partial order, and exactly
+one grade in the model fails it.
+
+**The separation table**, which is what the mixins are for:
+
+| grade | LUB | comm | idem | antisym |
+|---|---|---|---|---|
+| `Grade Err` = `Finset Err` under `∪` | yes | yes | yes | yes |
+| `Nat` under `+` | no | yes | no | yes |
+| `Pack Err` = `List Err` under `++` | yes | no | no | **no** |
+
+No two agree, and each mixin is refuted by something. `IsCommGrade` and
+`IsIdemGrade` are still independent of each other, exactly as
+[obligation-layering] found: `foldG_le`/`foldG_cons_ne_nil` cite
+`join_idem` alone, `joinAllG_perm` cites `join_comm` alone, and nothing
+needs both at once. The classes remain used nowhere outside
+`Graded/Obligations.lean` and `Tests/Obligations.lean`.
+
+Every theorem in `Graded/Obligations.lean` from before the restructure
+remains provable, and `make all` is green before and after.
 
 ### What changed from [grade-obligations], and why
 
 | | [grade-obligations]'s account | this section, now |
 |---|---|---|
-| shape | three nested layers, each "more grade" | one operational class (`Pomonoid`) plus three independent mixins |
+| shape | three nested layers, each "more grade" | one operational class (`PreorderedGradeMonoid`) plus three independent mixins |
 | what commutativity buys | order-independence, a genuine extra capability | reconciling two *spellings* of an exactly-computed union; no capability any operation needs |
 | what idempotence buys | length-independence, a genuine extra capability | the same — reconciling `join g g` with `g`; no capability any operation needs, except the grade's own boundedness bookkeeping (`foldG_le`) |
-| `foldG_le`/`foldG_cons_ne_nil`'s hypothesis | `IsIdemPomonoid` (which silently also required `IsCommPomonoid`) | `IsIdemPomonoid` (now idempotence alone, nothing silent) |
-| `joinAllG_perm`'s hypothesis | `IsCommPomonoid` | unchanged |
+| `foldG_le`/`foldG_cons_ne_nil`'s hypothesis | `IsIdemGrade` (which silently also required `IsCommGrade`) | `IsIdemGrade` (now idempotence alone, nothing silent) |
+| `joinAllG_perm`'s hypothesis | `IsCommGrade` | unchanged |
 | the paper's claim | "a grade needs three algebraic layers" | "`error_set` has to be a semilattice because of a promise its C++ *type* makes (canonical spelling), not because any operation on values needs it" |
 
 [grade-obligations]'s measurements below (the `Nat` counter-instance, the
@@ -2101,7 +2245,7 @@ directly.
 
 `Graded.Grade.join_le` (`g ⊆ k → h ⊆ k → g ∪ h ⊆ k`, proved directly by
 `Finset.union_subset`) and its two one-sided cousins `le_join_left`/
-`le_join_right` are **not** primitive `Pomonoid` fields here, and this is
+`le_join_right` are **not** primitive `PreorderedGradeMonoid` fields here, and this is
 itself a finding, not a simplification of convenience.
 
 `join_le` is a least-upper-bound fact: it holds for `Finset` union because
@@ -2110,7 +2254,7 @@ implied by "associative, unital, ordered, monotone" — the `Nat`
 counter-instance below satisfies every other field (`join_assoc`,
 `bot_join`/`join_bot`, `le_refl'`/`le_trans'`, `bot_le`, `join_mono`,
 `join_comm`) and still refutes it: `1 ≤ 1` twice over, but `1 + 1 ≰ 1`.
-Making `join_le` a required `Pomonoid` field would make `Nat` unable to
+Making `join_le` a required `PreorderedGradeMonoid` field would make `Nat` unable to
 instantiate even the base layer, foreclosing the demonstration this
 section exists to run. `le_join_left`/`le_join_right`, by contrast, *are*
 derivable from the fields kept (`join_mono`, `join_bot`/`bot_join`,
@@ -2121,7 +2265,7 @@ theorems, not fields, so the vocabulary still lines up with
 
 ### Mathlib classes considered, and why none were inherited from
 
-Checked against the pinned Mathlib before writing `Pomonoid` fresh:
+Checked against the pinned Mathlib before writing `PreorderedGradeMonoid` fresh:
 
 - **`SemilatticeSup`** (`Mathlib.Order.Lattice`) — a `PartialOrder` plus a
   `sup` that *is* the least upper bound (`SemilatticeSup`'s own `le_sup_left`/
@@ -2135,12 +2279,12 @@ Checked against the pinned Mathlib before writing `Pomonoid` fresh:
   (`Mathlib.Algebra.Order.Monoid.Defs`) — mixin classes layered on top of
   `AddCommMonoid`/`Preorder`, requiring only monotonicity
   (`add_le_add_left`), not a least-upper-bound property. This is the
-  actual shape `Pomonoid` ended up with — but inheriting it would still
+  actual shape `PreorderedGradeMonoid` ended up with — but inheriting it would still
   pull in Mathlib's `AddCommMonoid`/`Preorder` hierarchy and its `simp`
   set, which is exactly what [grade](#grade)'s own provisional note
   already declined for `Grade`, for the same reason: an inherited instance
   lets later `simp` calls reach for these properties invisibly, defeating
-  the point of a name-by-name grep. `Pomonoid` is written multiplicatively
+  the point of a name-by-name grep. `PreorderedGradeMonoid` is written multiplicatively
   and fresh instead, so `join_mono` (this project's name) stays the
   citation, not `add_le_add_left` (Mathlib's).
 - **`CovariantClass`** (`Mathlib.Algebra.Order.Monoid.Unbundled.Defs`) — the
@@ -2156,10 +2300,10 @@ counter-instance at all).
 
 ### The `Nat` demonstration
 
-`instance : Pomonoid Nat` (`join := (· + ·)`, `bot := 0`, `le := (· ≤
+`instance : PreorderedGradeMonoid Nat` (`join := (· + ·)`, `bot := 0`, `le := (· ≤
 ·)`, citing `Nat.add_assoc`/`Nat.zero_add`/`Nat.add_zero`/`Nat.le_refl`/
 `Nat.le_trans`/`Nat.zero_le`/`Nat.add_le_add`) and `instance :
-IsCommPomonoid Nat` (`Nat.add_comm`) — no `IsIdemPomonoid Nat` instance
+IsCommGrade Nat` (`Nat.add_comm`) — no `IsIdemGrade Nat` instance
 exists, and `nat_not_idem : ¬ ∀ a : Nat, a + a = a` proves why
 (`1 + 1 = 2 ≠ 1`).
 
@@ -2182,7 +2326,7 @@ Two disproofs at `Nat`, both from the same witness (`g := 1`, `xs := [(),
   free generically even though its concrete sibling `foldGrade_le` is).
 
 And order-independence survives regardless: `joinAllG_perm` holds at
-`Nat` (`joinAllG [1,2,3] = joinAllG [3,1,2] = 6`, by `IsCommPomonoid`
+`Nat` (`joinAllG [1,2,3] = joinAllG [3,1,2] = 6`, by `IsCommGrade`
 alone) exactly as it does at `Grade`. Put side by side, the `Nat` instance
 shows the two axioms buying genuinely different things: commutativity
 survives on its own; idempotence's absence breaks both of `foldG`'s
@@ -2190,8 +2334,8 @@ claims about a non-empty list.
 
 ### Judgement call, resolved
 
-[grade-obligations] chose to nest `IsIdemPomonoid` under `IsCommPomonoid`
-rather than sit it beside `Pomonoid`, provisionally, on the evidence that
+[grade-obligations] chose to nest `IsIdemGrade` under `IsCommGrade`
+rather than sit it beside `PreorderedGradeMonoid`, provisionally, on the evidence that
 neither headline theorem needing idempotence ever cites `join_comm`.
 [obligation-layering] resolved it the other way: sit beside. The evidence
 did not change; the reading of it did — "costs nothing observable" is an
@@ -2205,11 +2349,11 @@ Not included. A quick check of the free monoid (`List X` under `++`,
 `[]`, ordered by `<+:` prefix) shows `join_mono` itself fails there in
 general — `[1] <+: [1, 9]` and `[2] <+: [2]`, but `[1] ++ [2] = [1, 2]` is
 not a prefix of `[1, 9] ++ [2] = [1, 9, 2]` — so it does not even reach
-`Pomonoid`, let alone serve as a non-commutative counter-instance to
-`joinAllG_perm`. Building a genuine non-commutative `Pomonoid` instance
+`PreorderedGradeMonoid`, let alone serve as a non-commutative counter-instance to
+`joinAllG_perm`. Building a genuine non-commutative `PreorderedGradeMonoid` instance
 would need a different carrier than the one this step's brief suggested,
 which is more than "lands quickly" allows. The commutative layer's
-necessity (`joinAllG_perm`'s dependence on `IsCommPomonoid`) is therefore
+necessity (`joinAllG_perm`'s dependence on `IsCommGrade`) is therefore
 argued — via the layer-to-law table and the `Grade`/`Nat` agreement above
 — but not demonstrated by a instance where it actually fails.
 
@@ -2221,14 +2365,73 @@ join-semilattice, which is what `error_set`'s union is and what
 [grade](#grade) calls it throughout), or merely an associative, unital,
 monotone operation (an ordered monoid)?
 
-**Status: OPEN, reframed by [obligation-layering] — sharpened, not
-closed.** Raised by the orchestrator after [grade-obligations], which had
+**Status: CLOSED 2026-09-10 by [grade-join-strength], with a witness.**
+The answer is that a grade's `join` need only be a least upper bound for
+the *preorder*, and that "commutative and idempotent" are not extra
+axioms a grade happens to have — they are what antisymmetry converts the
+least-upper-bound law into. The witness is `Pack Err` (`List Err` under
+`++`), and the two theorems are `IsIdemGrade.of_lub_of_antisymm` and
+`join_self_equiv`. See "The answer, and the witness" below; the original
+framing and the three narrowing passes are kept beneath it, unedited,
+because they are what the question looked like on the way to being
+answered.
+
+**Status before this revision: OPEN, reframed by [obligation-layering] —
+sharpened, not closed.** Raised by the orchestrator after [grade-obligations], which had
 to choose and chose the weaker reading; reframed after
 [obligation-layering]'s classification (`#obligations`) found that no
 *operational* law (monad, applicative, traversal, subsumption, morphism)
 ever needs `join_comm`/`join_idem`/`join_le` — every consumer is a claim
 about a grade's spelling or bound, never about a value. That does not
 answer the original question; it changes what answering it would mean.
+
+**The answer, and the witness.** Both readings were describing the same
+requirement from different sides, and the thing that separates them is
+antisymmetry, not the join.
+
+`Graded/Obligations.lean` now states the least-upper-bound law as its own
+mixin, `IsLubGrade`, rather than leaving it excluded and unnamed, and adds
+`IsPartialOrderGrade` for antisymmetry. Two theorems run between them,
+and neither is an `instance`:
+
+- `IsLubGrade.of_idem` — idempotence plus monotonicity gives `join_le`.
+  This is the old `join_le` theorem, repackaged.
+- `IsIdemGrade.of_lub_of_antisymm` — `join_le` plus antisymmetry gives
+  `join_idem`. `join_le (le_refl' a) (le_refl' a)` puts `join a a` below
+  `a`, `le_join_left a a` puts `a` below `join a a`, and antisymmetry
+  closes the two into an equality.
+
+`join_self_equiv` states what is left when antisymmetry is taken away:
+over a bare preorder, `IsLubGrade` gives `join a a` and `a` each below
+the other, and no more.
+
+The witness that this is a real gap rather than a bookkeeping one is
+`Pack Err := List Err`, joined by `++` and ordered by membership: the
+pre-canonical `error_set<Es...>` as the programmer wrote it, before the
+public alias delegates to its sorted, deduplicated detail carrier. It
+satisfies every field of `PreorderedGradeMonoid`. It satisfies
+`IsLubGrade`, which `Nat` does not. And it refutes `IsPartialOrderGrade`:
+`[A, A]` and `[A]` are each below the other and are not the same pack.
+Consequently `pack_not_idem` and `pack_not_comm` hold — both laws fail as
+*equalities* while holding as order-equivalences.
+
+So the pack is a preordered grade monoid; `Grade Err` is its poset
+quotient; `Canon Err` ([representation](#representation)) is a chosen
+normal form for that quotient. Commutativity and idempotence are what
+quotienting buys, and antisymmetry is the property that turns the
+equivalence into the equality. That is the same sentence as
+"canonicalization is what makes `error_set<A,B>` and `error_set<B,A>` one
+type", stated as an algebra rather than as a metaprogram, and it means
+this question and [representation](#representation) were one question.
+
+What this does *not* settle is option (b) below: no non-lattice grade
+with a real use for `traverse` has turned up, and the pack is a lattice
+grade. The original question asked how strong `join` must be, and the
+answer is "a least upper bound for the preorder"; the narrower question
+[obligation-layering] reframed it into — whether a grade's C++ *type*
+must promise canonical spelling for `traverse`'s signature to be writable
+— is answered the same way, since `foldG_le` needs the bound and the
+bound is `IsLubGrade`, which the pack has without being canonical at all.
 
 **The reframing.** The question is no longer "does the algebra force
 idempotence" (settled: it does not, `Nat` is the witness) but "must a
@@ -2243,7 +2446,7 @@ and length-independent, i.e. genuinely be a join-semilattice — for
   already is a semilattice join, so boundedness is free, and the
   idempotence `foldGrade_cons_ne_nil` costs is spent entirely on the
   *exactness* claim, never the definition.
-- Generically, over an abstract `Pomonoid` that is *not* assumed to be a
+- Generically, over an abstract `PreorderedGradeMonoid` that is *not* assumed to be a
   semilattice, even the *definition*-level boundedness fact (`foldG_le`)
   needs idempotence to reconstruct — because `Graded/Obligations.lean`
   deliberately excludes `join_le` as a primitive (to keep `Nat` an
@@ -2266,7 +2469,7 @@ different sets of admissible grades so much as two different ways of
 > `join a a ≤ a`, `join_mono le_refl' (bot_le a)` rewritten by `join_bot`
 > gives `a ≤ join a a`, and antisymmetry closes it. Both concrete grades
 > in this model (`Finset` under `⊆`, `Nat` under `≤`) have antisymmetric
-> orders; `Pomonoid` simply does not require it as a field, so `le` there
+> orders; `PreorderedGradeMonoid` simply does not require it as a field, so `le` there
 > is really a preorder.
 
 **What each answer still costs, restated against the classification.**
@@ -2303,7 +2506,7 @@ determine — [obligation-layering]'s classification narrows the stakes
 settled by either: (a) an explicit P3200 design decision that `traverse`
 is only ever offered for `error_set`-like grades and non-lattice grades
 simply do not get it (making the weaker reading fully adequate and this
-question moot), or (b) a genuine non-lattice `Pomonoid` instance with a
+question moot), or (b) a genuine non-lattice `PreorderedGradeMonoid` instance with a
 real use for `traverse` that the current model cannot express, which
 would argue for the stronger requirement. Neither exists yet; the `Nat`
 instance is a demonstration, not a use case anyone wants `traverse` on.
@@ -2312,20 +2515,20 @@ instance is a demonstration, not a use case anyone wants `traverse` on.
 produce case (b).** `Graded/Sufficient.lean`'s `traverseK` is built
 entirely on the concrete `Graded g α`/`Grade Err` carrier
 ([carrier](#carrier)), never on `Graded/Obligations.lean`'s abstract `G
-: Type u` `[Pomonoid G]` framework where the `Nat` counter-instance
+: Type u` `[PreorderedGradeMonoid G]` framework where the `Nat` counter-instance
 lives — the two layers of this codebase (the sufficient-grade migration,
 and the generic obligations hierarchy) never meet. So `traverseK`'s own
 headline finding (no `foldGrade`, no idempotence citation anywhere,
 [traverse](#traverse)'s sufficient-grade subsection) is a fact about
 writing `traverse` against a *caller-nominated* grade at the concrete,
 already-canonical `Grade Err` instance — it neither confirms nor refutes
-whether an abstract non-lattice `Pomonoid` could support a `traverse` the
+whether an abstract non-lattice `PreorderedGradeMonoid` could support a `traverse` the
 current model cannot express, because no such abstract grade was ever
 asked to. This is consistent with the weaker reading being adequate (a
 caller-nominated grade seems to need nothing algebraic at all, not even
 at the concrete instance), but "consistent with" is not "the concrete
 case that settles it" — that would need `traverseK`'s recursion pattern
-generalized to run over an arbitrary `[Pomonoid G]` carrier and then
+generalized to run over an arbitrary `[PreorderedGradeMonoid G]` carrier and then
 instantiated at `Nat`, which this leg's declared scope (`Graded/
 Sufficient.lean`, an extension of the concrete layer, not the abstract
 one) does not include and did not attempt. **Remains OPEN**, narrowed
@@ -2338,7 +2541,7 @@ of the migration.
 
 **Log.**
 
-- 2026-09-08 — [grade-obligations] excluded `join_le` from `Pomonoid` to
+- 2026-09-08 — [grade-obligations] excluded `join_le` from `PreorderedGradeMonoid` to
   keep the `Nat` instance, and found that `foldG_le` then needs
   idempotence generically though the concrete `Grade.join_le` proof does
   not.
@@ -2351,11 +2554,21 @@ of the migration.
   "must a grade's type promise canonical spelling for `traverse` to
   exist" — narrower, but not settled by the classification alone. See
   `#obligations`'s "the sharpest case" for the evidence.
+- 2026-09-10 — [grade-join-strength] **closed** it with the `Pack Err`
+  witness: a grade that has `IsLubGrade` and refutes
+  `IsPartialOrderGrade`, so `join a a` and `a` are each below the other
+  and are not equal. `IsIdemGrade.of_lub_of_antisymm` and
+  `join_self_equiv` are the two theorems; the answer is that
+  commutativity and idempotence are what antisymmetry converts the
+  least-upper-bound law into, which makes this question and
+  [representation](#representation) the same question. `Pomonoid` was
+  renamed `PreorderedGradeMonoid` in the same step, the name having
+  become accurate rather than merely wrong.
 - 2026-09-08 — [sufficient-grade-nested] checked whether
   [sufficient-grade-traverse] had produced the concrete non-lattice-
-  `Pomonoid`-with-working-`traverse` case that would settle option (b):
+  `PreorderedGradeMonoid`-with-working-`traverse` case that would settle option (b):
   it had not, because the whole sufficient-grade migration builds on the
-  concrete `Grade Err` carrier, never the abstract `Pomonoid` framework
+  concrete `Grade Err` carrier, never the abstract `PreorderedGradeMonoid` framework
   `Nat` lives in. Still OPEN.
 
 ### cast-burden-migration-scope
@@ -2378,8 +2591,10 @@ a replacement — held across all five legs, with no exception: `bindK`,
 each coexist with their union-graded counterpart, recovered from it at a
 computed grade by a `rfl`-or-near-`rfl` bridge
 (`bind_eq_bindK`/`ap_eq_apK`/`traverse_eq_traverseK`/`flatten_eq_flattenK`,
-all tagged `/-- BRIDGE -/`, plus `GradedHom.gmap_mono`'s narrower,
-one-directional structure bridge). No existing union-graded theorem
+all tagged `/-- BRIDGE -/`, plus the structure bridge
+`GradedHom.toGradedHomK` — one-directional, since a `GradedHomK` still
+cannot be completed into a `GradedHom`, but total in the direction it
+runs, as [morphism-bridge] established by adding `hom_widen`). No existing union-graded theorem
 changed; `Graded/Sufficient.lean` is purely additive, 57 theorems across
 five legs, and not one of their *statements* carries a `cast` — the
 entire sufficient-grade layer is cast-free, not merely "mostly."
@@ -2475,6 +2690,15 @@ question's own log applied to itself.
   well-formedness, not a proof obligation), and that the `GradedHom` →
   `GradedHomK` bridge is genuinely one-directional and narrower than a
   full structure map, unlike every operation-level bridge.
+- 2026-09-10 — [morphism-bridge] corrected the entry above. The
+  narrowness was a property of the proof route, not of the structures:
+  adding one field to `GradedHom` (`hom_widen`, stating that `hom`
+  commutes with subsumption, which `hom_bind`/`hom_pure` cannot say)
+  makes `GradedHom.toGradedHomK` total, and `renameHomK` now factors
+  through it. The payload-naturality obligation [migration-review] found
+  necessary is not: it is forced only by discharging `hom_bindK` with a
+  case split, which `bindK_eq_widen_bind` avoids. There is still no
+  converse.
 - 2026-09-08 — [sufficient-grade-nested] (this leg) closed the question:
   `flattenK_comm` needs no hypothesis and is `rfl`; `Comp.grade_reassoc`
   has no analogue; the sufficient-grade layer's operational commutativity
@@ -2483,15 +2707,623 @@ question's own log applied to itself.
   `Tests/Sufficient.lean` to confirm the statement is not vacuous. Wrote
   the summary table above and closed the question.
 
+## payloads
+
+**The question this section answers.** `#cpp-counterpart` has said from
+the start that an `error_set` instance "holds **one** error value, whose
+type is in the set". The model held the *type*: `Graded.err e he` records
+that an `e`-shaped failure happened and nothing about it. So no law about
+a parse location, a range bound, or an errno was statable — the one place
+the model was narrower than the design it exists to check.
+
+`Graded/Signature.lean` adds `ErrorSignature`: a type of kinds, and for
+each kind the type of payload it carries. The grade stays a `Finset` of
+*kinds*, which is why `error_set<parse_error>` is one type however much
+data a parse error turns out to carry. `Graded/Carrier.lean` builds
+`ExpectedG` over a signature, and recovers `Graded` as the
+`tagOnly`-signature specialization.
+
+### The bridge, decided before anything was written
+
+The choice was between proving `Graded ≃ ExpectedG (tagOnly Err)` and
+*defining* the one as the other. An `Equiv` carries no theorems: each of
+the two hundred-odd results proved against `Graded` would need
+transporting. A definitional specialization leaves them proved. This was
+settled by prototype before the carrier was touched, and the measured
+cost of the migration is the argument:
+
+| | count |
+|---|---|
+| existing theorem statements changed | **0** |
+| transports introduced | **0** |
+| `cases … with` sites needing `using Graded.rec'` | 76 |
+| constructor lemmas restated by hand | 4 |
+
+Three mechanisms make that work, and each was found by something
+breaking:
+
+- **`@[match_pattern]` smart constructors.** `Graded.ok`/`Graded.err`
+  are `def`s supplying the unit payload, so `| .err e he => …` still
+  elaborates against a constructor that really takes three arguments.
+- **A `@[cases_eliminator, induction_eliminator]` two-case recursor.**
+  Without it `cases x with | err e he` binds `he` to the *payload* and
+  auto-names the membership proof — loud at most sites, and silent at any
+  site that never uses `he`.
+- **`Graded` is a `def`, not an `abbrev`.** Dot-notation resolves in the
+  namespace of the expected type's head; under an `abbrev` Lean sees
+  through to `ExpectedG` and picks its three-argument `err`, so every
+  legacy `.err e he` becomes a partial application. The smart
+  constructors also have to live in `Graded.Graded`, the type's own
+  namespace, for the same reason.
+
+**Where the 76 sites come from, and why they are not avoidable.** `cases`
+looks up a custom eliminator by the head constant *as written*. Modules
+that go through a reducible alias over `Graded` — `Fixed` in
+[ungraded-baseline], `Comp` in [compose-applicative] — present a
+different head, so the lookup misses and `cases` unfolds all the way to
+`ExpectedG`. Making the aliases opaque fixes `cases` and breaks `rw`
+instead, since the lemmas are stated about `Graded`. Naming the
+eliminator explicitly (`cases x using Graded.rec' with`) is correct
+whatever the head, and is a one-token edit. Modules that name `Graded`
+directly needed nothing.
+
+### What a signature owes
+
+`ExpectedG`'s `DecidableEq` and `Repr` need an instance for **each**
+member of the payload family — `[∀ k, DecidableEq (S.Payload k)]` — and
+instance search cannot assemble that from the pieces. Every concrete
+signature owes two dependent instances, written out kind by kind;
+`Examples/Payload.lean` is what discharging them looks like. This is not
+a detail: every `#guard` in the repository reduces through
+`instDecidableEq`, so it had to work before anything else could.
+
+Equality itself goes through `toSum`, which forgets the membership proof
+and keeps the success payload or the kind-tagged error payload.
+`toSum_inj` says that is sound, and it is sound because the membership
+argument is a `Prop`.
+
+**The universe pin** is recorded as an amendment at
+[`docs/RULES.md#amendments`](RULES.md#amendments): `tagOnly` fixes its
+payload universe at `0`, because `Graded`'s result universe is otherwise
+an unsolvable constraint. Only the tag-only signature is pinned.
+
+### What payloads buy, in one line
+
+`Examples/Payload.lean` guards `parseAt "4x2" ≠ parseAt "nope"` — two
+failures of the *same kind* carrying different offsets, and therefore
+different values. At the tag-only carrier both are `err parse` and the
+inequality is false. That is the whole gap, and it is now closed at the
+carrier.
+
+### Outstanding
+
+The carrier is done and the compatibility evidence is green. Not yet
+done, and listed so the absence is not mistaken for completion:
+payload-bearing accumulation over `Sigma S.Payload` (which moves the
+accumulating carrier's universe); payload-preservation laws for `map`,
+`widen`, `bindK` and `apK`; `ErrorSignatureMap` and the
+payload-independent error mapping [morphism-bridge] deferred here;
+`CompleteGrade`; and porting `Examples/Validation.lean`'s own errors to
+carry data. `Validation.lean` stays tag-only deliberately for now — it is
+the evidence that nothing regressed.
+
+## abstract-operational-classes
+
+**The question this section answers.** `Graded/Obligations.lean` states
+what a grade must be. Until [abstract-effects] it was consumed by
+nothing: four grades inhabited `PreorderedGradeMonoid`, no carrier module
+imported it, and `grep -rl PreorderedGradeMonoid --include=*.lean`
+returned exactly that file and its tests. The abstraction and the model
+did not touch. `Graded/EffectK.lean` connects them.
+
+**Why the sufficient-grade layer and not the union-graded one.** Its laws
+compare terms in the same type: at a caller-nominated `k`, both sides of
+every law already live in `M k β`, so there is no grade equation for a
+`cast` to carry and nothing to hide behind a transport. The union-graded
+operations are the derived conveniences, which is the direction
+`bind_eq_bindK`/`ap_eq_apK` already run.
+
+### The shape
+
+Three data classes and three law classes. `GradedFunctorK` carries `map`,
+`widen` and `pure`; `GradedMonadK` and `GradedApplicativeK` take
+`[GradedFunctorK G M]` as an instance **parameter**, not by `extends`. A
+carrier with both — `Graded` is one — therefore has *one* `pure` and one
+route to the functor, rather than two of each needing a coherence law.
+That is the same parameterised-mixin shape
+[`docs/RULES.md#amendments`](RULES.md#amendments) records for the grade
+algebra, applied one level up.
+
+`pureK` is derived once, as `pure` widened from `bot`. A primitive
+`pureK` at every grade would let its behaviour depend on the nominated
+grade, and would need exactly the coherence law the derivation avoids.
+`map_pure` (at `bot`) is the only `map`/`pure` coherence a carrier
+supplies; `map_pureK` carries it to every grade through `widen_map`.
+
+**`widen_irrel` is free, and no law states it.** Which proof of `le g k`
+is supplied cannot affect `widen h x`, because `le g k` is a `Prop` and
+Lean's proof irrelevance is definitional. The concrete
+`widen_irrel`/`bindK_irrel`/`traverseK_irrel` are `rfl` for that reason,
+and the same holds of a carrier nobody has inspected.
+
+### What it connects
+
+| carrier | functor | monad | applicative | lawful |
+|---|---|---|---|---|
+| `Graded` | yes | yes | yes | all three |
+| `Accum` | yes | **no** | yes | functor + applicative |
+| `Comp` (product-graded) | yes | no | yes | none yet |
+
+`Accum` having no `GradedMonadK` instance is checked, not asserted:
+instance synthesis for it fails, and `Accum.notMonad` is the reason. That
+absence is why `GradedApplicativeK` is its own class taking the functor
+as a parameter, rather than a consequence derived from a monad.
+
+`Comp` fits a one-grade interface only because a *pair* of grades is now
+itself a grade: `Graded.instPreorderedGradeMonoidProd` is componentwise,
+and `instLubGradeProd` says the product of two least-upper-bound grades
+is one. That is the product-graded composite of [compose-applicative]
+restated as an instance rather than as a special case.
+
+`Comp`'s law instances are **absent, deliberately**. It has `map_id`,
+`map_comp`, the `apK` reduction lemmas and `apK_interchange`, but
+`widen_widen`, `widen_map`, `map_pure`, `apK_pure_id`, `apK_pure_pure`
+and `apK_comp` do not exist for it at the sufficient grade. Inventing six
+lemmas to fill a `Lawful` instance is a different piece of work from
+connecting the abstraction, and `traverseGK` needs only the data classes,
+so it instantiates regardless. What is missing is laws *about* it.
+
+**A universe note.** `Graded.Comp` is declared `(α : Type u) : Type u`
+with `u` the error type's universe, so the composite exists only where
+payload and error sit at the same level. That collapse predates this
+step; it is why `CompP` cannot be stated at an independent payload
+universe the way `Graded` and `Accum` can, and it is the first place the
+"universe and typeclass complexity" risk the plan named has actually
+bitten.
+
+### List traversal, defined once
+
+`traverseGK` is the traversal, over any `GradedApplicativeK`. The two
+concrete traversals *are* it: `traverseGK_eq_traverseK` and
+`traverseGK_eq_accum_traverseK`, each an induction closing by `rfl`,
+because `traverseK`'s cons case is `map2K` and `map2K` is `apK` after
+`map`. As at [sufficient-grade-traverse] there is no fold, so
+length-independence is a property of the signature — which matters more
+here, since the abstract `G` is only a *preordered* grade monoid and has
+no idempotence to spend.
+
+`traverseGK_map` (source fusion) needs no law at all. `traverseGK_pureK`
+(identity) is the first theorem whose proof spends the law classes.
+
+**`ApplicativeTransformationK` is where the abstraction pays.** A
+transformation between graded applicatives over one grade, commuting
+with `map`, `pure`, `widen` and `apK` — the `widen` field being the one
+an ordinary applicative transformation lacks, needed for the same reason
+`GradedHom.hom_widen` is ([morphisms](#morphisms)): subsumption is a
+primitive the other operations do not define. `app_traverseGK` proves
+traversal naturality once. `Accum.toGraded` is an instance, and
+[accum-traverse]'s `toGraded_traverseK` — proved there by its own
+induction — comes back as `toGraded_traverseK_generic`, the generic law
+at that instance. The induction did not have to be written twice, and
+error renaming and representation changes can join as further instances
+rather than further theorem families.
+
+### grade-abstraction-payoff
+
+**Question.** Does abstracting the grade and the carrier buy more than it
+costs, at this size?
+
+**Status: CLOSED by [abstract-effects] — it pays, on both halves of the
+criterion the plan set.** The criterion was: stop if the abstract laws
+for `Graded` need more `simp` scaffolding than the concrete ones they
+replace, or if `Tests/` elaboration slows by more than roughly a third.
+
+*Scaffolding: zero.* All 29 instance fields across the eight instances
+are bare citations of theorems already proved and tested in their own
+modules — no tactic block, no `simp` set, nothing re-derived. That was
+the outcome to watch for: a field needing its own proof would have been
+evidence the abstraction had drifted from what the model establishes.
+
+*Elaboration: under the threshold.* Measured in **heartbeats**, not
+wall-clock — see "How elaboration cost is measured" below for why. Across
+the 13 `Tests/` modules whose source is byte-identical before and after
+Tranches E and F, elaboration work rose from 24688 to 25285 heartbeats:
+**+2.4%**, against a threshold of +33%. The worst single module is
+`Tests/Monad.lean` at +6.4%.
+
+The four modules that *did* change (`Accum`, `AccumTraverse`, `Carrier`,
+and the new `EffectK`) went from 6569 to 11298 heartbeats, and that
+increase is new `example`s rather than the same work costing more —
+counting it as a cost of the abstraction would be measuring added
+coverage.
+
+> **This figure replaces an earlier wall-clock one and the verdict did
+> not change.** The first measurement reported +16% wall / +18% user, as
+> minima of repeated `lake build Tests` runs. Two things were wrong with
+> it. It compared whole-suite times, so most of what it measured was the
+> new test file rather than any slowdown; and it was taken on a machine
+> that routinely runs other expensive builds, where repeated samples of
+> the same tree ranged from 8.96s to 47s. A later sample would have read
+> as +53% and tripped the criterion, on noise.
+
+### How elaboration cost is measured
+
+**Heartbeats, not seconds.** A heartbeat is Lean's own count of
+elaboration steps. It is deterministic: the same file at the same commit
+gives the same number every time, whatever else the machine is doing.
+Wall-clock and user time are not usable here — this development happens
+on a machine that routinely carries other CPU-bound work, and repeated
+timings of an unchanged tree have varied by a factor of five.
+
+The instrument is Mathlib's `linter.countHeartbeats`, which reports a
+count per declaration, enabled from the command line so no source has to
+be edited:
+
+```text
+lake env lean -D linter.countHeartbeats=true Tests/Monad.lean
+```
+
+Summing those gives a per-module figure. Comparing two commits means
+building the older one in a `git worktree` and running the same sweep, so
+both numbers come from the same toolchain and the same Mathlib.
+
+**Compare module by module, and only where the source is unchanged.** A
+whole-suite total conflates "existing work got more expensive" with "we
+added tests", and those answer different questions. Only the first is a
+cost.
+
+**What the criterion does *not* cover, and where to re-check it.** These
+measurements are of an *additive* layer. The cost that would matter is
+migration — re-pointing the concrete development at the abstract classes,
+which is Tranche G's work. That is when existing modules would start
+elaborating through class projections instead of concrete definitions,
+and it is the point at which this question should be asked again rather
+than assumed settled. Closing it here means "the layer is worth having",
+not "re-pointing is free."
+
+**Log.**
+
+- 2026-09-10 — re-measured in heartbeats after the wall-clock figure
+  proved unusable on a contended machine. Verdict unchanged and now
+  reproducible: **+2.4%** across unchanged test sources, against a +33%
+  threshold. The original number was not merely noisy, it was measuring
+  the wrong thing — whole-suite time, most of which was the new test
+  file.
+- 2026-09-10 — [abstract-effects] connected the grade algebra to the
+  carriers, measured both halves of the criterion, and closed the
+  question. Two gaps in the *model* surfaced from trying to instantiate:
+  `Accum` had no `widen` at all, and no sufficient-grade applicative
+  laws. Both were added, which is a use for the abstraction independent
+  of anything it proves.
+
+## cpp-sync
+
+**The question this section answers.** Which of the model's results are
+obligations on the C++ implementation, and how does a result acquire that
+status without anyone remembering to carry it across?
+
+The mechanism already existed: a row in `docs/laws.md` with a non-`—`
+`C++ law` column is a probe obligation, and
+[`docs/probe-harness.md`](probe-harness.md) is generated from exactly
+those rows. What did not exist was any *pressure* to fill the column.
+Tranches C through G added a payload-bearing carrier, an accumulating
+traversal, a completed morphism bridge, an abstract effect layer and a
+module split — and **not one of them put an equation in that column**.
+All 52 probe obligations came from modules that predated them, so the
+harness the C++ side reads was still describing the model as it stood
+before any of that work.
+
+Six equations added. They are the ones a C++ implementation can be
+checked against, as opposed to results that are about the model's own
+internals:
+
+| law | what the C++ side owes |
+|---|---|
+| `toGraded_traverseK` | a validating `transpose` and a short-circuiting one agree on which error the caller sees, unconditionally |
+| `errsOf_traverseK` | every failing position contributes once, in source order |
+| `traverseK_ok` | an all-succeeding accumulating traversal is `transform` |
+| `toGraded_widen` | the accumulating carrier supports subsumption at all |
+| `toGraded_apK` | first-error commutes with `apply`, with no side condition |
+| `GradedHom.hom_ok` | an error adapter preserves `ok` at *every* error set |
+
+**Two of these are new obligations rather than new evidence for old
+ones.**
+
+`GradedHom.hom_widen` — the field, not the row — is the sharper of the
+two. An adapter between two error designs must commute with the
+*implicit widening conversion*, and that does not follow from commuting
+with `and_then` and `pure`. [sufficient-grade-morphism] recorded the
+opposite: that the obligation could not be stated, and that renaming
+worked only because `rename_widen` happened to hold of it.
+[morphism-bridge] showed it is one field and that the lift is then total.
+Anyone who read the earlier account would have concluded there was no
+such law to test. There is, and it is the easy one to omit, because it
+governs the conversion nobody writes.
+
+The accumulation **order** is the other. `errsOf_traverseK` fixes
+left-to-right concatenation, and `toGraded_traverseK` makes that choice
+observable through first-error projection. So the order is a contract
+rather than an implementation detail, and the agreement between the two
+traversal forms is a consequence of it rather than a convention anyone
+maintains. An unordered bag would be a different carrier with a different
+projection policy — the provisional note on `Graded.Accum`'s
+`List`-over-`Multiset` choice already says so.
+
+**What is *not* here.** The canonicalization `static_assert` corpus is a
+standing obligation from [truth-in-labelling], not a new one: Lean owns
+the normal-form mathematics and C++ owns type identity, and the probes
+belong to the C++ repository. Nothing in Tranches B through G changes
+that division. The payload carrier ([payload-carrier]) is the model
+catching up to what `#cpp-counterpart` always said C++ does, so it
+creates no obligation in that direction.
+
+**The standing rule this leaves.** A law with a C++ consequence earns a
+`CPP_LAW` entry in the same change that proves it. The column is the sync
+channel, `docs/probe-harness.md` is generated and diffed, and a finding
+that never reaches the column has not been communicated no matter how
+well it is written up here.
+
+### The corpus, and what running it found
+
+Added 2026-09-10 by [probe-corpus]. transpose is vendored under
+`cpp/transpose/` ([RULES.md](RULES.md#the-vendored-c-source)), so the
+"deferred out of this repository" item of the counter-plan is discharged
+*in* the repository, on the C++ side of the subtree boundary:
+[`cpp/transpose/tests/beman/transpose/probe_harness.test.cpp`](../cpp/transpose/tests/beman/transpose/probe_harness.test.cpp),
+one `TEST_CASE` per row of [`probe-harness.md`](probe-harness.md), named
+`probe-harness: <Module>.<theorem>` so either side can be found from the
+other by name, and
+`probe_harness_cross_tu.cpp` for the one claim a `static_assert` cannot
+make. `make cpp-probes` builds and runs it; it is deliberately not part
+of `make all` (no C++ toolchain in this repository's CI). Every row is
+either run or pinned as the specific compile-time refusal that stands in
+for it. transpose's own record of the channel is
+[`decisions.md#lean-model-sync`](../cpp/transpose/docs/decisions.md#lean-model-sync).
+
+**Three harness verbs have no C++ operation behind them.** Each is a
+finding about the *boundary* rather than about either side alone:
+
+- **`first_error`.** `Graded.Accum` carries a `List Err` in source order
+  and `toGraded` takes its head; `toGraded_traverseK` and `toGraded_apK`
+  are equations about that head. The C++ accumulating object keeps one
+  witness *per kind*, left-biased, in canonical type order
+  (transpose's `#accumulation-evidence`), so which kind failed first is
+  not recorded and no projection from the accumulated value recovers the
+  short-circuit result. What holds, and what the probes check, is the
+  per-kind consequence: the witness kept for the short-circuit error's
+  kind *is* that error, and with exactly one failing operand the two
+  carriers are equal outright. See
+  [accumulated-evidence-shape](#accumulated-evidence-shape) below.
+- **A composed applicative as a `traverse` policy.** transpose's
+  `traverse` reads the element type of the context it builds off the
+  context *type* (`applicative_value_t`, the carrier's `value_type`); for
+  a nested `expected` that is the inner carrier, not the value `Comp`
+  holds, so a composed policy's `pure` fails `applicative_object_for`.
+  `traverseComp_eq` is checked against a hand fold over the library's own
+  two objects. The `Comp` laws themselves (`Comp.ap_*`, `flatten_ap`)
+  went through against that composition unchanged.
+- **Traversal at the empty grade.** Bare `T` is not a context, and the
+  uniform form `expected<T, error_set<>>` re-indexes at its own grade to
+  bare `T` and so fails `applicative_object`'s subsumption clause. Both
+  refusals follow from transpose's `#empty-grade-spelling`, which
+  [cpp-counterpart](#cpp-counterpart) records. `traverse_fromEmpty` and
+  `traverse_fromEmpty_map` therefore have no C++ left side; they are
+  pinned as negative `static_assert`s with a positive control.
+
+Two things the corpus confirmed that the harness rows did not ask for:
+the side conditions on `ap_flip` and `flatten_ap` are *necessary*, shown
+by exhibiting the excluded case as an inequality rather than only
+checking the licensed cases; and the canonicalization claim this
+document declines to make at [representation](#representation) — that
+`error_set<A,B>` and `error_set<B,A>` are one type — is checked the only
+way it can be, by declaring a function with one spelling in one
+translation unit and defining it with the other in a second, and
+linking. `rename_cast` has no residue at all: a same-set cast is type
+identity.
+
+### accumulated-evidence-shape
+
+**Question.** Is the accumulating carrier a *source-ordered list* of
+errors (what `Graded.Accum` is, and what `errsOf_traverseK` states) or a
+*per-kind, left-biased set* (what transpose's accumulating object
+stores)? The two agree on every law in this document except the two
+that project to the short-circuiting carrier, and there they differ in
+what can be *stated*: the list has a head, the set does not.
+
+**Status: OPEN**, raised 2026-09-10 by [probe-corpus]. The provisional
+note at [Accum](#accum-an-accumulating-applicative-needs-its-own-carrier)
+already records `List` over `Multiset` as a choice; this sharpens it to a
+choice against the implementation. What the Lean side owes is the
+per-kind statement — for every kind `e` the leftmost source-order witness
+of `e` in the accumulated evidence equals the short-circuiting carrier's
+witness whenever the latter is of kind `e` — over a carrier whose
+evidence is a function from kinds to optional witnesses, and a bridge
+from `Accum` to it that forgets order. That is what the C++ probes
+check; until it is proved, `toGraded_traverseK`'s C++ column describes a
+projection the C++ cannot compute. Not started; a stage, not an
+amendment, since nothing proved becomes false.
+
+## module-split
+
+**The question this section answers.** `Graded/Sufficient.lean` was
+eleven hundred lines carrying `bindK`, `apK`, `traverseK`, `flattenK`,
+`Comp.apK` and `GradedHomK` together, so importing sequencing at a
+nominated grade imported traversal, composition and the morphism records
+behind it. `Graded/Canonical.lean` imported the whole heterogeneous tuple
+development — `GList`, `sequence`, all of it — to reuse one grade fold
+and one permutation theorem.
+
+### What moved
+
+`Graded.Sufficient` is now a **re-export shim** over seven modules, so
+every existing import is unaffected and no theorem lost its name:
+
+| module | holds | imports beyond its predecessor |
+|---|---|---|
+| `.MonadK` | `bindK`, `pureK`, the monad laws | `Graded.Monad` only |
+| `.ApplicativeK` | `apK`, `map2K`, `apFlippedK` | `Graded.Applicative` |
+| `.TraversableK` | `traverseK` | `Graded.Traverse` |
+| `.ComposeK` | `flattenK` | `Graded.Compose` |
+| `.CompK` | `Comp.apK`, `traverseCompK` | `Graded.ComposeApp` |
+| `.TupleK` | `sequenceK` | `Graded.Tuple` |
+| `.MorphismK` | `GradedHomK`, the bridge | `Graded.Morphism` |
+
+`Graded.GradeFold` holds `joinAll` and its three laws, extracted from
+`Graded/Tuple.lean`. Nothing in it mentions a carrier. `Tuple` and
+`Canonical` both import it and neither imports the other.
+
+**The boundary is asserted, not asserted-about.** A file importing only
+`Graded.Sufficient.MonadK` resolves `bindK` and fails to resolve
+`traverseK`, `flattenK`, `GradedHomK` and `Comp.apK`; one importing only
+`Graded.Canonical` resolves `joinAll` and fails to resolve `GList` and
+`sequence`. That is the gate, and it is checked by compiling those two
+files rather than by reading imports.
+
+**The split is free.** Measured in heartbeats (see
+[how elaboration cost is measured](#grade-abstraction-payoff)): across
+the 16 `Tests/` modules whose source the split did not touch, elaboration
+work is **35985 before and 35985 after** — not approximately equal,
+identical. Moving declarations between files changes where they are, not
+what they cost.
+
+### sequenceK, and the bridge it does not have
+
+Heterogeneous sequencing was the one operation with no sufficient-grade
+sibling — the counter-plan's §3.7 caught what the outline missed.
+`Graded.sequenceK` closes it.
+
+The shape differs from `traverseK` in a way worth recording. Uniform list
+traversal has *one* source grade and reuses one inclusion at every
+position; a tuple's slots carry different grades, so the hypothesis is
+`∀ g ∈ gs, g ⊆ k` — a family of witnesses, one per slot. `sequenceK_irrel`
+is correspondingly stronger than `bindK_irrel`: what is irrelevant is a
+whole family.
+
+**There is no `sequence_eq_sequenceK`, and that is a recorded gap rather
+than an oversight.** Every other `K` operation has a bridge recovering
+the union-graded spelling at the computed grade. This one does not go
+through by the same induction: `sequence` recurses at `joinAll gs`,
+joining one slot at a time, so each recursive call sits at a *different,
+smaller* grade, while `sequenceK` recurses at the caller's `k`
+throughout. The induction hypothesis is about `sequenceK` at the wrong
+grade. Closing it needs an `apK`/`widen` commutation that `apK`'s
+`bindK`-derived definition does not give by `rfl`. Neither `traverseK`
+nor `flattenK` hits this, because neither recurses through a changing
+grade; it is specific to the case [traverse-tuple] called "where the
+grade is really computed".
+
+### The inventory grew a layer column
+
+[module-split]'s gate asks the law inventory to separate generic
+obligations from concrete ones, representation results from both, and the
+C++-probe obligations from all three. `docs/laws.md` now carries a
+`layer` column and a census:
+
+| layer | meaning |
+|---|---|
+| `generic` | stated over an abstract grade or carrier; no `Finset`, no `Graded`. What a *different* grade would have to meet. |
+| `representation` | about two spellings of one grade. See [representation](#representation)'s boundary note. |
+| `concrete` | about `Grade Err` and its carriers. The bulk. |
+
+The fourth distinction is orthogonal and already carried by the `C++ law`
+column: a row with an equation is a probe obligation the C++ side owes a
+`static_assert` for. A row can be both `concrete` and a probe. **No row is
+both `generic` and a probe**, which is itself worth being able to see at a
+glance.
+
+### The check that did not check
+
+Splitting one module into seven dropped **61 theorems out of 255** from
+the law inventory, and `make laws` reported `0 flagged` while it
+happened. `scripts/laws-inventory.py` globbed `Graded/*.lean`
+non-recursively, so `Graded/Sufficient/*.lean` was simply not there. A
+third of the inventory vanished and the check whose entire job is to
+notice things did not notice.
+
+Both scripts now walk the tree (`rglob`). `scripts/test-coverage.py`
+additionally learned to look for a nested module's tests one directory up
+(`Graded/Sufficient/MonadK.lean` is tested by `Tests/Sufficient.lean`,
+not by a mirrored file), because without that every reduction lemma in
+the split modules read as uncovered.
+
+The lesson is not about globs. A check that enumerates its own inputs can
+fail by enumerating fewer of them, and it fails *silently* and *green* —
+which is the worst way for a check to fail. `make laws` diffs its output
+against the committed copy, so the loss was visible as a large diff to a
+reader who looked; nothing failed. Worth remembering the next time this
+repository grows a directory.
+
+`make test-coverage`, by contrast, worked exactly as intended in the same
+session: moving the `joinAll` examples into `Tests/GradeFold.lean` took
+`Tests/Tuple.lean`'s only computing `#guard` with them, and the coverage
+check went red immediately.
+
 ## laws-inventory
 
-The table: [`docs/laws.md`](laws.md) (203 theorems, generated from
-`Graded/*.lean` by `scripts/laws-inventory.py`; the same data as
+The table: [`docs/laws.md`](laws.md) (generated from `Graded/*.lean` by
+`scripts/laws-inventory.py`; the same data as
 [`docs/laws.json`](laws.json)). `make laws` regenerates and diffs it, so it
 cannot drift from the proofs; run it again after touching any
 `Graded/*.lean` file. The probe list for the C++ side is
 [`docs/probe-harness.md`](probe-harness.md): one equation per row that has
 a C++ law, against [cpp-counterpart](#cpp-counterpart)'s names.
+
+> **No count appears in this paragraph, deliberately.** It used to say
+> "203 theorems", which was true when written and wrong by the time
+> anyone read it. Prose counts in this document have been wrong often
+> enough to be a standing hazard; the generated table is the number, and
+> a sentence claiming one is a second source that will disagree with it.
+
+### coverage-enforcement
+
+`docs/RULES.md` has always required that every theorem of a step be
+instantiated in its test file. That was enforced by review, and review
+missed things: the audit at [truth-in-labelling] found 56 theorem names
+appearing nowhere in `Tests/` or `Examples/`, not even in a comment.
+[coverage-enforcement] made it mechanical — `make test-coverage`, in
+`make all` and therefore in CI, **alongside** `make letters` rather than
+in place of it.
+
+**Classified, not uniform.** One rule for every theorem would have meant
+writing dozens of exemptions on day one, almost all for `rfl` reduction
+lemmas — which are not untested, they are the equations every `#guard`
+computes *through*. A file of prose justifying them would teach the next
+contributor that the exemption file is where theorems go to be ignored.
+So the pass classifies (counterexample / reduction / law, in that
+priority) and applies one rule per class; `docs/RULES.md#tests` carries
+the table.
+
+The result was **zero exemptions**, not the twelve the plan budgeted for.
+Of the 38 declarations the classified pass found genuinely uncovered,
+every one got an `example` — that was the work of this step, and the
+fixture requirements were most of it.
+
+**Two things the check will not do.** It will not accept a name mentioned
+in prose, or reachable only through an import — coverage is a claim about
+code, so test sources are comment-stripped first. And it will not accept a
+name matched loosely: an early version credited a theorem when the *last
+segment* of its dotted name appeared anywhere, and promptly counted
+`Comp.ap_ok_ok` as covered by an example applying `Graded.ap_ok_ok`. Names
+are matched as declared. The residual weakness is the one
+`scripts/laws-inventory.py` documents for its own allow-list: two theorems
+declared under the same bare name in different namespaces are
+indistinguishable to a name-based check, and a mention credits both.
+
+**`make axioms` is a complement to `make nosorry`, not a replacement.**
+The grep cannot see an axiom reached through a dependency, nor a `sorry`
+in a declaration nothing references; `#print axioms` sees exactly the
+transitive closure. Both stay. Two prior reviews ran `#print axioms` by
+hand over 25 declarations and each reported `[propext, Classical.choice,
+Quot.sound]` and nothing else; this runs it over every `law`-class
+declaration on every build, so the sample stops being a sample.
+
+**Cold dependency resolution** is a separate scheduled workflow
+(`.github/workflows/cold-deps.yml`), weekly, not on every push. Push CI
+runs with a warm Mathlib cache, which is right and also means the lockfile
+is never exercised: a drifted manifest or a garbage-collected pinned
+revision would pass indefinitely. The scheduled job resolves from a clean
+tree and asserts the manifest it produces is the committed one. It is
+deliberately not a from-source Mathlib build.
 
 The verdicts below are written from that table, not from the plan's
 prediction of it. Where the two disagree, the table wins — this step's own
@@ -2536,9 +3368,9 @@ to reassociate `(g ⊔ h) ⊔ (g' ⊔ h')` into `(g ⊔ g') ⊔ (h ⊔ h')`, cit
 directly in `grade_reassoc`'s own proof and not in `flatten_ap`'s (see the
 mechanical scan's own miss on this, below). `Graded/Obligations.lean`'s generic
 `joinAllG_perm` is a seventh, separate confirmation at the abstract
-`IsCommPomonoid` layer, matching `joinAll_perm` exactly — not a fourth
+`IsCommGrade` layer, matching `joinAll_perm` exactly — not a fourth
 concrete site, since it proves the same fact again over an abstract
-`[IsCommPomonoid G]` rather than depending on `joinAll_perm`.
+`[IsCommGrade G]` rather than depending on `joinAll_perm`.
 
 **Idempotence: nine sites**, matching the table's `idempotent` column
 after excluding `Grade.join_idem` itself (a property's own definition does
@@ -2567,7 +3399,7 @@ wrong: its own proof text mentions only order tokens (`bot_le`,
 [obligations](#obligations) already recorded that this `join_le` is
 *itself* only provable from `join_mono` **and** `join_idem` together, once
 a grade's `join_le` is not assumed as a primitive. So `foldG_le` genuinely
-needs `IsIdemPomonoid`, not bare `Pomonoid`; the table shows what its
+needs `IsIdemGrade`, not bare `PreorderedGradeMonoid`; the table shows what its
 proof text cites, not what its type class hypothesis is, and the two
 diverge exactly here. Read [#obligations](#obligations)'s own
 layer-to-law table for the accurate version; don't take this table's
@@ -2608,21 +3440,22 @@ the same finding four times.**
   dumb heuristic cannot see through. See "What the checker refused" in
   [blog/letters/oracle-export.org](../blog/letters/oracle-export.org).
 
-**What a different grade pomonoid must supply.** [#obligations](#obligations)
-already names this precisely — `Pomonoid`, `IsCommPomonoid extends
-Pomonoid`, `IsIdemPomonoid extends IsCommPomonoid` — and this table's
-"unit/associative", "commutative", "idempotent" columns line up with that
-hierarchy's three layers by construction. But which layer a given row
-*actually* needs is now an open question, not a closed one:
-[grade-join-strength](#grade-join-strength) (OPEN) asks whether a grade's
-`join` must be a least upper bound. Under the stronger reading, `join_le`
-(this table's `order` tag) plus antisymmetry *proves* `join_idem`, so
-every row this document calls "idempotent" — the nine sites above — would
-be a theorem rather than an independent axiom, and a future grade
-satisfying the stronger reading gets `foldGrade_cons_ne_nil`,
-`traverse_cons`, and the rest for free. This document does not answer
-that question; it only notes that the "idempotent" column's *meaning*
-depends on it.
+**What a different grade monoid must supply.** [#obligations](#obligations)
+already names this precisely — `PreorderedGradeMonoid`, with `IsCommGrade`
+and `IsIdemGrade` as independent mixins over it — and this table's
+"unit/associative", "commutative", "idempotent" columns line up with the
+base class and those two mixins by construction. But which layer a given row
+*actually* needs was an open question, and
+[grade-join-strength](#grade-join-strength) has since answered it:
+`join_le` (this table's `order` tag) plus antisymmetry *proves*
+`join_idem`, so every row this document calls "idempotent" — the nine
+sites above — is a theorem rather than an independent axiom **for any
+grade whose order is antisymmetric**, which `Grade Err` and `Nat` both
+are. The qualifier is not idle: `Pack Err`, the pre-canonical pack, has
+the least-upper-bound law and no antisymmetry, and its `join_idem` is
+false. So the "idempotent" column reads as "needs the grade to be a
+quotient, not merely a bounded pack" — which is the same claim
+[representation](#representation) makes about `error_set`'s alias.
 
 ## blog-series
 
@@ -2673,10 +3506,17 @@ Index of every `> **Provisional.**` mark in this document, by anchor:
   `cast-burden-migration-scope`: how much of the model gains a cast-free
   sufficient-grade layer. Deliberately unplanned until the first two
   steps' measurements exist.
-- [#obligations](#grade-join-strength) — **OPEN question**
+- [#obligations](#grade-join-strength) — **CLOSED**
   `grade-join-strength`: whether a grade's join must be a least upper
-  bound. Under the stronger reading `join_idem` is a theorem, not an
-  axiom, and the three-layer account applies only to the weaker one.
+  bound. Answered 2026-09-10 with the `Pack Err` witness — it must be a
+  least upper bound for the *preorder*, and `join_idem` is a theorem
+  rather than an axiom exactly when the order is antisymmetric. Kept in
+  this index because the anchor still carries the reasoning.
+- [#cpp-sync](#accumulated-evidence-shape) — **OPEN**
+  `accumulated-evidence-shape`: whether the accumulating carrier is a
+  source-ordered list (the model) or a per-kind left-biased set (the
+  implementation). Raised by [probe-corpus]; the Lean side owes the
+  per-kind form of `toGraded_traverseK`/`toGraded_apK`.
 - [#compose](#graded-traversable-composition) — **CLOSED**
   `graded-traversable-composition`: the flattened composition law is
   false (and the refutation is not about grading); the product-graded

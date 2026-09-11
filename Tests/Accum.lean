@@ -85,4 +85,63 @@ example : ¬ ∃ (bind : ∀ {g' h' : Grade E} {α β : Type},
           (bind f (fun f' => bind x (fun a => Accum.pure (f' a)))) = ap f x :=
   notMonad E.parse E.range
 
+-- ---------------------------------------------------------------------
+-- The transport lemmas and the list-equality lemma. Same fixture rule as
+-- `Tests/Monad.lean`: a nontrivial grade equality, not `g = g`.
+
+private theorem hUA :
+    Grade.join ({E.parse} : Grade E) {E.range} = ({E.parse, E.range} : Grade E) := by decide
+
+example (a : Nat) :
+    Accum.cast hUA (Accum.ok a : Accum (Grade.join ({E.parse} : Grade E) {E.range}) Nat)
+      = Accum.ok a :=
+  Accum.cast_ok hUA a
+
+example (hne : [E.parse] ≠ [])
+    (hmem : ∀ x ∈ [E.parse], x ∈ Grade.join ({E.parse} : Grade E) {E.range}) :
+    Accum.cast hUA
+        (Accum.errs [E.parse] hne hmem : Accum (Grade.join ({E.parse} : Grade E) {E.range}) Nat)
+      = Accum.errs [E.parse] hne (hUA ▸ hmem) :=
+  Accum.cast_errs hUA [E.parse] hne hmem
+
+-- Two error lists that are equal as lists, carrying *different* proofs:
+-- the theorem says the proofs cannot make the values differ.
+example (hne hne' : [E.parse, E.range] ≠ [])
+    (hmem hmem' : ∀ e ∈ [E.parse, E.range], e ∈ ({E.parse, E.range} : Grade E)) :
+    (Accum.errs [E.parse, E.range] hne hmem : Accum ({E.parse, E.range} : Grade E) Nat)
+      = Accum.errs [E.parse, E.range] hne' hmem' :=
+  Accum.errs_eq_of_list_eq rfl
+
+-- `widen`, added by [abstract-effects]: the subsumption conversion the
+-- accumulating carrier had gone without. Its reduction lemmas and the
+-- functor laws over it live here; `toGraded_widen` is in
+-- `Tests/AccumTraverse.lean`, beside the module that proves it.
+example (h : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (a : Nat) :
+    (Accum.widen h (Accum.ok a) : Accum ({E.parse, E.range} : Grade E) Nat) = Accum.ok a :=
+  Accum.widen_ok h a
+
+example (h : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (hne : [E.parse] ≠ []) (hmem : ∀ e ∈ [E.parse], e ∈ ({E.parse} : Grade E)) :
+    (Accum.widen h (Accum.errs [E.parse] hne hmem)
+        : Accum ({E.parse, E.range} : Grade E) Nat)
+      = Accum.errs [E.parse] hne (fun e he => h (hmem e he)) :=
+  Accum.widen_errs h [E.parse] hne hmem
+
+example (h₁ : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E))
+    (h₂ : ({E.parse, E.range} : Grade E) ⊆ ({E.parse, E.range, E.io} : Grade E))
+    (x : Accum ({E.parse} : Grade E) Nat) :
+    Accum.widen h₂ (Accum.widen h₁ x) = Accum.widen (Grade.le_trans' h₁ h₂) x :=
+  Accum.widen_widen h₁ h₂ x
+
+example (h : ({E.parse} : Grade E) ⊆ ({E.parse, E.range} : Grade E)) (f : Nat → Nat)
+    (x : Accum ({E.parse} : Grade E) Nat) :
+    Accum.widen h (Accum.map f x) = Accum.map f (Accum.widen h x) :=
+  Accum.widen_map h f x
+
+example (x : Accum ({E.parse} : Grade E) Nat) : Accum.map id x = x := Accum.map_id x
+
+example (f : Nat → Nat) (h : Nat → Nat) (x : Accum ({E.parse} : Grade E) Nat) :
+    Accum.map (h ∘ f) x = Accum.map h (Accum.map f x) :=
+  Accum.map_comp f h x
+
 end Tests

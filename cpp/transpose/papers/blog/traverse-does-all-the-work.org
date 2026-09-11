@@ -1,0 +1,122 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Traverse Does All the Work
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+SUBTITLE: transpose is traverse with identity, and traverse is one walk plus an applicative
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+BIBLIOGRAPHY: ./references.bib
+
+*DRAFT --- pending author revision*
+
+#+begin_abstract
+[[file:transpose-at-work.org][The previous post]] ran ~transpose~ over three contexts and ended on a claim: ~transpose~ is ~traverse~ with the identity function.
+This post makes the claim concrete with running code.
+~traverse~ maps a context-producing function over a structure and transposes the effects as it goes; the context is deduced from the function's return type; and the whole contract a context must satisfy is an applicative object with ~pure~ and ~invoke~.
+That pair of ideas is McBride and Paterson's applicative functor and Gibbons and Oliveira's iterator, wearing C++23 clothes.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+*Prev:* [[file:transpose-at-work.org][Transpose at Work]] --- *Up:* [[file:index.org][Contents]]
+
+* One function, applied under effects
+
+Start with ~traverse~ doing something ~transpose~ can not: mapping while it walks.
+~halve~ produces a value only for even input.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::7fbe2092-2dc3-499e-aeb7-2ad36826be76]] :lines 2- :src cpp :end "7fbe2092-2dc3-499e-aeb7-2ad36826be76 end"
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::a62a5add-27fc-4491-b242-e39f21029abe]] :lines 2- :src cpp :end "a62a5add-27fc-4491-b242-e39f21029abe end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example traverse
+#+end_src
+
+One walk.
+Each element is mapped through ~halve~, and the per-element ~optional~ s are combined into a single ~optional~ around the rebuilt vector.
+Mapping first and transposing second would allocate an intermediate ~vector<optional<int>>~; ~traverse~ fuses the two.
+
+* The context is the return type
+
+Nothing in that call named ~optional~.
+~traverse~ deduces the context by asking what the function returns for one element, then looks up ~applicative_typeclass~ for that type.
+Change the function's return type and a different context's rules apply; the traversal does not change.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::4e59fcf2-1ec2-4568-858f-836533f9fe89]] :lines 2- :src cpp :end "4e59fcf2-1ec2-4568-858f-836533f9fe89 end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example context
+#+end_src
+
+The deduction in the library is what you'd write by hand:
+
+#+begin_src cpp
+using Context =
+    remove_cvref_t<std::invoke_result_t<F, const element_type &>>;
+const auto &applicative = applicative_typeclass<Context>;
+#+end_src
+
+* transpose is traverse with identity
+
+Now the claim from last time.
+If the elements already /are/ contextual values, there is nothing to map; hand ~traverse~ a function that returns its argument unchanged and only the effect-combining remains.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::5160d30d-ab74-4fa8-8370-4c784b8b085c]] :lines 2- :src cpp :end "5160d30d-ab74-4fa8-8370-4c784b8b085c end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example identity
+#+end_src
+
+And that's not an analogy; it's the implementation.
+Every Traversable instance in the library supplies ~traverse~ and inherits ~transpose~ from the CRTP base, which derives it in four lines:
+
+#+begin_src cpp
+template <class T>
+auto transpose(this auto &&self, T &&value) {
+    using Context = element_type;
+    const auto &applicative = applicative_typeclass<Context>;
+    return self.traverse(
+        applicative, [](auto &&x) { return std::forward<decltype(x)>(x); },
+        std::forward<T>(value));
+}
+#+end_src
+
+The only difference from the general case is where the context comes from: ~transpose~ reads it off the element type, since the identity function's return type is its argument type.
+McBride and Paterson call this ~dist~, the distributive law, and derive it from ~traverse~ the same way [cite:@mcbride2008applicative].
+
+* The applicative object is the whole interface
+
+Everything above leans on one object per context.
+What does a context actually have to provide?
+Two things: ~pure~, which lifts a plain value in, and ~invoke~, which applies a plain function across contextual arguments.
+
+#+transclude: [[orgit-file:~/src/transpose/main::blog/traverse-does-all-the-work::examples/traverse_post_example.cpp::e0374a39-17e5-464f-b2bf-792c698fbe46]] :lines 2- :src cpp :end "e0374a39-17e5-464f-b2bf-792c698fbe46 end"
+
+#+begin_src sh :results output :exports results
+../../.build/build-gcc-16-cxx26/examples/RelWithDebInfo/beman.transpose.examples.traverse_post_example applicative
+#+end_src
+
+That is the entire vocabulary ~traverse~ uses: ~pure~ for the empty structure, ~invoke~ to prepend each mapped element to the accumulating result.
+Haskell spells the second operation ~<*>~, one function-in-a-context applied to one value-in-a-context.
+The library makes n-ary ~invoke~ the interface instead, and for a reason that only shows up when the context gets interesting: for ~std::simd~, a register of callables is not a type you can spell, so ~ap~ has no signature there.
+Currying is an encoding detail; applying a function to several independent contextual arguments is the operation [cite:@gibbons2006iterator].
+
+Add up the three posts and the accounting is short.
+~traverse~ is the one primitive: a shape-preserving walk that combines independent effects left to right.
+~transpose~ is ~traverse~ with identity.
+The graded gadgets from [[file:graded-gadgets.org][the first post]] change what "combine" deduces, and touch nothing else.
+One walk; everything else is a parameter.
+
+#+print_bibliography:

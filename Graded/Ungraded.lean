@@ -88,7 +88,7 @@ theorem bindF_pure_left (a : α) (f : α → Fixed g β) : bindF (pureF a) f = f
 /-- (unit, in the general law; here: idempotence only) `pure` on the right
     of `bindF` is the original value. -/
 theorem bindF_pure_right (x : Fixed g α) : bindF x (pureF : α → Fixed g α) = x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => exact bindF_ok a pureF
   | err e he => exact bindF_err e he pureF
 
@@ -103,7 +103,7 @@ theorem bindF_pure_right (x : Fixed g α) : bindF x (pureF : α → Fixed g α) 
     itself, not merely its appearance in the statement. -/
 theorem bindF_assoc (x : Fixed g α) (f : α → Fixed g β) (k : β → Fixed g γ) :
     bindF (bindF x f) k = bindF x (fun a => bindF (f a) k) := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => rw [bindF_ok a f, bindF_ok a (fun a => bindF (f a) k)]
   | err e he => rw [bindF_err e he f, bindF_err e he k, bindF_err e he (fun a => bindF (f a) k)]
 
@@ -149,7 +149,7 @@ theorem apF_ok_err (f' : α → β) (e : Err) (he : e ∈ g) :
 
 /-- (identity; general law: unit) Applying `pureF id` is the identity. -/
 theorem apF_pure_id (x : Fixed g α) : apF (pureF (@id α)) x = x := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a => exact apF_ok_ok id a
   | err e he => exact apF_ok_err id e he
 
@@ -164,7 +164,7 @@ theorem apF_pure_pure (f : α → β) (a : α) :
 theorem apF_interchange (u : Fixed g (α → β)) (a : α) :
     apF u (pureF a : Fixed g α) =
       apF (pureF (fun f => f a) : Fixed g ((α → β) → β)) u := by
-  cases u with
+  cases u using Graded.rec' with
   | ok f' => exact (apF_ok_ok f' a).trans (apF_ok_ok (fun f => f a) f').symm
   | err e he =>
       exact (apF_err_left e he (pureF a)).trans
@@ -178,13 +178,13 @@ theorem apF_interchange (u : Fixed g (α → β)) (a : α) :
 theorem apF_comp (u : Fixed g (β → γ)) (v : Fixed g (α → β)) (w : Fixed g α) :
     apF (apF (apF (pureF Function.comp :
         Fixed g ((β → γ) → (α → β) → α → γ)) u) v) w = apF u (apF v w) := by
-  cases u with
+  cases u using Graded.rec' with
   | err e he => simp only [pureF_eq_ok, apF_ok_err, apF_err_left]
   | ok f =>
-    cases v with
+    cases v using Graded.rec' with
     | err e he => simp only [pureF_eq_ok, apF_ok_ok, apF_ok_err, apF_err_left]
     | ok k =>
-      cases w with
+      cases w using Graded.rec' with
       | err e he => simp only [pureF_eq_ok, apF_ok_ok, apF_ok_err]
       | ok a => simp only [pureF_eq_ok, apF_ok_ok, Function.comp_apply]
 
@@ -275,7 +275,7 @@ theorem sumEquiv_pureF (a : α) : sumEquiv (pureF a : Fixed g α) = Sum.inr a :=
     matching types. -/
 theorem sumEquiv_bindF (x : Fixed g α) (f : α → Fixed g β) :
     sumEquiv (bindF x f) = Sum.bind (sumEquiv x) (fun a => sumEquiv (f a)) := by
-  cases x with
+  cases x using Graded.rec' with
   | ok a =>
     change toSum (bindF (Graded.ok a) f) = Sum.bind (toSum (Graded.ok a : Fixed g α)) _
     rw [bindF_ok]

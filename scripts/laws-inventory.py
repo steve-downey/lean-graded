@@ -52,6 +52,14 @@ VOCAB = [
     "join_le",
     "join_mono",
     "bot_le",
+    # Added by [grade-join-strength]'s closure: antisymmetry is a
+    # separable order property, not a consequence of the other four, and
+    # the `Pack` counter-instance is the first grade in the model to
+    # refute it. Tagged `antisymmetry` (not `order`) by a literal
+    # `/-- PROPERTY: -/` docstring on `Graded.Grade.le_antisymm`, so the
+    # by-property table separates the grades that have it from the one
+    # that does not.
+    "le_antisymm",
     "rename_join",
     "rename_bot",
 ]
@@ -284,6 +292,107 @@ ALLOWLIST = {
         "counter-instance: a Finset non-membership fact (e₀ ∉ ∅), not a "
         "pomonoid property citation — the absence of a VOCAB mention here "
         "is exactly what the theorem is about, not an oversight",
+    # --- accum-traverse ----------------------------------------------------
+    # `apK_ok_ok` is not listed again: it is already allow-listed above for
+    # `Graded/Sufficient.lean`, and this dict is keyed by bare name. The
+    # reason transfers unchanged — an ok/ok case with no join in sight —
+    # but the sharing is the script's known name-collision weakness, not a
+    # judgement, and it is recorded here so a reader does not mistake the
+    # absence for an oversight.
+    "apK_ok_errs": "structural, and this is the finding: Accum.ap_ok_errs "
+        "cites order because `ap`'s own definition inlines "
+        "Grade.le_join_right into the statement; apK threads the caller's "
+        "`hh` instead, so no named property is consumed at all — the same "
+        "order-in, nothing-out shape apK_flip already records",
+    "apK_errs_ok": "structural: same reasoning as apK_ok_errs, on the "
+        "function side, threading `hg`",
+    "apK_errs_errs": "structural: the both-fail case; the concatenation is "
+        "List.append and the two membership proofs are the caller's `hg` "
+        "and `hh`, never Grade.le_join_left/right",
+    "errsOf_ok": "structural: definitional unfold",
+    "errsOf_errs": "structural: definitional unfold",
+    "errsOf_map": "structural: map never touches the error list, no grade "
+        "in sight",
+    "errsOf_apK": "structural: reads the error list off each constructor "
+        "case; the concatenation is List.append, not Grade.join",
+    "errsOf_traverseK": "structural, and worth stating as a finding: the "
+        "accumulation-order law costs no pomonoid property whatever. It is "
+        "a claim about List.append and List.flatMap, delegating to "
+        "errsOf_apK/errsOf_map (both structural this step) — the grade is "
+        "fixed at the caller's `k` throughout and never computed, so there "
+        "is nothing for a join law to be about",
+    "traverseK_ok": "structural: the all-success case never constructs an "
+        "error, so no membership and no grade arithmetic arises; delegates "
+        "to traverseK_cons (structural)",
+    "toGraded_pureK": "delegates to fromEmpty_eq_ok (structural)",
+    "toGraded_map": "structural: naturality in the payload at one grade, "
+        "the Accum mirror of Graded.rename_map's reasoning, no join",
+    "toGraded_apK": "structural: which element of the accumulated list "
+        "comes first, not a pomonoid fact — exactly toGraded_grade''s own "
+        "allow-list reason, at the sufficient grade where apK threads the "
+        "caller's inclusions rather than computing a union",
+    "toGraded_map2K": "delegates to toGraded_apK and toGraded_map (both "
+        "structural this step)",
+    "toGraded_traverseK": "structural: the list-order fact lifted through "
+        "the induction, delegating to toGraded_map2K and toGraded_pureK; "
+        "no grade is computed anywhere, so no property is spent",
+    # --- module-split ------------------------------------------------------
+    "sequenceK_nil": "structural: definitional unfold, the heterogeneous "
+        "mirror of traverseK_nil which is on this list for the same reason",
+    "sequenceK_irrel": "structural: proof-irrelevance of the threaded "
+        "inclusion witnesses, the mirror of bindK_irrel/traverseK_irrel — "
+        "and stronger than either, since what is irrelevant here is a "
+        "whole family of witnesses (one per tuple slot) rather than one "
+        "or two",
+    # --- payload-carrier ---------------------------------------------------
+    "toSum_inj": "structural: `ExpectedG` carries a success payload or a "
+        "kind-tagged error payload and a proof-irrelevant membership "
+        "witness; this says the first two determine the value. It is a "
+        "fact about the carrier's own shape, with no grade arithmetic — "
+        "the same footing as errs_eq_of_list_eq, which is on this list "
+        "for the Accum analogue of exactly this reasoning",
+    # --- abstract-effects --------------------------------------------------
+    "widen_errs": "structural: Accum.widen's own errs-case reduction, rfl; "
+        "the membership proof it threads is the caller's inclusion, not a "
+        "named Grade lemma — same footing as widen_ok, which is tagged "
+        "only because widen_widen's neighbour mentions le_trans'",
+    "toGraded_widen": "structural: which element of the error list comes "
+        "first, transported along an inclusion — the same list-order fact "
+        "toGraded_ok/toGraded_grade' are allow-listed for, with no join",
+    "map_pureK": "structural at this layer: proved from the LawfulGraded"
+        "FunctorK fields widen_map and map_pure, which are class "
+        "projections over an abstract G, not Graded.Grade lemmas. There is "
+        "no pomonoid property to cite because the abstract carrier has no "
+        "Grade to have one",
+    "traverseGK_nil": "structural: definitional unfold, the generic mirror "
+        "of traverseK_nil",
+    "traverseGK_map": "structural: induction over traverseGK_cons, itself "
+        "rfl; the generic mirror of traverseK_map, which is allow-listed "
+        "for the same reason",
+    "traverseGK_eq_traverseK": "structural: a bridge between two spellings "
+        "of one recursion (traverseGK's apK-after-map cons case against "
+        "traverseK's map2K), closed by induction and rfl — no grade is "
+        "computed on either side",
+    "traverseGK_eq_accum_traverseK": "structural: the same bridge at the "
+        "accumulating carrier, same reasoning",
+    "app_pureK": "structural: app_pure carried up by app_widen, both "
+        "transformation fields; no grade arithmetic — the same two-step "
+        "map_pureK uses",
+    "app_traverseGK": "structural, and this is the finding rather than an "
+        "oversight: traversal naturality over an abstract graded "
+        "applicative consumes no pomonoid property whatever. The grade is "
+        "the caller's nominated k throughout, the transformation's fields "
+        "carry every step, and there is nothing for a join law to be "
+        "about. Its concrete instance (toGraded_traverseK) is allow-listed "
+        "for the matching reason one layer down",
+    "toGraded_traverseK_generic": "delegates to app_traverseGK and the two "
+        "traverseGK_eq_* bridges, all structural this step",
+    # --- morphism-bridge ---------------------------------------------------
+    "renameHomK_hom": "structural: `rfl`. GradedHom.toGradedHomK reuses "
+        "H.hom unchanged, so factoring renameHomK through the lift changed "
+        "no term — which is the whole content of the theorem",
+    "renameHomK_gmap": "structural: `rfl`, same reasoning as "
+        "renameHomK_hom for the grade map",
     # --- sufficient-grade-nested (this step) -------------------------------
     "flattenK_ok": "structural: flattenK's own ok-case reduction, "
         "delegates to bindK_ok (documented as such at flattenK's own "
@@ -348,6 +457,35 @@ BOUNDARY_RE = re.compile(
     r"variable|open|inductive)\b|^/-!|^/--|^-- -{3,}",
     re.MULTILINE,
 )
+
+
+# ---------------------------------------------------------------------------
+# The layer a row belongs to. [module-split]'s gate asks the inventory to
+# distinguish generic obligations from concrete ones, representation
+# results from both, and the C++-probe obligations from all three.
+#
+# `generic`        — stated over an abstract grade or an abstract carrier,
+#                    mentioning no `Finset` and no `Graded`. These are the
+#                    obligations a *different* grade would have to meet.
+# `representation` — about two spellings of one grade (`Canon` against
+#                    `Finset`). Neither an operational law nor a C++ claim;
+#                    `#representation`'s boundary note says why.
+# `concrete`       — about `Grade Err` and its carriers. The bulk.
+#
+# The fourth distinction is orthogonal and already carried by the `cpp`
+# column: a row with a C++ equation is a probe obligation, and the C++
+# side owes a `static_assert` or a test for it. A row can be both
+# `concrete` and a probe; no row is both `generic` and a probe, which is
+# itself worth being able to see.
+LAYER_OF = {
+    "Graded/Obligations.lean": "generic",
+    "Graded/EffectK.lean": "generic",
+    "Graded/Canonical.lean": "representation",
+}
+
+
+def layer_for(module: str) -> str:
+    return LAYER_OF.get(module, "concrete")
 
 
 def build_property_map():
@@ -486,6 +624,41 @@ CPP_LAW = {
     "apF_interchange": "apply(u, pure(a)) == apply(pure([=](auto f){ return f(a); }), u)  // fixed grade",
     "apF_comp": "apply(apply(apply(pure(compose), u), v), w) == apply(u, apply(v, w))  // fixed grade",
     "sumEquiv_bindF": "and_then(x, f) corresponds to std::expected/variant-style Sum::bind under the Equiv",
+    # --- accum-traverse / morphism-bridge --------------------------------
+    # Added by [cpp-sync]. Tranches C-G proved laws with C++ consequences
+    # and none of them reached this table, so `docs/probe-harness.md` was
+    # still describing the model as it stood before them. These six are
+    # the ones a C++ implementation can actually be checked against.
+    #
+    # `apK_comp` is deliberately absent: the name is declared in both
+    # `Graded/AccumTraverse.lean` and `Graded/Sufficient/ApplicativeK.lean`
+    # with genuinely different C++ meanings (accumulate both sides' errors
+    # versus keep the first), and this table is keyed by bare name, so one
+    # entry would put the wrong equation on one of the two rows.
+    "toGraded_traverseK":
+        "first_error(traverse(f, xs) /*accumulating*/) == "
+        "traverse(first_error compose f, xs) /*short-circuiting*/  "
+        "// the two forms agree on which error the caller sees, unconditionally",
+    "errsOf_traverseK":
+        "errors(traverse(f, xs) /*accumulating*/) == "
+        "concat{ errors(f(x)) : x in xs, in source order }  "
+        "// every failing position contributes, once; the order is observable "
+        "through first_error and is therefore part of the contract",
+    "traverseK_ok":
+        "traverse(f, xs) == pure(transform(xs, f))  "
+        "// when every check succeeds, the accumulating form is just transform",
+    "toGraded_widen":
+        "first_error(widen<Es2>(x)) == widen<Es2>(first_error(x))  "
+        "// the accumulating carrier must support subsumption at all - "
+        "the model went fifteen steps without it because no law asked",
+    "toGraded_apK":
+        "first_error(apply(f, x)) == apply(first_error(f), first_error(x))  "
+        "// unconditional at a nominated error set, because the accumulating "
+        "apply concatenates the function's errors first and the short-circuiting "
+        "one keeps the function's error",
+    "GradedHom.hom_ok":
+        "transform_error(ok(a), phi) == ok(a)  "
+        "// at EVERY error set, not only the empty one where the pure law states it",
 }
 
 
@@ -498,13 +671,19 @@ def compute_rows():
 
     rows = []
     flagged = []
-    for path in sorted(GRADED_DIR.glob("*.lean")):
-        module = f"Graded/{path.name}"
+    # `rglob`, not `glob`. [module-split] moved 61 theorems into
+    # `Graded/Sufficient/*.lean`, and a non-recursive glob dropped every
+    # one of them from this table while still reporting "0 flagged" — a
+    # silent loss of a third of the inventory, from a check whose whole
+    # job is to notice things. Walk the tree.
+    for path in sorted(GRADED_DIR.rglob("*.lean")):
+        module = f"Graded/{path.relative_to(GRADED_DIR)}"
         for name, chunk in theorem_chunks(path):
             _found, props = mentioned_properties(chunk, property_of)
             row = {
                 "theorem": name,
                 "module": module,
+                "layer": layer_for(module),
                 "properties": sorted(props),
                 "cpp": cpp_law_for(name),
             }
@@ -576,14 +755,28 @@ def write_outputs(rows):
         "Generated by `scripts/laws-inventory.py` from `Graded/*.lean`. Do "
         "not hand-edit — see `docs/design.md#laws-inventory`.",
         "",
-        "| theorem | module | properties | C++ law |",
-        "|---|---|---|---|",
+        "| theorem | module | layer | properties | C++ law |",
+        "|---|---|---|---|---|",
     ]
     for row in rows:
         props = ", ".join(row["properties"]) if row["properties"] else "—"
         theorem = row["theorem"].replace("|", "\\|")
         cpp = row["cpp"].replace("|", "\\|")
-        md_lines.append(f"| `{theorem}` | `{row['module']}` | {props} | {cpp} |")
+        md_lines.append(
+            f"| `{theorem}` | `{row['module']}` | {row['layer']} | {props} | {cpp} |")
+    md_lines.append("")
+    # The layer census, so the split is visible without reading 255 rows.
+    by_layer: dict[str, int] = {}
+    for row in rows:
+        by_layer[row["layer"]] = by_layer.get(row["layer"], 0) + 1
+    probes = sum(1 for row in rows if row["cpp"] != "—")
+    md_lines.append("## Obligations by layer")
+    md_lines.append("")
+    md_lines.append("| layer | theorems |")
+    md_lines.append("|---|---|")
+    for layer in sorted(by_layer):
+        md_lines.append(f"| {layer} | {by_layer[layer]} |")
+    md_lines.append(f"| **C++ probe** (orthogonal; see the `C++ law` column) | {probes} |")
     md_lines.append("")
     (docs_dir / "laws.md").write_text("\n".join(md_lines))
 
@@ -597,8 +790,9 @@ def write_probe_harness(docs_dir: Path, rows):
     `and_then`, `transform_error`, `transpose`; `apply`/`transform` for the
     applicative/functor operations `docs/design.md#cpp-counterpart` and
     `#applicative` describe but do not themselves name). Nothing here runs
-    C++ — this is the equation list a probe harness built from `std`
-    types checks by example."""
+    C++ — this is the equation list that the probe corpus in the vendored
+    transpose tree (`cpp/transpose/tests/beman/transpose/probe_harness.test.cpp`)
+    checks by example, one `TEST_CASE` per row, named after the theorem."""
     lines = [
         "# Probe harness",
         "",
@@ -610,7 +804,10 @@ def write_probe_harness(docs_dir: Path, rows):
         "`std` types (`std::expected`-shaped probes, per "
         "`docs/design.md#cpp-counterpart`'s decision that the CRTP "
         "machinery itself does no law-checking); equality is `==` on the "
-        "carrier after conversion. Nothing here runs C++.",
+        "carrier after conversion. Nothing here runs C++: the corpus that "
+        "does is `cpp/transpose/tests/beman/transpose/probe_harness.test.cpp`, "
+        "one `TEST_CASE` per row below, named `probe-harness: "
+        "<Module>.<theorem>` (`make cpp-probes`).",
         "",
     ]
     for row in rows:

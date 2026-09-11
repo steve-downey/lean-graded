@@ -2,7 +2,7 @@
 #+DATE: 2026-09-08
 #+CATEGORY: lean-transpose
 
-Twenty-three letters, written across one project: a Lean 4 model of the
+Thirty-two letters, written across one project: a Lean 4 model of the
 grading design behind P3200 and beman.transpose, built one law at a time
 to find out exactly which property of a grade each law actually needs.
 Letter 16 called itself the close of the series; a review afterward found
@@ -38,3 +38,12 @@ the earlier letter says so in place rather than being quietly edited.
 - [[file:sufficient-grade-traverse.org][Letter 20: The function that existed only to prove a length didn't matter]] (slug: sufficient-grade-traverse)
 - [[file:sufficient-grade-morphism.org][Letter 21: The wall two letters predicted turned out to be a field list]] (slug: sufficient-grade-morphism)
 - [[file:sufficient-grade-nested.org][Letter 22: Flatten still computes a grade, and commutativity finally ran out of places to hide]] (slug: sufficient-grade-nested)
+- [[file:truth-in-labelling.org][Letter 23: The three sentences nothing was checking]] (slug: truth-in-labelling)
+- [[file:grade-join-strength.org][Letter 24: The argument pack is a grade too, and it fails on purpose]] (slug: grade-join-strength)
+- [[file:accum-traverse.org][Letter 25: The carrier whose whole job I never asked it to do]] (slug: accum-traverse)
+- [[file:morphism-bridge.org][Letter 26: I checked it in Lean and still got it wrong]] (slug: morphism-bridge)
+- [[file:coverage-enforcement.org][Letter 27: Thirty-eight theorems nobody had ever run]] (slug: coverage-enforcement)
+- [[file:abstract-effects.org][Letter 28: The interface found two holes in the thing it abstracted]] (slug: abstract-effects)
+- [[file:payload-carrier.org][Letter 29: Two hundred theorems that didn't have to be reproved]] (slug: payload-carrier)
+- [[file:module-split.org][Letter 30: A third of the inventory vanished and the check said fine]] (slug: module-split)
+- [[file:probe-corpus.org][Letter 31: Three verbs in the harness had nothing to point at]] (slug: probe-corpus)

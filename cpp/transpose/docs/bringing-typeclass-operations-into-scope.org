@@ -1,0 +1,267 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
+#+options: html5-fancy:t
+#+TITLE: Bringing Typeclass Operations into Scope
+#+AUTHOR: Steve Downey
+#+EMAIL: sdowney@gmail.com
+#+LANGUAGE: en
+#+SELECT_TAGS: export
+#+EXCLUDE_TAGS: noexport
+#+DESCRIPTION:
+#+KEYWORDS:
+#+SUBTITLE: Algorithm Objects That Inherit from Their Dispatch Target
+#+DATE: {{{modification-time(%Y-%m-%d, VC)}}}
+#+STARTUP: showall
+#+OPTIONS: html-link-use-abs-url:nil html-postamble:nil html-preamble:t
+#+OPTIONS: html-scripts:n html-style:nil html5-fancy:nil tex:t
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+DESCRIPTION:
+#+KEYWORDS:
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+HTML_HEAD:
+#+HTML_HEAD_EXTRA:
+#+SUBTITLE:
+#+INFOJS_OPT:
+
+#+begin_abstract
+When an algorithm composes multiple typeclass operations, qualifying every call through a lookup object gets noisy.
+Inheriting from the typeclass instance brings the operations into unqualified scope --- the algorithm body reads like the operations belong to it.
+The typeclass objects are stateless, so the inheritance is free.
+#+end_abstract
+
+{{{TEASER_END}}}
+
+* The Problem
+
+I have a typeclass object pattern where per-concept variable templates give me static dispatch to typed implementation maps.
+Calling a single operation is clean:
+
+#+begin_src cpp
+const auto& foldable = beman::transpose::foldable_typeclass<Expr>;
+auto n = foldable.length(tree);
+#+end_src
+
+But when I am writing an /algorithm/ --- something that checks a precondition with Foldable, then transforms with Traversable, then sequences effects --- every call routes through a different lookup object:
+
+#+begin_src cpp
+template <class T>
+auto validate_and_transform(auto&& pred, auto&& f, const T& tree) {
+    const auto& foldable = beman::transpose::foldable_typeclass<T>;
+    const auto& traversable = beman::transpose::traversable_typeclass<T>;
+    const auto& applicative =
+        beman::transpose::applicative_typeclass<std::optional<double>>;
+
+    if (!foldable.any_of(tree, pred))
+        return std::optional<T>{};
+
+    return traversable.traverse(applicative,
+        [&](double x) -> std::optional<double> {
+            return pred(x) ? std::optional{f(x)} : std::optional{x};
+        },
+        tree);
+}
+#+end_src
+
+Three lookup objects, three names, three qualifications.
+The operations /conceptually/ belong to the algorithm, but the code makes them look like they belong to three different services.
+
+* The Observation
+
+The typeclass objects are empty structs.
+~BinaryTreeFoldableMap~ is zero bytes.
+~BinaryTreeTraversableMap~ is zero bytes.
+They carry no state.
+They exist only to bundle operations and participate in template specialization.
+
+Inheriting from an empty struct costs nothing.
+The operations come along via normal member lookup.
+If I inherit from the typeclass instance, I /have/ those operations.
+
+* The Shape
+
+The algorithm implementation inherits from the typeclass, parameterized by an NTTP that defaults to the standard lookup:
+
+#+begin_src cpp
+namespace detail {
+
+template <class T,
+          const auto& TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+struct validate_impl : remove_cvref_t<decltype(TC)> {
+    template <class Pred>
+    auto call(Pred&& pred, const T& value) const {
+        using element_type =
+            typename remove_cvref_t<decltype(TC)>::element_type;
+        return this->for_each(value,
+            [&](const element_type& elem)
+                -> std::optional<element_type> {
+                if (pred(elem)) return {elem};
+                return std::nullopt;
+            });
+    }
+};
+
+} // namespace detail
+#+end_src
+
+~for_each~ is not a free function.
+It is not a call through a separate object.
+It is an inherited member.
+~this->for_each(...)~ resolves through normal class lookup.
+
+The caller never sees this struct.
+The public interface is a single object with a deducing ~operator()~:
+
+#+begin_src cpp
+struct validate_fn {
+    template <class Pred, class T>
+    auto operator()(Pred&& pred, T&& value) const {
+        return detail::validate_impl<remove_cvref_t<T>>{}.call(
+            std::forward<Pred>(pred),
+            std::forward<T>(value));
+    }
+};
+inline constexpr validate_fn validate{};
+#+end_src
+
+Call site:
+
+#+begin_src cpp
+auto result = algorithm::validate(
+    [](double x) { return x > 0.0; }, tree);
+#+end_src
+
+~T~ is deduced.
+ADL is suppressed because ~validate~ is an object, not a function.
+The inheritance, the NTTP, the ephemeral construction of the impl --- all invisible.
+
+* Composing Multiple Typeclasses
+
+The more interesting case is an algorithm that needs /both/ Foldable and Traversable.
+Inherit from both.
+Both bases are empty; no diamond, no ambiguity (the typeclass surfaces have disjoint names by design).
+
+From [[file:../examples/algorithm_object_example.cpp][=examples/algorithm_object_example.cpp=]]:
+
+#+begin_src cpp
+template <class T,
+          const auto& FC = beman::transpose::foldable_typeclass<remove_cvref_t<T>>,
+          const auto& TC = beman::transpose::traversable_typeclass<remove_cvref_t<T>>>
+struct transform_if_large_impl
+    : remove_cvref_t<decltype(FC)>,
+      remove_cvref_t<decltype(TC)> {
+    using foldable_base    = remove_cvref_t<decltype(FC)>;
+    using traversable_base = remove_cvref_t<decltype(TC)>;
+    using element_type     = typename traversable_base::element_type;
+
+    template <class F>
+    auto call(std::size_t min_size, F&& f, const T& value) const {
+        auto n = this->foldable_base::length(value);
+        if (n < min_size)
+            return std::optional<T>{};
+
+        return this->traversable_base::for_each(
+            value, [&](const element_type& elem)
+                       -> std::optional<element_type> {
+                return {f(elem)};
+            });
+    }
+};
+#+end_src
+
+~length~ comes from Foldable.
+~for_each~ comes from Traversable.
+Both called as inherited members.
+The base-qualified ~this->foldable_base::length~ disambiguates; where names are unique, plain ~this->for_each~ suffices.
+
+Compare with the lookup-object version:
+
+#+begin_src cpp
+auto n = foldable.length(value);
+// versus
+auto n = this->foldable_base::length(value);
+#+end_src
+
+The disambiguation is slightly more verbose, but it carries information: which typeclass this operation comes from.
+In the lookup-object version, I need to trace back to which ~const auto&~ declaration ~foldable~ refers to.
+In the inheritance version, the base class name /is/ the provenance.
+
+* Why Not Just a Free Function?
+
+The existing ~beman::transpose::traverse(f, tree)~ is a free function template.
+It deduces ~T~, looks up the typeclass, and calls through it.
+That works.
+
+The inheriting CPO earns its keep when:
+
+1. The algorithm body is longer than one operation.
+   A free function with three lookup-object locals is fine for three lines.
+   At ten lines of composed typeclass calls, the inheritance version reads better.
+
+2. The algorithm is a reusable vocabulary object, not a one-off helper.
+   Making it a niebloid (an ~inline constexpr~ callable object) suppresses ADL and gives a stable, non-overloadable entry point.
+
+3. I want to test the algorithm with an alternate typeclass instance.
+   The NTTP is overridable.
+   I can instantiate ~validate_impl<T, my_custom_traversable>~ in tests without changing anything at the call site.
+
+For a trivial one-liner, a free function is simpler.
+This pattern is for when the algorithm grows past that.
+
+* The ~decltype~ Wrinkle
+
+One practical snag: ~const auto&~ NTTP parameters give a reference type under ~decltype~.
+You cannot inherit from a reference, and you cannot use a reference type in a qualified name.
+~remove_cvref_t<decltype(TC)>~ is needed at three points:
+
+1. The base specifier: ~struct impl : remove_cvref_t<decltype(TC)>~.
+2. Extracting nested types: ~typename remove_cvref_t<decltype(TC)>::element_type~.
+3. Disambiguation in multi-inheritance: ~this->remove_cvref_t<decltype(FC)>::length(...)~.
+
+Type aliases keep this manageable:
+
+#+begin_src cpp
+using foldable_base    = remove_cvref_t<decltype(FC)>;
+using traversable_base = remove_cvref_t<decltype(TC)>;
+#+end_src
+
+After that, the algorithm body is clean.
+
+* Slicing Is Not a Problem
+
+The objection I anticipated: inheriting from a typeclass instance and then constructing the derived type as a temporary --- does that slice?
+
+No.
+The typeclass objects carry no data members.
+There is nothing to slice.
+The inheritance exists to bring names into scope, not to add behavior to the base.
+The impl struct's ~call~ method is the only new behavior, and it lives on the derived type.
+Construction of ~validate_impl<T>{}~ is zero-cost: no allocation, no initialization, no state.
+
+* Where This Lives
+
+The working implementation is in [[file:../examples/algorithm_object_example.cpp][=examples/algorithm_object_example.cpp=]].
+
+Two algorithms demonstrate the pattern:
+
+- ~validate~ --- single-typeclass (Traversable only). Takes a predicate, returns ~optional<Tree>~.
+- ~transform_if_large~ --- multi-typeclass (Foldable + Traversable). Checks a size precondition, then transforms.
+
+Both use the deducing-CPO public layer.
+Both are demonstrated with ~BinaryTree<T>~ as the concrete type.
+The caller never mentions typeclasses, inheritance, or NTTPs.
+
+* Summary
+
+| Layer                 | What it does                              | Who sees it        |
+|-----------------------+-------------------------------------------+--------------------|
+| ~validate_impl<T>~   | Inherits typeclass, defines algorithm body | Algorithm author   |
+| ~validate_fn~        | Deducing ~operator()~, constructs impl    | Library maintainer |
+| ~validate~           | The ~inline constexpr~ object             | Caller             |
+
+The inheritance is the load-bearing trick: it brings typeclass operations into unqualified scope without ADL, without macros, and without runtime cost.
+The deducing CPO layer means callers pay no syntactic tax for the machinery underneath.

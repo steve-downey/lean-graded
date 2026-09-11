@@ -1,0 +1,130 @@
+#+TITLE: Letter 29: Two hundred theorems that didn't have to be reproved
+#+DATE: 2026-09-10
+#+CATEGORY: lean-transpose
+#+STEP: payload-carrier
+#+SERIES_PREV: abstract-effects
+
+Steve,
+
+* What I set out to do
+
+The design document has said since the first day that an =error_set=
+instance holds one error *value*, whose type is in the set. The model has
+never done that. It holds the type. =err parse= means a parse failure
+happened, and that is the entire content: no offset, no bound, no errno.
+
+So every law about carrying data through a failure has been unstatable
+for twenty-eight letters, and it is the one place where the model is
+narrower than the thing it exists to check.
+
+The fix is obvious and the risk is all in how you attach it. I had two
+choices. Build the payload-carrying type beside the old one and prove
+them equivalent at the unit payload; or *define* the old one as the new
+one at the unit payload. Those sound like the same thing. They are not.
+An equivalence carries no theorems. Every result proved about the old
+carrier would need transporting across it, one at a time, and there are
+two hundred and fifty of them.
+
+So the job was to make the second option work, and to decide it before
+writing anything I'd have to throw away.
+
+* What the checker refused
+
+Three times, and each refusal taught me the next mechanism.
+
+First: the payload-bearing constructor takes three arguments, and every
+existing definition matches on two. That one I expected, and Lean has an
+answer — mark the two-argument version a match pattern and it can appear
+on the left of a match. Fine.
+
+Second, and this is the one worth writing down. =cases= appeared to keep
+working. The old code says:
+
+#+begin_src lean
+cases x with
+| ok a => ...
+| err e he => ...
+#+end_src
+
+and it compiled. But =he= was no longer the proof that =e= belongs to the
+grade. It was the payload. The membership proof had been silently
+renamed to an inaccessible name, and my two names had shifted along by
+one. Where the proof was actually used this fails loudly, so I found it.
+Where a branch never touches =he= it would have compiled and meant
+something else. The fix is a custom two-case eliminator that presents the
+unit-payload carrier with exactly two things to bind.
+
+Third: after all that, the definition still broke, and the reason is a
+detail I would never have predicted. I had written the specialization as
+a transparent abbreviation. Dot notation resolves in the namespace of
+whatever the expected type's head is, and through a transparent
+abbreviation Lean looks straight through to the underlying type and
+finds *its* three-argument constructor. Making the alias opaque keeps the
+head where I want it. The same detail bit again one level up: the
+constructors have to live in the type's own namespace, not the enclosing
+one, or the same lookup misses.
+
+* What changed
+
+There is a signature now: a type of error kinds, and for each kind the
+type of thing that kind carries. Parse carries an offset. Range carries
+the bound and what was seen. I/O carries an errno string. The grade is
+still a finite set of *kinds*, which is right: =error_set<parse_error>=
+is one type no matter how much a parse error turns out to carry.
+
+The old carrier is that one, at the signature where every kind carries
+nothing.
+
+And the migration cost, which is the number I care about: no theorem
+statement changed, no transport was introduced, four constructor facts
+had to be restated by hand, and seventy-six =cases= sites needed one
+token added. That is what the second option buys over the first, and it
+is why I spent an afternoon proving the mechanism on a toy before
+touching the real thing.
+
+The seventy-six are all in modules that reach the carrier through an
+alias — the fixed-grade view, the nested view. =cases= looks up its
+eliminator by the name it is looking at, and through an alias it looks at
+a different name, misses, and unfolds too far. Naming the eliminator
+explicitly is correct whatever the name is.
+
+One thing I want on the record because it is easy to skip. Deciding
+equality on a payload-carrying error needs a decidable equality for
+*each* payload type in the family, and no amount of instance search will
+assemble that for you. Every concrete signature owes a small dependent
+instance, written out kind by kind. It sounds like bookkeeping. It is
+load-bearing: every computed check in this repository runs through it, so
+it had to work before anything else could.
+
+The demonstration is one line, and it is the entire point:
+
+#+begin_src lean
+#guard parseAt "4x2" ≠ parseAt "nope"
+#+end_src
+
+Two parse failures at different offsets, and they are different values.
+Under the old carrier both are =err parse= and that inequality is simply
+false.
+
+* Back in C++
+
+If you are adding a field to a type that a lot of code already matches
+on, the question worth asking first is not "what should the field be". It
+is "can the old shape remain a legal spelling of the new one".
+
+Sometimes it can, and then the change is a day. Sometimes it can't, and
+then it is a month of touching every call site, and the month arrives
+whether or not you budgeted for it. The difference is usually decided by
+a mechanism you either have or don't: a defaulted parameter, a converting
+constructor, an alias that still resolves. Find out which you are in
+before you write the new type, not after.
+
+The trap I hit is the one to carry, though. My positional pattern kept
+compiling and started meaning something else, because I added a field in
+the middle and the names after it shifted along. That is aggregate
+initialization with a new member spliced into the middle of the struct,
+and it is the same failure: the code is still valid, the fields are still
+in range, and every value is now off by one. Where the types differ your
+compiler saves you. Where they happen to line up, nothing does.
+
+--SMD

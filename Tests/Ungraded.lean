@@ -113,4 +113,43 @@ def renderFlat : Graded (Grade.join gE gE) (List Nat) → String
 #guard renderFlat (traverse (fun a => flatten (map kT (fT a))) [0, 1]) =
   "err Examples.Validation.E.range"
 
+-- ---------------------------------------------------------------------
+-- The six fixed-grade reduction lemmas. The grade here is deliberately
+-- `{parse, range}` rather than a singleton: `apF` collapses
+-- `Grade.join g g` back to `g` with `Grade.join_idem`, and a two-element
+-- grade makes that collapse a real one rather than a coincidence about
+-- singletons.
+
+example (a : Nat) : (pureF a : Fixed ({E.parse, E.range} : Grade E) Nat) = Graded.ok a :=
+  pureF_eq_ok a
+
+example (a : Nat) (f : Nat → Fixed ({E.parse, E.range} : Grade E) Nat) :
+    bindF (Graded.ok a : Fixed ({E.parse, E.range} : Grade E) Nat) f = f a :=
+  bindF_ok a f
+
+example (he : E.parse ∈ ({E.parse, E.range} : Grade E))
+    (f : Nat → Fixed ({E.parse, E.range} : Grade E) Nat) :
+    bindF (Graded.err E.parse he : Fixed ({E.parse, E.range} : Grade E) Nat) f
+      = Graded.err E.parse he :=
+  bindF_err E.parse he f
+
+example (f : Nat → Nat) (a : Nat) :
+    apF (Graded.ok f : Fixed ({E.parse, E.range} : Grade E) (Nat → Nat))
+        (Graded.ok a : Fixed ({E.parse, E.range} : Grade E) Nat) = Graded.ok (f a) :=
+  apF_ok_ok f a
+
+example (he : E.parse ∈ ({E.parse, E.range} : Grade E))
+    (x : Fixed ({E.parse, E.range} : Grade E) Nat) :
+    apF (Graded.err E.parse he : Fixed ({E.parse, E.range} : Grade E) (Nat → Nat)) x
+      = Graded.err E.parse he :=
+  apF_err_left E.parse he x
+
+-- The two error sides use *distinguishable* kinds, so this is not the
+-- previous example with the arguments swapped.
+example (f : Nat → Nat) (he : E.range ∈ ({E.parse, E.range} : Grade E)) :
+    apF (Graded.ok f : Fixed ({E.parse, E.range} : Grade E) (Nat → Nat))
+        (Graded.err E.range he : Fixed ({E.parse, E.range} : Grade E) Nat)
+      = Graded.err E.range he :=
+  apF_ok_err f E.range he
+
 end Tests

@@ -1,13 +1,59 @@
 [
   {
+    "theorem": "widen_ok",
+    "module": "Graded/Accum.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_errs",
+    "module": "Graded/Accum.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_widen",
+    "module": "Graded/Accum.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_map",
+    "module": "Graded/Accum.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "map_id",
+    "module": "Graded/Accum.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "map_comp",
+    "module": "Graded/Accum.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "ap_ok_ok",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "ap_ok_errs",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -16,6 +62,7 @@
   {
     "theorem": "ap_errs_ok",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -24,6 +71,7 @@
   {
     "theorem": "ap_errs_errs",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -32,24 +80,28 @@
   {
     "theorem": "cast_ok",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "cast_errs",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "errs_eq_of_list_eq",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "ap_pure_id",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -58,6 +110,7 @@
   {
     "theorem": "ap_pure_pure",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -66,6 +119,7 @@
   {
     "theorem": "ap_interchange",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -74,6 +128,7 @@
   {
     "theorem": "ap_comp",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "associative",
       "unit"
@@ -83,6 +138,7 @@
   {
     "theorem": "notMonad",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -91,36 +147,215 @@
   {
     "theorem": "toGraded_ok",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "toGraded_errs",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "toGraded_grade",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "toGraded_grade'",
     "module": "Graded/Accum.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
+    "theorem": "apK_ok_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_ok_errs",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_errs_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_errs_errs",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "ap_eq_apK",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_pure_id",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_pure_pure",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_interchange",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_comp",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_nil",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_cons",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_errs",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_apK",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_map",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "errsOf_traverseK",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "errors(traverse(f, xs) /*accumulating*/) == concat{ errors(f(x)) : x in xs, in source order }  // every failing position contributes, once; the order is observable through first_error and is therefore part of the contract"
+  },
+  {
+    "theorem": "traverseK_ok",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "traverse(f, xs) == pure(transform(xs, f))  // when every check succeeds, the accumulating form is just transform"
+  },
+  {
+    "theorem": "toGraded_pureK",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_widen",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "first_error(widen<Es2>(x)) == widen<Es2>(first_error(x))  // the accumulating carrier must support subsumption at all - the model went fifteen steps without it because no law asked"
+  },
+  {
+    "theorem": "toGraded_map",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_apK",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "first_error(apply(f, x)) == apply(first_error(f), first_error(x))  // unconditional at a nominated error set, because the accumulating apply concatenates the function's errors first and the short-circuiting one keeps the function's error"
+  },
+  {
+    "theorem": "toGraded_map2K",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_traverseK",
+    "module": "Graded/AccumTraverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "first_error(traverse(f, xs) /*accumulating*/) == traverse(first_error compose f, xs) /*short-circuiting*/  // the two forms agree on which error the caller sees, unconditionally"
+  },
+  {
     "theorem": "ap_ok_ok",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "ap_err_left",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -129,6 +364,7 @@
   {
     "theorem": "ap_ok_err",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -137,12 +373,14 @@
   {
     "theorem": "apFlipped_ok_ok",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "apFlipped_err_right",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -151,6 +389,7 @@
   {
     "theorem": "apFlipped_ok_err",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -159,6 +398,7 @@
   {
     "theorem": "ap_pure_id",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -167,6 +407,7 @@
   {
     "theorem": "ap_pure_pure",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -175,6 +416,7 @@
   {
     "theorem": "ap_interchange",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -183,6 +425,7 @@
   {
     "theorem": "ap_comp",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "associative",
       "unit"
@@ -192,6 +435,7 @@
   {
     "theorem": "ap_flip",
     "module": "Graded/Applicative.lean",
+    "layer": "concrete",
     "properties": [
       "commutative"
     ],
@@ -200,78 +444,98 @@
   {
     "theorem": "toFinset_ofFinset",
     "module": "Graded/Canonical.lean",
+    "layer": "representation",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "ofFinset_toFinset",
     "module": "Graded/Canonical.lean",
+    "layer": "representation",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "canon_perm",
     "module": "Graded/Canonical.lean",
+    "layer": "representation",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "canonEquiv_union",
     "module": "Graded/Canonical.lean",
+    "layer": "representation",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "canonEquiv_bot",
     "module": "Graded/Canonical.lean",
+    "layer": "representation",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toSum_inj",
+    "module": "Graded/Carrier.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "map_id",
     "module": "Graded/Carrier.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "map_comp",
     "module": "Graded/Carrier.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "map_emptyEquiv",
     "module": "Graded/Carrier.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "cast_rfl",
     "module": "Graded/Carrier.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "cast_cast",
     "module": "Graded/Carrier.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "flatten_eq_bind_id",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "flatten_map",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "transform(flatten(x), f) == flatten(transform(transform(x, f)))"
   },
   {
     "theorem": "flatten_pure_outer",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [
       "order",
       "unit"
@@ -281,6 +545,7 @@
   {
     "theorem": "flatten_pure_inner",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [
       "order",
       "unit"
@@ -290,6 +555,7 @@
   {
     "theorem": "flatten_flatten",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [
       "associative",
       "order"
@@ -299,6 +565,7 @@
   {
     "theorem": "flatten_widen_outer",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -307,6 +574,7 @@
   {
     "theorem": "flatten_widen_inner",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -315,6 +583,7 @@
   {
     "theorem": "flatten_comm",
     "module": "Graded/Compose.lean",
+    "layer": "concrete",
     "properties": [
       "commutative",
       "order"
@@ -324,24 +593,28 @@
   {
     "theorem": "Comp.map_id",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "Comp.map_comp",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "Comp.ap_ok_ok",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "Comp.ap_err_left",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -350,6 +623,7 @@
   {
     "theorem": "Comp.ap_ok_err",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -358,6 +632,7 @@
   {
     "theorem": "Comp.ap_pure_id",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -366,6 +641,7 @@
   {
     "theorem": "Comp.ap_pure_pure",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -374,6 +650,7 @@
   {
     "theorem": "Comp.ap_interchange",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -382,6 +659,7 @@
   {
     "theorem": "Comp.ap_comp",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "associative",
       "unit"
@@ -391,6 +669,7 @@
   {
     "theorem": "Comp.traverseComp_cons",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "idempotent"
     ],
@@ -399,12 +678,14 @@
   {
     "theorem": "traverseComp_eq",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "transpose_nested(transform(f, map(k))) == transform(map(transpose(k)), transpose(f, xs))"
   },
   {
     "theorem": "Comp.grade_reassoc",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [
       "associative",
       "commutative"
@@ -414,12 +695,88 @@
   {
     "theorem": "flatten_ap",
     "module": "Graded/ComposeApp.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "flatten(apply(ff, xx)) == apply(flatten(ff), flatten(xx))  // one-sided condition only"
   },
   {
+    "theorem": "map_pureK",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_nil",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_cons",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_map",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_pureK",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_eq_traverseK",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseGK_eq_accum_traverseK",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "app_pureK",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "app_traverseGK",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "toGraded_traverseK_generic",
+    "module": "Graded/EffectK.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
     "theorem": "join_assoc",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "associative"
     ],
@@ -428,6 +785,7 @@
   {
     "theorem": "join_comm",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "commutative"
     ],
@@ -436,6 +794,7 @@
   {
     "theorem": "join_idem",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "idempotent"
     ],
@@ -444,6 +803,7 @@
   {
     "theorem": "bot_join",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -452,6 +812,7 @@
   {
     "theorem": "join_bot",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "unit"
     ],
@@ -460,6 +821,7 @@
   {
     "theorem": "le_join_left",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -468,6 +830,7 @@
   {
     "theorem": "le_join_right",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -476,6 +839,7 @@
   {
     "theorem": "join_le",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -484,6 +848,7 @@
   {
     "theorem": "join_mono",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -492,6 +857,7 @@
   {
     "theorem": "le_refl'",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -500,6 +866,7 @@
   {
     "theorem": "le_trans'",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -508,752 +875,46 @@
   {
     "theorem": "bot_le",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [
       "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "le_antisymm",
+    "module": "Graded/Grade.lean",
+    "layer": "concrete",
+    "properties": [
+      "antisymmetry"
     ],
     "cpp": "\u2014"
   },
   {
     "theorem": "join_eq_right_of_le",
     "module": "Graded/Grade.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
-  },
-  {
-    "theorem": "cast_ok",
-    "module": "Graded/Monad.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "cast_err",
-    "module": "Graded/Monad.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "cast_widen",
-    "module": "Graded/Monad.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bind_pure_left",
-    "module": "Graded/Monad.lean",
-    "properties": [
-      "order",
-      "unit"
-    ],
-    "cpp": "and_then(pure(x), f) == f(x)"
-  },
-  {
-    "theorem": "bind_pure_right",
-    "module": "Graded/Monad.lean",
-    "properties": [
-      "order",
-      "unit"
-    ],
-    "cpp": "and_then(x, pure) == x"
-  },
-  {
-    "theorem": "bind_assoc",
-    "module": "Graded/Monad.lean",
-    "properties": [
-      "associative",
-      "order"
-    ],
-    "cpp": "and_then(and_then(x, f), k) == and_then(x, [=](auto a){ return and_then(f(a), k); })"
-  },
-  {
-    "theorem": "bind_map",
-    "module": "Graded/Monad.lean",
-    "properties": [
-      "order",
-      "unit"
-    ],
-    "cpp": "and_then(x, [=](auto a){ return pure(f(a)); }) == transform(x, f)"
-  },
-  {
-    "theorem": "bind_widen",
-    "module": "Graded/Monad.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "and_then(widen<Es2>(x), f) == widen<Es2 | Fs>(and_then(x, f))"
-  },
-  {
-    "theorem": "rename_join",
-    "module": "Graded/Morphism.lean",
-    "properties": [
-      "homomorphism"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "rename_bot",
-    "module": "Graded/Morphism.lean",
-    "properties": [
-      "homomorphism"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "rename_mono",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "mem_rename",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "rename_ok",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "rename_err",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "rename_map",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "transform_error(transform(x, f), phi) == transform(transform_error(x, phi), f)"
-  },
-  {
-    "theorem": "rename_widen",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "transform_error(widen<Es2>(x), phi) == widen<image of Es2>(transform_error(x, phi))"
-  },
-  {
-    "theorem": "rename_cast",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "transform_error(x, phi) commutes with a same-set grade cast"
-  },
-  {
-    "theorem": "rename_pure",
-    "module": "Graded/Morphism.lean",
-    "properties": [
-      "homomorphism"
-    ],
-    "cpp": "transform_error(pure(a), phi) == pure(a)"
-  },
-  {
-    "theorem": "rename_bind",
-    "module": "Graded/Morphism.lean",
-    "properties": [
-      "homomorphism"
-    ],
-    "cpp": "transform_error(and_then(x, f), phi) == and_then(transform_error(x, phi), transform_error(_, phi) compose f)"
-  },
-  {
-    "theorem": "rename_ap",
-    "module": "Graded/Morphism.lean",
-    "properties": [
-      "homomorphism"
-    ],
-    "cpp": "transform_error(apply(f, x), phi) == apply(transform_error(f, phi), transform_error(x, phi))"
-  },
-  {
-    "theorem": "rename_map2",
-    "module": "Graded/Morphism.lean",
-    "properties": [
-      "homomorphism"
-    ],
-    "cpp": "transform_error(map2(k, x, y), phi) == map2(k, transform_error(x, phi), transform_error(y, phi))"
-  },
-  {
-    "theorem": "traverse_rename",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "transform_error(traverse(f, xs), phi) == traverse(transform_error(f, phi), xs)"
-  },
-  {
-    "theorem": "rename_toGraded",
-    "module": "Graded/Morphism.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "le_join_left",
-    "module": "Graded/Obligations.lean",
-    "properties": [
-      "order",
-      "unit"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "le_join_right",
-    "module": "Graded/Obligations.lean",
-    "properties": [
-      "order",
-      "unit"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "join_le",
-    "module": "Graded/Obligations.lean",
-    "properties": [
-      "idempotent",
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldG_nil",
-    "module": "Graded/Obligations.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldG_cons",
-    "module": "Graded/Obligations.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldG_le",
-    "module": "Graded/Obligations.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldG_cons_ne_nil",
-    "module": "Graded/Obligations.lean",
-    "properties": [
-      "idempotent",
-      "unit"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "joinAllG_nil",
-    "module": "Graded/Obligations.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "joinAllG_cons",
-    "module": "Graded/Obligations.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "joinAllG_perm",
-    "module": "Graded/Obligations.lean",
-    "properties": [
-      "associative",
-      "commutative"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "nat_not_idem",
-    "module": "Graded/Obligations.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bindK_ok",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bindK_err",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "widen_ok",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "widen_err",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bindK_pure_left",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bindK_pure_right",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bindK_assoc",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bindK_widen",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bindK_irrel",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "bind_eq_bindK",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_ok_ok",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_err_left",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_ok_err",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apFlippedK_ok_ok",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apFlippedK_err_right",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apFlippedK_ok_err",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_pure_id",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_pure_pure",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_interchange",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_comp",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "apK_flip",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "ap_eq_apK",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_nil",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_cons",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_irrel",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_nil_eq_fromEmpty",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_map",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_fromEmpty",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_cons_ok_ok",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_cons_err_left",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_cons_ok_err",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_length",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverse_eq_traverseK",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_ok",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_err",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_map",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_pure_outer",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_pure_inner",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_flattenK",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_widen_outer",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_widen_inner",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flattenK_comm",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flatten_eq_flattenK",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "Comp.apK_ok_ok",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "Comp.apK_err_left",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "Comp.apK_ok_err",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "Comp.apK_interchange",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseCompK_nil",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseCompK_cons",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseCompK_irrel",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseCompK_eq",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "flatten_apK",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "rename_apK",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "rename_map2K",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverseK_rename",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "GradedHom.gmap_mono",
-    "module": "Graded/Sufficient.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "constHomK_not_gmap_bot",
-    "module": "Graded/Sufficient.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldGrade_nil",
-    "module": "Graded/Traverse.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldGrade_cons",
-    "module": "Graded/Traverse.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldGrade_le",
-    "module": "Graded/Traverse.lean",
-    "properties": [
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "foldGrade_cons_ne_nil",
-    "module": "Graded/Traverse.lean",
-    "properties": [
-      "idempotent",
-      "unit"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverse_nil",
-    "module": "Graded/Traverse.lean",
-    "properties": [],
-    "cpp": "traverse(f, {}) == pure({})"
-  },
-  {
-    "theorem": "traverse_cons",
-    "module": "Graded/Traverse.lean",
-    "properties": [
-      "idempotent"
-    ],
-    "cpp": "traverse(f, x :: xs) == map2(cons, f(x), traverse(f, xs))"
-  },
-  {
-    "theorem": "traverse_cons_ok_ok",
-    "module": "Graded/Traverse.lean",
-    "properties": [],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverse_cons_err_left",
-    "module": "Graded/Traverse.lean",
-    "properties": [
-      "idempotent",
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverse_cons_ok_err",
-    "module": "Graded/Traverse.lean",
-    "properties": [
-      "idempotent",
-      "order"
-    ],
-    "cpp": "\u2014"
-  },
-  {
-    "theorem": "traverse_map",
-    "module": "Graded/Traverse.lean",
-    "properties": [],
-    "cpp": "traverse(f, transform(xs, h)) == traverse(f compose h, xs)"
-  },
-  {
-    "theorem": "traverse_fromEmpty",
-    "module": "Graded/Traverse.lean",
-    "properties": [
-      "idempotent"
-    ],
-    "cpp": "traverse(fromEmpty, xs) == fromEmpty(xs)  // no-fail context is a no-op"
-  },
-  {
-    "theorem": "traverse_length",
-    "module": "Graded/Traverse.lean",
-    "properties": [],
-    "cpp": "traverse(f, xs).value().size() == xs.size()  // shape preservation"
   },
   {
     "theorem": "joinAll_nil",
-    "module": "Graded/Tuple.lean",
+    "module": "Graded/GradeFold.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "joinAll_cons",
-    "module": "Graded/Tuple.lean",
+    "module": "Graded/GradeFold.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "joinAll_perm",
-    "module": "Graded/Tuple.lean",
+    "module": "Graded/GradeFold.lean",
+    "layer": "concrete",
     "properties": [
       "associative",
       "commutative"
@@ -1262,7 +923,8 @@
   },
   {
     "theorem": "join_mem_eq",
-    "module": "Graded/Tuple.lean",
+    "module": "Graded/GradeFold.lean",
+    "layer": "concrete",
     "properties": [
       "associative",
       "commutative",
@@ -1272,121 +934,1093 @@
   },
   {
     "theorem": "joinAll_dedup",
-    "module": "Graded/Tuple.lean",
+    "module": "Graded/GradeFold.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "error_set<Es..., duplicates removed> == error_set<Es...>"
   },
   {
+    "theorem": "joinAll_le_of_mem",
+    "module": "Graded/GradeFold.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "cast_ok",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "cast_err",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "cast_widen",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bind_pure_left",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [
+      "order",
+      "unit"
+    ],
+    "cpp": "and_then(pure(x), f) == f(x)"
+  },
+  {
+    "theorem": "bind_pure_right",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [
+      "order",
+      "unit"
+    ],
+    "cpp": "and_then(x, pure) == x"
+  },
+  {
+    "theorem": "bind_assoc",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [
+      "associative",
+      "order"
+    ],
+    "cpp": "and_then(and_then(x, f), k) == and_then(x, [=](auto a){ return and_then(f(a), k); })"
+  },
+  {
+    "theorem": "bind_map",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [
+      "order",
+      "unit"
+    ],
+    "cpp": "and_then(x, [=](auto a){ return pure(f(a)); }) == transform(x, f)"
+  },
+  {
+    "theorem": "bind_widen",
+    "module": "Graded/Monad.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "and_then(widen<Es2>(x), f) == widen<Es2 | Fs>(and_then(x, f))"
+  },
+  {
+    "theorem": "rename_join",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [
+      "homomorphism"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_bot",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [
+      "homomorphism"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_mono",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "mem_rename",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_ok",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_err",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_map",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "transform_error(transform(x, f), phi) == transform(transform_error(x, phi), f)"
+  },
+  {
+    "theorem": "rename_widen",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "transform_error(widen<Es2>(x), phi) == widen<image of Es2>(transform_error(x, phi))"
+  },
+  {
+    "theorem": "rename_cast",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "transform_error(x, phi) commutes with a same-set grade cast"
+  },
+  {
+    "theorem": "rename_pure",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [
+      "homomorphism"
+    ],
+    "cpp": "transform_error(pure(a), phi) == pure(a)"
+  },
+  {
+    "theorem": "rename_bind",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [
+      "homomorphism"
+    ],
+    "cpp": "transform_error(and_then(x, f), phi) == and_then(transform_error(x, phi), transform_error(_, phi) compose f)"
+  },
+  {
+    "theorem": "rename_ap",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [
+      "homomorphism"
+    ],
+    "cpp": "transform_error(apply(f, x), phi) == apply(transform_error(f, phi), transform_error(x, phi))"
+  },
+  {
+    "theorem": "rename_map2",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [
+      "homomorphism"
+    ],
+    "cpp": "transform_error(map2(k, x, y), phi) == map2(k, transform_error(x, phi), transform_error(y, phi))"
+  },
+  {
+    "theorem": "traverse_rename",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "transform_error(traverse(f, xs), phi) == traverse(transform_error(f, phi), xs)"
+  },
+  {
+    "theorem": "rename_toGraded",
+    "module": "Graded/Morphism.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "le_join_left",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "order",
+      "unit"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "le_join_right",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "order",
+      "unit"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "join_le",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "idempotent",
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "IsLubGrade.of_idem",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "IsIdemGrade.of_lub_of_antisymm",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "antisymmetry",
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "join_self_equiv",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "grade_isCanonical",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "commutative",
+      "idempotent"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldG_nil",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldG_cons",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldG_le",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldG_cons_ne_nil",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "idempotent",
+      "unit"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "joinAllG_nil",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "joinAllG_cons",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "joinAllG_perm",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "associative",
+      "commutative"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "nat_not_idem",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "pack_not_antisymm",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "antisymmetry"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "pack_not_idem",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "idempotent"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "pack_not_comm",
+    "module": "Graded/Obligations.lean",
+    "layer": "generic",
+    "properties": [
+      "commutative"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_ok_ok",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_err_left",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_ok_err",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apFlippedK_ok_ok",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apFlippedK_err_right",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apFlippedK_ok_err",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_pure_id",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_pure_pure",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_interchange",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_comp",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "apK_flip",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "ap_eq_apK",
+    "module": "Graded/Sufficient/ApplicativeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Comp.apK_ok_ok",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Comp.apK_err_left",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Comp.apK_ok_err",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "Comp.apK_interchange",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_nil",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_cons",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_irrel",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseCompK_eq",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flatten_apK",
+    "module": "Graded/Sufficient/CompK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_ok",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_err",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_map",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_pure_outer",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_pure_inner",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_flattenK",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_widen_outer",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_widen_inner",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flattenK_comm",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "flatten_eq_flattenK",
+    "module": "Graded/Sufficient/ComposeK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_ok",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_err",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_ok",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "widen_err",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_pure_left",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_pure_right",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_assoc",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_widen",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_irrel",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bind_eq_bindK",
+    "module": "Graded/Sufficient/MonadK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_apK",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "rename_map2K",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_rename",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "bindK_eq_widen_bind",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "GradedHom.gmap_mono",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "GradedHom.hom_ok",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "transform_error(ok(a), phi) == ok(a)  // at EVERY error set, not only the empty one where the pure law states it"
+  },
+  {
+    "theorem": "renameHomK_hom",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "renameHomK_gmap",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "constHomK_not_gmap_bot",
+    "module": "Graded/Sufficient/MorphismK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_nil",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_cons",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_irrel",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_nil_eq_fromEmpty",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_map",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_fromEmpty",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_cons_ok_ok",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_cons_err_left",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_cons_ok_err",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverseK_length",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverse_eq_traverseK",
+    "module": "Graded/Sufficient/TraversableK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "sequenceK_nil",
+    "module": "Graded/Sufficient/TupleK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "sequenceK_cons",
+    "module": "Graded/Sufficient/TupleK.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "sequenceK_irrel",
+    "module": "Graded/Sufficient/TupleK.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldGrade_nil",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldGrade_cons",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldGrade_le",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "foldGrade_cons_ne_nil",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "idempotent",
+      "unit"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverse_nil",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "traverse(f, {}) == pure({})"
+  },
+  {
+    "theorem": "traverse_cons",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "idempotent"
+    ],
+    "cpp": "traverse(f, x :: xs) == map2(cons, f(x), traverse(f, xs))"
+  },
+  {
+    "theorem": "traverse_cons_ok_ok",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverse_cons_err_left",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "idempotent",
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverse_cons_ok_err",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "idempotent",
+      "order"
+    ],
+    "cpp": "\u2014"
+  },
+  {
+    "theorem": "traverse_map",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "traverse(f, transform(xs, h)) == traverse(f compose h, xs)"
+  },
+  {
+    "theorem": "traverse_fromEmpty",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [
+      "idempotent"
+    ],
+    "cpp": "traverse(fromEmpty, xs) == fromEmpty(xs)  // no-fail context is a no-op"
+  },
+  {
+    "theorem": "traverse_length",
+    "module": "Graded/Traverse.lean",
+    "layer": "concrete",
+    "properties": [],
+    "cpp": "traverse(f, xs).value().size() == xs.size()  // shape preservation"
+  },
+  {
     "theorem": "sequence_nil",
     "module": "Graded/Tuple.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "sequence_cons",
     "module": "Graded/Tuple.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "transpose(x, xs...) == map2(tuple_cons, x, transpose(xs...))"
   },
   {
     "theorem": "pureF_eq_ok",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "bindF_ok",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "bindF_err",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "bindF_pure_left",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "and_then(pure(x), f) == f(x)  // fixed grade, cast-free"
   },
   {
     "theorem": "bindF_pure_right",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "and_then(x, pure) == x  // fixed grade, cast-free"
   },
   {
     "theorem": "bindF_assoc",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "and_then(and_then(x, f), k) == and_then(x, [=](auto a){ return and_then(f(a), k); })  // fixed grade"
   },
   {
     "theorem": "apF_ok_ok",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "apF_err_left",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "apF_ok_err",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "apF_pure_id",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "apply(pure(id), x) == x  // fixed grade, cast-free"
   },
   {
     "theorem": "apF_pure_pure",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "apply(pure(f), pure(a)) == pure(f(a))  // fixed grade, cast-free"
   },
   {
     "theorem": "apF_interchange",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "apply(u, pure(a)) == apply(pure([=](auto f){ return f(a); }), u)  // fixed grade"
   },
   {
     "theorem": "apF_comp",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "apply(apply(apply(pure(compose), u), v), w) == apply(u, apply(v, w))  // fixed grade"
   },
   {
     "theorem": "traverse_fromEmpty_map",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "traverse(fromEmpty compose f, xs) == fromEmpty(transform(xs, f))"
   },
   {
     "theorem": "sumEquiv_pureF",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "sumEquiv_bindF",
     "module": "Graded/Ungraded.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "and_then(x, f) corresponds to std::expected/variant-style Sum::bind under the Equiv"
   },
   {
     "theorem": "widen_refl",
     "module": "Graded/Widen.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -1395,6 +2029,7 @@
   {
     "theorem": "widen_widen",
     "module": "Graded/Widen.lean",
+    "layer": "concrete",
     "properties": [
       "order"
     ],
@@ -1403,24 +2038,28 @@
   {
     "theorem": "widen_map",
     "module": "Graded/Widen.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "widen_irrel",
     "module": "Graded/Widen.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "widen_cast",
     "module": "Graded/Widen.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   },
   {
     "theorem": "fromEmpty_eq_ok",
     "module": "Graded/Widen.lean",
+    "layer": "concrete",
     "properties": [],
     "cpp": "\u2014"
   }

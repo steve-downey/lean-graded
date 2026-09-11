@@ -1,0 +1,77 @@
+diff --git a/data/csl/acm.csl b/data/csl/wg21.csl
+index 686c45a..30d7adf 100644
+--- a/data/csl/acm.csl
++++ b/data/csl/wg21.csl
+@@ -15,7 +15,7 @@
+       <name>Junliang Hu</name>
+       <email>vtta0124@gmail.com</email>
+     </contributor>
+-    <category citation-format="numeric"/>
++    <category citation-format="label"/>
+     <category field="engineering"/>
+     <updated>2024-03-10T19:16:53+00:00</updated>
+     <rights license="http://creativecommons.org/licenses/by-sa/3.0/">This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 License</rights>
+@@ -53,9 +53,11 @@
+       </else>
+     </choose>
+   </macro>
+-  <macro name="year">
++  <macro name="date">
+     <date variable="issued">
+       <date-part name="year"/>
++      <date-part name="month" form="numeric-leading-zeros" prefix="-"/>
++      <date-part name="day" form="numeric-leading-zeros" prefix="-"/>
+     </date>
+   </macro>
+   <macro name="journal">
+@@ -95,36 +97,34 @@
+         <text variable="DOI" prefix="https://doi.org/"/>
+       </if>
+       <else-if variable="URL">
+-        <group delimiter=" ">
+-          <text term="retrieved" text-case="capitalize-first"/>
+-          <date variable="accessed" form="text"/>
+-          <text term="from"/>
+-          <text variable="URL"/>
+-        </group>
++        <text display="indent" variable="URL"/>
+       </else-if>
+     </choose>
+   </macro>
+   <citation collapse="citation-number">
+     <sort>
+-      <key variable="citation-number"/>
++      <key variable="citation-label"/>
+     </sort>
+-    <layout prefix="[" suffix="]" delimiter=", ">
+-      <group delimiter=":">
+-        <text variable="citation-number"/>
+-        <text variable="locator"/>
++    <layout delimiter=",">
++      <group delimiter=" ">
++        <text variable="citation-label" prefix="[" suffix="]"/>
++        <choose>
++          <if variable="locator">
++            <text macro="title" prefix="(" suffix=")"/>
++          </if>
++        </choose>
+       </group>
+     </layout>
+   </citation>
+-  <bibliography second-field-align="flush" entry-spacing="0">
++  <bibliography entry-spacing="0">
+     <sort>
+-      <key macro="author"/>
+-      <key variable="issued"/>
++      <key variable="citation-label"/>
+     </sort>
+     <layout>
+-      <text variable="citation-number" prefix="[" suffix="]"/>
++      <text variable="citation-label" prefix="[" suffix="] "/>
+       <group delimiter=". " suffix=". ">
+         <text macro="author"/>
+-        <text macro="year"/>
++        <text macro="date"/>
+         <text macro="title"/>
+       </group>
+       <group suffix=".">

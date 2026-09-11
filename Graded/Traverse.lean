@@ -32,12 +32,26 @@ import Graded.Widen
     itself the finding the design doc records: the *definition* of
     `traverse` only ever needs the order (`foldGrade_le` bounds every list,
     including `[]`, uniformly, so no case split on emptiness is needed to
-    define it), while the *precision* claim — that grade `g` is not
-    padding, that no error kind admitted by the signature is actually
-    unreachable — is exactly `foldGrade_cons_ne_nil`, and that is where
+    define it), while the *annotation-normalization* claim — that a
+    nonempty traversal's stated grade is `g` on the nose, the very grade
+    the element function carries, rather than a fold that grows with the
+    list — is exactly `foldGrade_cons_ne_nil`, and that is where
     idempotence is spent. Defining `traverse` the other way (`cast` along
     `foldGrade_cons_ne_nil`) would need idempotence just to typecheck the
     empty-list case, which has no elements to be idempotent over.
+
+    **What `foldGrade_cons_ne_nil` does not say.** It is a fact about the
+    *annotation*, not about behaviour. It does not say that `g` is free of
+    padding, and it does not say that every error kind in `g` can actually
+    be produced: `fun _ => .ok 0 : α → Graded {E.parse} Nat` never fails at
+    all, and `foldGrade {E.parse} xs = {E.parse}` holds for every nonempty
+    `xs` all the same. The grade is an upper bound the *signature*
+    declares, and what this model proves of it is soundness — an error that
+    comes out was admitted by the grade, which is `Graded.err`'s membership
+    argument. *Completeness* — that each kind in `g` is reached by some
+    input — is a property of `f`, not of the traversal, is generally false,
+    and is stated nowhere in this development. Read the theorem as "the
+    length does not leak into the type", never as "the grade is tight".
 
     The general non-idempotent case — where each element may carry a
     genuinely different grade, or the grade's join is not idempotent — is
@@ -93,7 +107,9 @@ theorem foldGrade_le : ∀ (xs : List α), foldGrade g xs ⊆ g
     `Grade.join_bot` (a unit law); every further element costs
     `Grade.join_idem` (`g ⊔ g = g`) rather than making the grade grow. This
     is the theorem that makes the C++ `traverse` signature typeable for a
-    length-independent grade — see the module docstring. -/
+    length-independent grade — see the module docstring, including what
+    this theorem does *not* say: it normalizes the annotation, and claims
+    nothing about which kinds in `g` are reachable. -/
 theorem foldGrade_cons_ne_nil : (xs : List α) → xs ≠ [] → foldGrade g xs = g
   | [], h => absurd rfl h
   | [x], _ => by

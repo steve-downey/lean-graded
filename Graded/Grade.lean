@@ -64,6 +64,10 @@ theorem le_trans' {g h k : Grade Err} (hgh : g ⊆ h) (hhk : h ⊆ k) : g ⊆ k 
 theorem bot_le (g : Grade Err) : bot ⊆ g :=
   Finset.empty_subset g
 
+/-- PROPERTY: antisymmetry -/
+theorem le_antisymm {g h : Grade Err} (hgh : g ⊆ h) (hhg : h ⊆ g) : g = h :=
+  Finset.Subset.antisymm hgh hhg
+
 theorem join_eq_right_of_le {g h : Grade Err} (hgh : g ⊆ h) : join g h = h :=
   Finset.union_eq_right.mpr hgh
 
