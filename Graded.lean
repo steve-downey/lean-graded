@@ -9,6 +9,7 @@ import Graded.Sufficient
 import Graded.Applicative
 import Graded.Accum
 import Graded.AccumTraverse
+import Graded.AccumKinds
 import Graded.Traverse
 import Graded.Tuple
 import Graded.Compose

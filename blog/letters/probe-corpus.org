@@ -3,6 +3,7 @@
 #+CATEGORY: lean-transpose
 #+STEP: probe-corpus
 #+SERIES_PREV: module-split
+#+SERIES_NEXT: accumulated-evidence-shape
 
 Steve,
 
