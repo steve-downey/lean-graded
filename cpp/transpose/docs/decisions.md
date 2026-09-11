@@ -1677,3 +1677,76 @@ mode a single witness cannot see.
   (this step's two new concepts), alongside the five pre-existing drifted
   fragments left untouched. Suite stayed at 154: the additions are
   `static_assert`s in the existing `objects` translation unit.
+
+---
+
+## lean-model-sync
+
+**Question:** How does a law proved in the Lean model of this design
+(steve-downey/lean-graded) become a check on this implementation, and what
+did the first such check find?
+**Status:** DECIDED 2026-09-10
+**Decided by:** Steve, by vendoring; the findings are stage-local
+observations from the first run.
+**Decision:** The Lean repository exports every proved law with a C++
+consequence as one equation in its generated `docs/probe-harness.md`. This
+repository discharges that list in ONE translation unit,
+`tests/beman/transpose/probe_harness.test.cpp`, one `TEST_CASE` per
+equation, named `probe-harness: <Module>.<theorem>` after the Lean theorem
+it checks, with a second translation unit (`probe_harness_cross_tu.cpp`)
+for the one claim a `static_assert` cannot make — that two TUs spelling an
+`error_set` pack in different orders agree on the type. The file is a test
+deliverable in the sense of `tests/beman/transpose/laws.hpp`: checked by
+example at std types, never a registration gate, never included by a
+shipped header. A harness verb with no library operation behind it is
+recorded in the file as a finding, not approximated.
+The Lean repository carries this one as a `git subtree` under
+`cpp/transpose/`, unsquashed, so a change made there against the model is
+sent back here as ordinary commits. This decision is the first such
+send-back.
+**Why:** The harness had 58 obligations and nothing ran any of them; the
+Lean side had stated, correctly, that "probes green" is this repository's
+definition of done and not its own. Discharging them here rather than in a
+parallel C++ tree keeps one implementation under test.
+**Findings from the first run** (all 56 cases green; three obligations
+pinned as negatives instead):
+- **`first_error` is not an operation of this carrier.** The model's
+  accumulating carrier is a list in source order and its projection to the
+  short-circuiting carrier takes the head; `toGraded_traverseK` and
+  `toGraded_apK` are equations about that head. Here the accumulating
+  object keeps one witness PER TYPE, left-biased, in canonical type order
+  ([accumulation-evidence](#accumulation-evidence)), so which kind failed
+  first is not recorded and no projection from the accumulated value alone
+  recovers the short-circuit result. What holds instead, and is what the
+  probes check, is the per-kind consequence: the witness kept for the
+  short-circuit error's kind IS that error, and with exactly one failing
+  operand the two carriers are equal outright. The Lean side owes the
+  per-kind statement over a per-kind carrier; nothing here changes.
+- **A composed applicative cannot be a `traverse` policy.** `traverse`
+  reads the element type of the context it builds from the context TYPE
+  (`applicative_value_t`, the carrier's `value_type`); for a nested
+  `expected` that is the inner carrier, not the value the composed
+  applicative holds, so a composed policy's `pure` fails
+  `applicative_object_for` and the accumulator would be
+  `vector<expected<B, H>>`. `traverseComp_eq` is checked against a hand
+  fold over the library's own two objects instead. Whether the policy
+  surface should let an applicative object declare its value type is an
+  open question this does not decide.
+- **At the empty grade there is nothing to traverse.** A function
+  returning bare `T` is not a context, and the explicit uniform form
+  `expected<T, error_set<>>` is a graded context whose re-indexing at its
+  own grade is bare `T`, so it fails `applicative_object`'s subsumption
+  requirement and `traverse` refuses it. Both refusals follow from
+  [empty-grade-spelling](#empty-grade-spelling) and are pinned as negative
+  `static_assert`s with a positive control. `traverse_fromEmpty` and
+  `traverse_fromEmpty_map` — a no-fail traversal is a transform — are
+  therefore not equations this code can get wrong: the only spelling for
+  the left side is `std::ranges::transform`.
+- Two side conditions the model states (`ap_flip` and `flatten_ap`) were
+  confirmed necessary by exhibiting the excluded case as an inequality,
+  not merely by checking the included ones.
+- `rename_cast` has no residue: a same-set grade cast is type identity.
+**Log:**
+- 2026-09-10 — First run, 56 cases / 217 assertions green on GCC 15.2,
+  C++23. The harness's `first_error`, `traverse` with a composed policy,
+  and traversal at the empty grade recorded as above.

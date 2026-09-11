@@ -23,6 +23,7 @@ set(transpose_tests
     sender
     simd_lanes
     zip_list
+    probe_harness
 )
 
 # The simd test self-gates on C++26 + <simd>; only build it when the header
@@ -46,6 +47,14 @@ foreach(test ${transpose_tests})
     )
     catch_discover_tests(beman.transpose.tests.${test})
 endforeach()
+
+# The probe harness carries a second translation unit: whether two TUs that
+# spell an error_set's pack differently agree on the type is a link-time
+# fact, and this is the only test that needs one.
+target_sources(
+    beman.transpose.tests.probe_harness
+    PRIVATE probe_harness_cross_tu.cpp
+)
 
 # detail/ support headers carry their own tests.
 add_executable(beman.transpose.tests.detail.typeclass_base)
